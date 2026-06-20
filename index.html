@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHINE — A Prohibition Bootlegging Demo</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-top">
+      <div id="cash" class="hud-stat">$0</div>
+      <div id="wanted" class="hud-stat">
+        <span class="wanted-label">HEAT</span>
+        <span id="wanted-badges"></span>
+      </div>
+    </div>
+    <div id="objective" class="hud-banner">Drive to the still</div>
+    <div id="cargo" class="hud-stat hidden">CARGO: LOADED</div>
+    <div id="speedo" class="hud-stat">0 mph</div>
+  </div>
+
+  <!-- Intro / story screen -->
+  <div id="intro" class="overlay">
+    <div class="overlay-card">
+      <h1 class="title">SHINE</h1>
+      <p class="subtitle">Baltimore County, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
+      <p class="story">
+        You are <strong>Otto Braun</strong>, a brewer turned bootlegger out of Highlandtown.
+        The legitimate breweries are shuttered, but your stills run hot in the barns of the
+        Green Spring Valley. Tonight you run your first batch &mdash; load the shine, beat the
+        heat, and get paid before the Feds and the Temperance Alliance run you down.
+      </p>
+      <ul class="controls">
+        <li><b>W / &uarr;</b> &mdash; throttle</li>
+        <li><b>S / &darr;</b> &mdash; brake &amp; reverse</li>
+        <li><b>A / D / &larr; &rarr;</b> &mdash; steer</li>
+      </ul>
+      <p class="objective-hint">Drive to the <span class="amber">amber still</span> to load up,
+        then deliver to the <span class="blue">blue drop</span>. Carrying shine raises the heat.</p>
+      <button id="start-btn" class="btn">START THE RUN</button>
+    </div>
+  </div>
+
+  <!-- Game over screen -->
+  <div id="gameover" class="overlay hidden">
+    <div class="overlay-card">
+      <h1 class="title gameover-title">BUSTED</h1>
+      <p class="story" id="gameover-msg">They ran you off the road.</p>
+      <p class="story">Best haul: <strong id="final-cash">$0</strong> &middot;
+        Runs completed: <strong id="final-runs">0</strong></p>
+      <button id="restart-btn" class="btn">RUN AGAIN</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
