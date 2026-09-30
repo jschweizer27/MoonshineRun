@@ -5,15 +5,30 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const src = path.join(root, 'node_modules/three');
-const dest = path.join(root, 'vendor/three');
-if (!fs.existsSync(src)) {
-  console.error('node_modules/three not found; run npm install first.');
-  process.exit(1);
+export const ADDONS = [
+  'postprocessing/EffectComposer.js', 'postprocessing/Pass.js', 'postprocessing/RenderPass.js',
+  'postprocessing/ShaderPass.js', 'postprocessing/MaskPass.js', 'postprocessing/UnrealBloomPass.js',
+  'postprocessing/OutputPass.js', 'shaders/CopyShader.js', 'shaders/LuminosityHighPassShader.js',
+  'shaders/OutputShader.js',
+];
+
+// Runs when invoked (npm run vendor); scripts/check.mjs only imports the list above.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+  const src = path.join(root, 'node_modules/three');
+  const dest = path.join(root, 'vendor/three');
+  if (!fs.existsSync(src)) {
+    console.error('node_modules/three not found; run npm install first.');
+    process.exit(1);
+  }
+  fs.mkdirSync(dest, { recursive: true });
+  fs.copyFileSync(path.join(src, 'build/three.module.min.js'), path.join(dest, 'three.module.min.js'));
+  fs.copyFileSync(path.join(src, 'LICENSE'), path.join(dest, 'LICENSE'));
+  // The post-processing addons the game uses (bloom, output, custom grade pass).
+  for (const f of ADDONS) {
+    fs.mkdirSync(path.dirname(path.join(dest, 'addons', f)), { recursive: true });
+    fs.copyFileSync(path.join(src, 'examples/jsm', f), path.join(dest, 'addons', f));
+  }
+  const { version } = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
+  console.log(`Vendored three@${version} into vendor/three/`);
 }
-fs.mkdirSync(dest, { recursive: true });
-fs.copyFileSync(path.join(src, 'build/three.module.min.js'), path.join(dest, 'three.module.min.js'));
-fs.copyFileSync(path.join(src, 'LICENSE'), path.join(dest, 'LICENSE'));
-const { version } = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
-console.log(`Vendored three@${version} into vendor/three/`);

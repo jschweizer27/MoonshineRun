@@ -81,6 +81,10 @@ Volume (master / music / effects), graphics quality (**Auto** picks what your de
 handle), camera distance, minimap style, **large text**, **reduce motion and flashing**,
 touch controls and key bindings. Everything is remembered between visits.
 
+Graphics quality: **High** has shadows from the moon and the nearest lamp, 8 real lamp
+lights and full bloom; **Medium** fewer lamp lights and half-resolution bloom; **Low** skips
+shadows and post-processing for older machines.
+
 ### Install it like an app
 
 On the published site, use your browser's **Install** / **Add to Home Screen** option.

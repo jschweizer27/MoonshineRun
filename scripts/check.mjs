@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ADDONS } from './vendor-three.mjs';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const walk = (dir) => {
@@ -33,6 +34,14 @@ if (!fs.existsSync(vendored)) {
   failed++;
   console.error('✗ vendor/three/three.module.min.js is missing (run: npm run vendor)');
 } else if (fs.existsSync(installed)) {
+  const stale = ADDONS.filter((f) => {
+    const v = path.join(root, 'vendor/three/addons', f), n = path.join(root, 'node_modules/three/examples/jsm', f);
+    return !fs.existsSync(v) || !fs.readFileSync(v).equals(fs.readFileSync(n));
+  });
+  if (stale.length) {
+    failed++;
+    console.error(`✗ vendor/three/addons out of date (${stale.join(', ')}); run: npm run vendor`);
+  }
   if (!fs.readFileSync(vendored).equals(fs.readFileSync(installed))) {
     failed++;
     console.error('✗ vendor/three does not match node_modules/three (run: npm run vendor)');

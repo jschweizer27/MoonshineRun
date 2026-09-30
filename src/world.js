@@ -396,7 +396,7 @@ export class World {
     haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
     this.haloMaterial = new THREE.PointsMaterial({
       map: radialTexture([[0, 'rgba(255,226,170,1)'], [0.22, 'rgba(255,180,100,0.5)'], [1, 'rgba(255,150,70,0)']]),
-      size: 4, sizeAttenuation: true, transparent: true, depthWrite: false,
+      size: 2.2, sizeAttenuation: true, transparent: true, depthWrite: false, opacity: 0.7,
       blending: THREE.AdditiveBlending, color: 0xffffff,
     });
     this.halos = new THREE.Points(haloGeo, this.haloMaterial);

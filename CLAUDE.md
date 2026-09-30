@@ -66,8 +66,10 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - **Instance repeated scenery** (`InstancedMesh`), keep draw calls low (test budget < 60).
 - Heading 0 faces north (−Z); positive steer turns right. Forward = (sin h, −cos h).
 - Game logic returns events; only `main.js`/`hud.js` touch the DOM.
-- Draw frames through `game.renderFrame()` (shadows follow the camera there; post-processing
-  will hook in there too), not `renderer.render` directly.
+- Draw frames through `game.renderFrame()` (shadows and lamp lights follow the camera there,
+  then `src/post.js` PostFX: bloom → ACES output → teal/orange grade + vignette + grain;
+  bypassed on Low), not `renderer.render` directly. Post values live in `CONFIG.look.post`.
+  Its addons are vendored in `vendor/three/addons/` (`npm run vendor`; `check` verifies).
 - Storage goes through `save.js` (never throws; private mode safe).
 
 ## Conventions

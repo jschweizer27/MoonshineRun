@@ -23,6 +23,7 @@ import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel } from './juice.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
+import { PostFX } from './post.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused', GAMEOVER: 'gameover' };
 const $ = (id) => document.getElementById(id);
@@ -73,6 +74,7 @@ class Game {
     // The world is built once; restarting only resets state (no rebuild, no leaks).
     this.citySeed = OPTIONS.seed ?? this.settings.citySeed ?? CONFIG.seed;
     this.world = new World(this.scene, { seed: this.citySeed });
+    this.post = new PostFX(this.renderer, this.scene, this.camera);
     mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
@@ -110,7 +112,11 @@ class Game {
     this.applySettings();
     mark('setup');
     // Compile every shader now so nothing hitches when cops, roadblocks or fire appear.
+    // With post-processing the scene draws into an offscreen buffer, which needs different
+    // shader variants than drawing to the screen: compile those.
+    if (this.post.enabled) this.renderer.setRenderTarget(this.post.composer.renderTarget1);
     this.renderer.compile(this.scene, this.camera);
+    this.renderer.setRenderTarget(null);
     mark('shaders');
     this.world.setAnisotropy(Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
 
@@ -181,6 +187,7 @@ class Game {
     this.world.setDetail(q);
     this.world.setShadows({ low: 0, medium: 1024, high: 2048 }[q] ?? 2048);
     this.world.setLampDetail(q);
+    this.post.setQuality(q);
     this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
     this.particles.detail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
@@ -749,7 +756,8 @@ class Game {
   renderFrame() {
     this.world.updateShadow(this.camera);
     this.world.updateLamps(this.camera);
-    this.renderer.render(this.scene, this.camera);
+    this.post.setDaylight(this.env.daylight);
+    this.post.render();
   }
 
   // Switches for the expensive effects, for scripts/shoot.mjs cost reports.
@@ -759,6 +767,8 @@ class Game {
       lampLights: (on) => { for (const l of w.lampLights) l.visible = on; },
       lampShadow: (on) => { w.lampSpot.castShadow = on && CONFIG.look.lampShadow; },
       cones: (on) => { w.lampCones.visible = on; },
+      bloom: (on) => { this.post.bloom.enabled = on; },
+      grade: (on) => { this.post.grade.enabled = on; },
     };
   }
 
@@ -787,6 +797,7 @@ class Game {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.post?.setSize(window.innerWidth, window.innerHeight);
     const h = this.renderer.domElement.height;
     this.particles.setScale(h / (2 * Math.tan((CONFIG.camera.fov * Math.PI) / 360)));
     // Resizing clears the canvas; redraw so a paused game doesn't go black.

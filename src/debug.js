@@ -34,12 +34,22 @@ export function installDebug(game, { overlay }) {
         x: +p.position.x.toFixed(2), z: +p.position.z.toFixed(2), heading: +p.heading.toFixed(3), speed: +p.speed.toFixed(2),
       };
     },
+    // Draw calls of the scene itself (incl. shadow passes) and of the post-processing.
     renderInfo() {
+      const i = game.renderer.info, sm = game.renderer.shadowMap;
+      i.autoReset = false;
+      i.reset();
       game.renderFrame();
-      const i = game.renderer.info;
+      const withShadows = game.post.sceneCalls, postCalls = i.render.calls - withShadows;
+      sm.autoUpdate = false;                 // same frame without redrawing the shadow maps
+      i.reset();
+      game.renderFrame();
+      const sceneCalls = game.post.sceneCalls, shadowCalls = withShadows - sceneCalls;
+      sm.autoUpdate = true;
+      i.autoReset = true;
       let lights = 0;
       game.scene.traverse((o) => { if (o.isLight) lights++; });
-      return { calls: i.render.calls, triangles: i.render.triangles, programs: i.programs.length,
+      return { calls: sceneCalls, shadowCalls, postCalls, triangles: i.render.triangles, programs: i.programs.length,
         geometries: i.memory.geometries, textures: i.memory.textures, lights };
     },
   };
