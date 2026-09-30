@@ -223,12 +223,15 @@ export class World {
       size: 3.4, sizeAttenuation: true, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending, color: 0xffffff,
     });
-    this.scene.add(new THREE.Points(haloGeo, this.haloMaterial));
+    this.halos = new THREE.Points(haloGeo, this.haloMaterial);
+    this.scene.add(this.halos);
   }
 
   _buildBounds() {
     const e = this.edge;
     this.collision.addZone(-e, -e, e, e);
+    const m = this.cfg.blockSize * this.cfg.gridRadius + 30;
+    this.mapBounds = { minX: -m, maxX: m, minZ: -m, maxZ: m };
   }
 
   // A road node position, optionally at least `minDist` from `avoid`.
@@ -253,6 +256,11 @@ export class World {
   setAnisotropy(n) {
     this.groundTexture.anisotropy = n;
     this.groundTexture.needsUpdate = true;
+  }
+
+  // Graphics level: low drops the lamp halos (lots of overdraw on weak GPUs).
+  setDetail(level) {
+    this.halos.visible = level !== 'low';
   }
 }
 

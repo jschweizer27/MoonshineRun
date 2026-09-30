@@ -21,6 +21,12 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - `src/world.js` city generation (seeded), `collision.js` (2D grid colliders + line of
   sight), `roadgraph.js` (pathfinding), `vehicle.js` (physics), `models.js` (procedural
   vehicles), `police.js` (pursuer AI), `mission.js` (loop + heat), `hud.js` (DOM).
+- Input/UI: `input.js` (remappable keys via `e.code`, gamepad polling, touch controls)
+  emits actions; `ui.js` is a screen stack with arrow/D-pad focus navigation. Every new
+  overlay must be opened through `game.ui.open(id)` so keyboard/controller users can reach
+  it. Preferences live in `settings.js` (localStorage).
+- States: `intro` → `playing` ⇄ `paused` → `gameover`. Pausing stops simulation and
+  rendering and suspends audio.
 - `vendor/three/` Three.js r160, vendored (no CDN). Upgrade via `npm run vendor`.
 - `scripts/` zero-dependency dev server, build (esbuild → `dist/` site + single-file
   `dist/Shine.html`), checks, CI summary.

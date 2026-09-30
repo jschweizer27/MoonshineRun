@@ -35,9 +35,18 @@ export class ChaseCamera {
     this.camera.lookAt(this._look);
   }
 
-  update(dt, vehicle) {
+  update(dt, vehicle, lookBack = false) {
     this.heading += wrap(vehicle.heading - this.heading) * (1 - Math.exp(-4 * dt));
+    if (lookBack) {
+      // Snap to a view from in front of the truck, looking back at what's chasing you.
+      this._desired(vehicle, this.heading + Math.PI);
+      this.camera.position.copy(this._target);
+      this.camera.lookAt(this._look);
+      this._wasLookingBack = true;
+      return;
+    }
     this._desired(vehicle, this.heading);
+    if (this._wasLookingBack) { this.camera.position.copy(this._target); this._wasLookingBack = false; }
     this.camera.position.lerp(this._target, 1 - Math.exp(-CONFIG.camera.follow * dt));
     this.camera.lookAt(this._look);
   }

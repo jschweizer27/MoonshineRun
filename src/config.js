@@ -35,6 +35,11 @@ export const CONFIG = {
     spawnMin: 150,        // spawn this far from the player, out of view
     spawnMax: 260,
     despawnDistance: 110, // leaving cars vanish once off-screen and this far away
+    // Busted when a pursuer stays this close while you're this slow, for bustTime seconds.
+    pinRadius: 7.5,
+    pinSpeed: 4,          // m/s (~9 mph)
+    bustTime: 2.0,
+    bustRecover: 0.8,     // how fast the bust bar drains once you break free (per second)
   },
 
   heat: {

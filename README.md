@@ -22,23 +22,46 @@ This repository has two parts:
 
 ### Controls
 
-| Key | Action |
-|---|---|
-| `W` / `↑` | Throttle |
-| `S` / `↓` | Brake, then reverse |
-| `A` `D` / `←` `→` | Steer |
-| `Space` | Handbrake (slide around corners) |
+Play with a **keyboard**, a **controller** (Xbox / PlayStation / most USB pads) or **touch**:
+on-screen pedals appear automatically on phones and tablets.
+
+| Action | Keyboard | Controller | Touch |
+|---|---|---|---|
+| Throttle / brake & reverse | `W` `S` or `↑` `↓` | RT / LT | GAS / BRAKE |
+| Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
+| Handbrake (slide) | `Space` | A | DRIFT |
+| Horn | `H` | B | HORN |
+| Look back | `C` | Y | — |
+| Map | `Tab` or `N` | View / Back | map button |
+| Pause menu | `Esc` or `P` | Start | ❚❚ button |
+| Mute / fullscreen | `M` / `F` | — | buttons, top right |
+
+Every key can be changed in **Settings → Controls**. Menus work with the arrow keys and
+Enter, the D-pad and A/B, or touch.
 
 ### How to play
 
-1. Click **START THE RUN**.
-2. Follow the **gold arrow** (and the compass in the objective banner) to the **amber still**
-   and drive into the ring to load shine.
-3. Deliver it to the **blue drop** to get paid. A new still appears after each delivery.
+1. Press **Enter** (or click **START THE RUN**).
+2. Follow the **gold arrow** (on the road, and the compass in the objective banner) and the
+   **gold route** on the minimap to the **● still**. Drive into its ring to load shine.
+3. Deliver it to the **◆ drop** to get paid. A new still appears after each delivery.
 4. While you haul, informants tip off the law. **Heat stars** send Feds and zealots after you.
    - They need **line of sight** to see you. Duck around corners and stay out of view.
-     When the heat bar reads *LOSING THEM…* and fills, you shed a star.
-   - Get caught and you're **BUSTED**. Your best haul is saved in your browser.
+     When the heat bar reads *LOSING THEM…* and fills blue, you shed a star.
+   - If they **pin you down while you're slow**, the red bar fills and you're **BUSTED**.
+     Keep moving! Your best haul is saved in your browser.
+5. Tips pop up the first time you need them (turn them off or replay them in Settings).
+
+### Settings
+
+Volume (master / music / effects), graphics quality (**Auto** picks what your device can
+handle), camera distance, minimap style, **large text**, **reduce motion and flashing**,
+touch controls and key bindings. Everything is remembered between visits.
+
+### Install it like an app
+
+On the published site, use your browser's **Install** / **Add to Home Screen** option.
+SHINE then opens full-screen from your home screen and keeps working **offline**.
 
 ### Troubleshooting
 
@@ -105,8 +128,14 @@ src/
   models.js     procedural 1920s trucks, sedans and pickups
   police.js     pursuer AI (pooled cars, road navigation, search, give up)
   mission.js    bootlegger loop + heat / evasion
-  camera.js     chase camera
-  hud.js, waypoint.js, input.js, audio.js, save.js, debug.js, rng.js
+  camera.js     chase camera (+ look back)
+  input.js      keyboard (remappable), gamepad, touch controls
+  ui.js         menu screens, focus navigation, settings panel
+  minimap.js    corner radar + full map with GPS route
+  tutorial.js   first-run tips
+  settings.js   saved preferences and key bindings
+  hud.js, waypoint.js, audio.js, save.js, debug.js, rng.js
+sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
 vendor/three/   Three.js r160 (bundled; no CDN needed)
 scripts/        dev server, build, checks, CI summary
 tests/          Playwright playtests
