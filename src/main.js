@@ -75,6 +75,7 @@ class Game {
     this.citySeed = OPTIONS.seed ?? this.settings.citySeed ?? CONFIG.seed;
     this.world = new World(this.scene, { seed: this.citySeed });
     this.post = new PostFX(this.renderer, this.scene, this.camera);
+    this.world.buildReflections(this.renderer);
     mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
@@ -768,6 +769,8 @@ class Game {
       lampShadow: (on) => { w.lampSpot.castShadow = on && CONFIG.look.lampShadow; },
       cones: (on) => { w.lampCones.visible = on; },
       bloom: (on) => { this.post.bloom.enabled = on; },
+      roadMaps: (on) => { const m = w.roadMaterial; m.normalScale.setScalar(on ? 1 : 0); },
+      streaks: (on) => { w.lampStreaks.visible = on; },
       grade: (on) => { this.post.grade.enabled = on; },
     };
   }

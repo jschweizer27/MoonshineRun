@@ -265,14 +265,57 @@ export class World {
     // The city: one plane, one tiling texture. Each tile is centered on an intersection.
     const tiles = R * 2 + 1;
     const size = tiles * B;
-    const tex = new THREE.CanvasTexture(makeCityTile(this.rng, this.cfg));
+    const [colorCv, heightCv, roughCv] = makeCityTile(this.rng, this.cfg);
+    const tex = new THREE.CanvasTexture(colorCv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(tiles, tiles);
+    const rough = new THREE.CanvasTexture(roughCv);
+    const normal = normalMapFrom(heightCv);
+    for (const t of [tex, rough, normal]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(tiles, tiles); }
     this.groundTexture = tex;
-    this.roadMaterial = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0 });
+    this.groundMaps = [rough, normal];
+    this.roadMaterial = new THREE.MeshStandardMaterial({
+      map: tex, roughnessMap: rough, normalMap: normal, normalScale: new THREE.Vector2(1, 1),
+      roughness: 1, metalness: 0,
+    });
     const city = new THREE.Mesh(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2), this.roadMaterial);
     this.scene.add(city);
+
+    // Raised granite curbs along every block (visual only; one draw call).
+    const half = this.cfg.roadWidth / 2, walk = half + this.cfg.sidewalk, curbs = [];
+    for (let i = -R; i <= R; i++) {
+      for (let j = -R; j < R; j++) {
+        const a = j * B + walk, b = (j + 1) * B - walk;
+        for (const sd of [-1, 1]) {
+          curbs.push([i * B + sd * half, (a + b) / 2, 0.26, b - a]);    // along z
+          curbs.push([(a + b) / 2, i * B + sd * half, b - a, 0.26]);    // along x
+        }
+      }
+    }
+    // Drawn with the buildings' stone trim (same granite, one draw call).
+    this._curbs = curbs.map(([x, z, w, d]) => [x, 0, z, w, 0.14, d, 0.82]);
+  }
+
+  // Reflections for the wet road: a small environment map rendered once from a stand-in
+  // night street (blue-black sky, a ring of amber lamp glows, warm window patches).
+  buildReflections(renderer) {
+    const env = new THREE.Scene();
+    env.background = new THREE.Color(0x0a1220);
+    const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffb466).multiplyScalar(6) });
+    const win = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff9a50).multiplyScalar(1.6) });
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), glow);
+      lamp.position.set(Math.cos(a) * 12, 4, Math.sin(a) * 12);
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.5), win);
+      pane.position.set(Math.cos(a + 0.26) * 20, 7 + (k % 3) * 3, Math.sin(a + 0.26) * 20);
+      pane.lookAt(0, pane.position.y, 0);
+      env.add(lamp, pane);
+    }
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    this.reflections = pmrem.fromScene(env, 0.02).texture;
+    pmrem.dispose();
+    this.roadMaterial.envMap = this.reflections;
+    this.roadMaterial.envMapIntensity = 0.3;
   }
 
   _buildRoadGraph() {
@@ -373,7 +416,7 @@ export class World {
     const c = new THREE.Color();
     // Cornices: a stone slab and a thinner course under it on every roof line, and a
     // string course above the shopfronts.
-    const trims = [];
+    const trims = [...(this._curbs || [])];
     boxes.forEach((b, k) => {
       m.compose(p.set(b.x, b.y, b.z), q, s.set(b.w, b.h, b.d));
       mesh.setMatrixAt(k, m);
@@ -398,6 +441,7 @@ export class World {
     trim.instanceMatrix.needsUpdate = true;
     trim.instanceColor.needsUpdate = true;
     this.cornices = trim;
+    this.curbCount = (this._curbs || []).length;
     this.scene.add(trim);
   }
 
@@ -511,6 +555,30 @@ export class World {
     this.scene.add(spot, spot.target);
     this.lampSpot = spot;
     this._spotLamp = -1;
+    // Reflections of the lit lamps on the wet road: a long glow stretched from under each
+    // lamp toward the viewer (one draw call; strength follows the road's wetness).
+    const cv = document.createElement('canvas');
+    cv.width = 32; cv.height = 128;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(32, 128);
+    for (let y = 0; y < 128; y++) {
+      for (let x = 0; x < 32; x++) {
+        const across = Math.exp(-(((x - 15.5) / 7) ** 2)), along = (1 - y / 128) ** 1.6 * (0.35 + 0.65 * Math.exp(-(((y - 10) / 18) ** 2)));
+        const o = (y * 32 + x) * 4;
+        img.data.set([255, 190, 120, 255 * across * along], o);
+      }
+    }
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.streakMaterial = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(3.2, 3.2, 3.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 });
+    const n = L.lampLights + 1;
+    this.lampStreaks = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.streakMaterial, n);
+    this.lampStreaks.frustumCulled = false;
+    this.lampStreaks.renderOrder = 1;
+    for (let k = 0; k < n; k++) this.lampStreaks.setMatrixAt(k, new THREE.Matrix4().makeScale(0, 0, 0));
+    this.lampStreaks.setColorAt(0, _white);
+    this.scene.add(this.lampStreaks);
     this._lampRank = new Int32Array(L.lampLights + 2).fill(-1);
     this._lampDist = new Float32Array(L.lampLights + 2);
     this._dimmed = [];
@@ -555,7 +623,8 @@ export class World {
     }
     for (const k of this._dimmed) this.lampPools.setColorAt(k, _white);
     this._dimmed.length = 0;
-    let li = 0;
+    let li = 0, si = 0;
+    const streaks = this.lampStreaks;
     for (let i = 0; i < active; i++) {
       const k = rank[i];
       if (k < 0) continue;
@@ -568,7 +637,20 @@ export class World {
       // Its real light replaces the fake pool decal.
       this.lampPools.setColorAt(k, _tint.setScalar(1 - 0.6 * w));
       this._dimmed.push(k);
+      // Its reflection on the wet road, stretched from under the lamp toward the viewer.
+      const lx = light.position.x, lz = light.position.z;
+      const dx = camera.position.x - lx, dz = camera.position.z - lz, d = Math.hypot(dx, dz) || 1;
+      const len = Math.min(14, d * 0.8), yaw = Math.atan2(dx, dz);
+      _q.setFromAxisAngle(_up, yaw);
+      _m4.compose(_c.set(lx + (dx / d) * (len / 2 + 0.3), 0.035, lz + (dz / d) * (len / 2 + 0.3)), _q, _s.set(2.4, 1, len));
+      streaks.setMatrixAt(si, _m4);
+      // Up close the reflection falls away under your feet instead of filling the view.
+      const near = Math.min(1, Math.max(0, (d - 8) / 14));
+      streaks.setColorAt(si++, _tint.setScalar(w * near * near));
     }
+    while (si < streaks.count) streaks.setMatrixAt(si++, _m4.makeScale(0, 0, 0));
+    streaks.instanceMatrix.needsUpdate = true;
+    streaks.instanceColor.needsUpdate = true;
     while (li < this.lampLights.length) this.lampLights[li++].intensity = 0;
     if (spotIdx < 0) this.lampSpot.intensity = 0;
     this.lampPools.instanceColor.needsUpdate = true;
@@ -668,7 +750,7 @@ export class World {
   }
 
   setAnisotropy(n) {
-    for (const t of [this.groundTexture, ...(this.facadeTextures || [])]) { t.anisotropy = n; t.needsUpdate = true; }
+    for (const t of [this.groundTexture, ...(this.groundMaps || []), ...(this.facadeTextures || [])]) { t.anisotropy = n; t.needsUpdate = true; }
   }
 
   // Graphics level: low drops the lamp halos (lots of overdraw on weak GPUs). The
@@ -820,78 +902,149 @@ function makeFacadeAtlas(rng) {
   return { color, mask };
 }
 
-// One city tile centered on an intersection: cobbled roads with streetcar rails,
-// sidewalks with slab joints and curbs, and paved lots in the corners.
+// One city tile centred on an intersection, painted three times from the same seeded
+// layout: colour, height (for the normal map) and roughness. Cobbled roads with worn tyre
+// tracks, streetcar rails, crosswalk paint and a manhole; darker sidewalk slabs with joints
+// and stains; granite curbs; puddles that are low, dark and glossy.
 function makeCityTile(rng, cfg) {
   const px = 1024;
   const m = px / cfg.blockSize;
   const mid = px / 2;
   const roadHalf = (cfg.roadWidth / 2) * m;
   const walkHalf = (cfg.roadWidth / 2 + cfg.sidewalk) * m;
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = px;
-  const g = cv.getContext('2d');
+  const layers = ['color', 'height', 'rough'].map(() => { const c = document.createElement('canvas'); c.width = c.height = px; return c; });
+  const [cg, hg, rg] = layers.map((c) => c.getContext('2d'));
+  const grey = (v) => `rgb(${v},${v},${v})`;
+  // Paint a rectangle in all three layers: colour, height 0-255, roughness 0-255.
+  const paint = (x, y, w, h, col, hgt, rgh) => {
+    cg.fillStyle = col; cg.fillRect(x, y, w, h);
+    hg.fillStyle = grey(hgt); hg.fillRect(x, y, w, h);
+    rg.fillStyle = grey(rgh); rg.fillRect(x, y, w, h);
+  };
 
-  // Lots.
-  g.fillStyle = '#4a433b';
-  g.fillRect(0, 0, px, px);
-  for (let k = 0; k < 2500; k++) {
-    g.fillStyle = `rgba(${rng() < 0.5 ? '0,0,0' : '255,240,220'},${rng.range(0.03, 0.08)})`;
-    g.fillRect(rng() * px, rng() * px, rng.range(2, 6), rng.range(2, 6));
-  }
-
-  // Sidewalks with slab joints.
-  g.fillStyle = '#8a837a';
-  g.fillRect(mid - walkHalf, 0, walkHalf * 2, px);
-  g.fillRect(0, mid - walkHalf, px, walkHalf * 2);
-  g.strokeStyle = 'rgba(40,35,30,0.35)';
-  g.lineWidth = 1.5;
+  // Lots (paved yards behind the buildings).
+  paint(0, 0, px, px, '#3a352f', 120, 235);
+  // Sidewalks: darker slabs with joints and the odd stain.
+  paint(mid - walkHalf, 0, walkHalf * 2, px, '#5a544c', 150, 220);
+  paint(0, mid - walkHalf, px, walkHalf * 2, '#5a544c', 150, 220);
   const slab = 1.6 * m;
-  for (let t = 0; t < px; t += slab) {
-    g.beginPath(); g.moveTo(mid - walkHalf, t); g.lineTo(mid + walkHalf, t); g.stroke();
-    g.beginPath(); g.moveTo(t, mid - walkHalf); g.lineTo(t, mid + walkHalf); g.stroke();
+  for (const vertical of [true, false]) {
+    for (let t = 0; t < px; t += slab) {
+      for (let a = mid - walkHalf; a < mid + walkHalf; a += slab) {
+        const l = Math.floor(rng.range(78, 98));
+        const [x, y] = vertical ? [a, t] : [t, a];
+        paint(x + 1.5, y + 1.5, slab - 3, slab - 3, `rgb(${l},${l - 4},${l - 10})`, 160 + rng.int(-6, 6), 215 + rng.int(-10, 10));
+      }
+    }
+  }
+  for (let k = 0; k < 40; k++) {
+    cg.fillStyle = `rgba(20,16,12,${rng.range(0.1, 0.3)})`;
+    cg.beginPath(); cg.ellipse(rng() * px, rng() * px, rng.range(4, 16), rng.range(3, 10), rng() * 3, 0, Math.PI * 2); cg.fill();
   }
 
   // Cobbled roads.
-  g.fillStyle = '#3c3a38';
-  g.fillRect(mid - roadHalf, 0, roadHalf * 2, px);
-  g.fillRect(0, mid - roadHalf, px, roadHalf * 2);
-  const stone = 0.55 * m;
+  paint(mid - roadHalf, 0, roadHalf * 2, px, '#2b2927', 60, 180);
+  paint(0, mid - roadHalf, px, roadHalf * 2, '#2b2927', 60, 180);
+  const stone = 0.5 * m;
   const cobble = (x0, y0, w, h) => {
     for (let y = y0, row = 0; y < y0 + h; y += stone, row++) {
       for (let x = x0 - (row & 1 ? stone / 2 : 0); x < x0 + w; x += stone) {
-        const l = Math.floor(rng.range(70, 104));
-        g.fillStyle = `rgb(${l},${l - 3},${l - 7})`;
-        g.fillRect(Math.max(x0, x) + 1, y + 1, Math.min(stone, x0 + w - Math.max(x0, x)) - 2, stone - 2);
+        const l = Math.floor(rng.range(60, 96)), xx = Math.max(x0, x), ww = Math.min(stone, x0 + w - xx) - 2;
+        if (ww <= 0) continue;
+        paint(xx + 1, y + 1, ww, stone - 2, `rgb(${l},${l - 3},${l - 7})`, 200 + rng.int(-25, 20), 225 + rng.int(-25, 15));
+        hg.fillStyle = grey(212 + rng.int(-10, 18)); hg.fillRect(xx + 3, y + 3, ww - 5, stone - 7);   // worn, uneven tops
       }
     }
   };
   cobble(mid - roadHalf, 0, roadHalf * 2, px);
   cobble(0, mid - roadHalf, px, roadHalf * 2);
 
-  // Curbs.
-  g.fillStyle = '#b3ab9e';
-  const curb = 0.25 * m;
+  // Worn, polished tyre tracks along each road (slightly smoother and darker).
+  for (const off of [-0.55, 0.55]) {
+    const x = mid + off * roadHalf;
+    cg.fillStyle = 'rgba(0,0,0,0.12)'; cg.fillRect(x - 0.6 * m, 0, 1.2 * m, px); cg.fillRect(0, x - 0.6 * m, px, 1.2 * m);
+    rg.fillStyle = 'rgba(80,80,80,0.35)'; rg.fillRect(x - 0.6 * m, 0, 1.2 * m, px); rg.fillRect(0, x - 0.6 * m, px, 1.2 * m);
+  }
+
+  // Curbs (granite, raised).
+  const curb = 0.28 * m;
   for (const s of [-1, 1]) {
-    g.fillRect(mid + s * roadHalf - curb / 2, 0, curb, px);
-    g.fillRect(0, mid + s * roadHalf - curb / 2, px, curb);
+    paint(mid + s * roadHalf - curb / 2, 0, curb, px, '#7c766c', 255, 200);
+    paint(0, mid + s * roadHalf - curb / 2, px, curb, '#7c766c', 255, 200);
   }
   // Clear the curbs back out across the intersection.
   cobble(mid - roadHalf, mid - roadHalf, roadHalf * 2, roadHalf * 2);
 
-  // Streetcar rails (Baltimore ran streetcars down most streets).
-  g.strokeStyle = 'rgba(205,205,215,0.75)';
-  g.lineWidth = 2.2;
+  // Crosswalks: worn white paint bars on each approach.
+  for (let side = 0; side < 4; side++) {
+    for (let k = 0; k < 6; k++) {
+      const along = mid - roadHalf + (k + 0.5) * (roadHalf * 2) / 6 - 0.25 * m;
+      const from = mid + (side < 2 ? 1 : -1) * (roadHalf + 0.6 * m), len = 2 * m;
+      cg.fillStyle = `rgba(200,195,180,${rng.range(0.35, 0.6)})`;
+      rg.fillStyle = 'rgba(150,150,150,0.8)';
+      const r = side % 2 === 0
+        ? [along, side < 2 ? from : from - len, 0.5 * m, len]
+        : [side < 2 ? from : from - len, along, len, 0.5 * m];
+      cg.fillRect(...r); rg.fillRect(...r);
+    }
+  }
+
+  // Streetcar rails: shiny steel set in a groove.
   const gauge = 0.72 * m;
   for (const s of [-1, 1]) {
-    g.beginPath(); g.moveTo(mid + s * gauge, 0); g.lineTo(mid + s * gauge, px); g.stroke();
-    g.beginPath(); g.moveTo(0, mid + s * gauge); g.lineTo(px, mid + s * gauge); g.stroke();
+    for (const [x, y, w, h] of [[mid + s * gauge - 1.5, 0, 3, px], [0, mid + s * gauge - 1.5, px, 3]]) {
+      paint(x, y, w, h, '#a8a8b0', 190, 40);
+      hg.fillStyle = grey(120); hg.fillRect(x + (w > 3 ? 0 : 3), y + (w > 3 ? 3 : 0), w > 3 ? w : 2, w > 3 ? 2 : h);
+    }
   }
-  return cv;
+
+  // A manhole cover on one approach.
+  const mx = mid + roadHalf * 0.35, my = mid + roadHalf + 3 * m;
+  cg.fillStyle = '#1e1c1a'; cg.beginPath(); cg.arc(mx, my, 0.4 * m, 0, Math.PI * 2); cg.fill();
+  rg.fillStyle = grey(90); rg.beginPath(); rg.arc(mx, my, 0.4 * m, 0, Math.PI * 2); rg.fill();
+
+  // Puddles: dark, glossy, sunk into the low spots of the road.
+  for (let k = 0; k < 9; k++) {
+    const onX = rng.chance(0.5);
+    const x = onX ? mid + rng.range(-0.8, 0.8) * roadHalf : rng() * px;
+    const y = onX ? rng() * px : mid + rng.range(-0.8, 0.8) * roadHalf;
+    const rx = rng.range(0.6, 1.8) * m, ry = rng.range(0.4, 1.1) * m, rot = rng() * Math.PI;
+    const blob = (ctx, style) => { ctx.fillStyle = style; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill(); };
+    blob(cg, 'rgba(8,10,14,0.55)');
+    blob(rg, 'rgba(10,10,10,0.92)');
+    blob(hg, 'rgba(40,40,40,0.85)');
+  }
+  return layers;
+}
+
+// A tangent-space normal map from a height canvas (one pass at load; tiles seamlessly).
+function normalMapFrom(canvas, strength = 1.3) {
+  const w = canvas.width, h = canvas.height;
+  const src = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = new Uint8Array(w * h * 4);
+  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dx = (H(x + 1, y) - H(x - 1, y)) * strength, dy = (H(x, y + 1) - H(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1), o = (y * w + x) * 4;
+      out[o] = (-dx / len * 0.5 + 0.5) * 255;
+      out[o + 1] = (dy / len * 0.5 + 0.5) * 255;
+      out[o + 2] = (1 / len * 0.5 + 0.5) * 255;
+      out[o + 3] = 255;
+    }
+  }
+  const tex = new THREE.DataTexture(out, w, h, THREE.RGBAFormat);
+  tex.flipY = true;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 const _v = new THREE.Vector3(), _c = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
 const _white = new THREE.Color(1, 1, 1), _tint = new THREE.Color();
+const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4(), _s = new THREE.Vector3();
 
 function radialTexture(stops, size = 128) {
   const cv = document.createElement('canvas');

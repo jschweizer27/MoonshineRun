@@ -204,7 +204,7 @@ export class VehicleFeel {
           const up = 1.5 + Math.random() * 2.5;
           this.particles.smoke.emit(x - f[0] * 0.4, 0.3, z - f[1] * 0.4,
             v.vx * 0.35 - f[0] * 2 + (Math.random() - 0.5) * 3, up, v.vz * 0.35 - f[1] * 2 + (Math.random() - 0.5) * 3,
-            { life: 0.45 + Math.random() * 0.35, size: 0.45, grow: 2.6, color: [0.72, 0.8, 0.88], alpha: 0.22 * wet * (0.5 + speed01), gravity: 9 });
+            { life: 0.45 + Math.random() * 0.35, size: 0.45, grow: 2.6, color: [0.42, 0.47, 0.52], alpha: 0.11 * wet * (0.5 + speed01), gravity: 9 });
         }
       }
     }

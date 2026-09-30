@@ -79,9 +79,12 @@ test('speed widens the view, unless Reduce motion is on', async ({ page }) => {
 test('the title screen flies over the city', async ({ page }) => {
   await openGame(page);
   const a = await page.evaluate(() => window.shine.game.camera.position.toArray());
-  await page.waitForTimeout(1500);
+  // Real frames drive the flyover; the software GPU is slow, so wait until it has moved.
+  await expect.poll(async () => {
+    const p = await page.evaluate(() => window.shine.game.camera.position.toArray());
+    return Math.hypot(a[0] - p[0], a[2] - p[2]);
+  }, { timeout: 20_000 }).toBeGreaterThan(0.5);
   const b = await page.evaluate(() => window.shine.game.camera.position.toArray());
-  expect(Math.hypot(a[0] - b[0], a[2] - b[2])).toBeGreaterThan(0.5);
   expect(b[1]).toBeGreaterThan(40);                           // up over the rooftops
 });
 
@@ -121,4 +124,27 @@ test('buildings have brick and stone facades, cornices, awnings and shop signs',
   expect(r.calls).toBeLessThan(60);
   await page.evaluate(() => window.shine.teleport(-88, 60, Math.PI / 2));
   await screenshot(page, '21-facades');
+});
+
+test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflections that grow in the rain', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world, m = w.roadMaterial;
+    window.shine.teleport(0, 150, 0);
+    window.shine.step(0.2);
+    g.renderFrame();
+    const clear = { streak: w.streakMaterial.opacity, rough: m.roughness };
+    g.env.setWeather('rain');
+    for (let k = 0; k < 40; k++) g.env.update(0.5, g.camera.position);
+    g.renderFrame();
+    return { normal: !!m.normalMap, roughMap: !!m.roughnessMap, env: !!m.envMap, curbs: w.curbCount, clear, rain: { streak: w.streakMaterial.opacity, rough: m.roughness }, calls: window.shine.renderInfo().calls };
+  });
+  expect(r.normal && r.roughMap && r.env).toBe(true);
+  expect(r.curbs).toBeGreaterThan(400);
+  expect(r.clear.streak).toBeGreaterThan(0);                 // damp on a clear night
+  expect(r.rain.streak).toBeGreaterThan(r.clear.streak * 2);
+  expect(r.rain.rough).toBeLessThan(r.clear.rough);
+  expect(r.calls).toBeLessThan(60);
+  await screenshot(page, '22-wet-street');
 });

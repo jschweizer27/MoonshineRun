@@ -78,7 +78,7 @@ export const CONFIG = {
   // The night look: moody noir, warm amber lamps against deep teal shadows. Colors are hex,
   // intensities in three.js physical units. Day values blend in with the daylight cycle.
   look: {
-    exposure: 1.2,                   // ACES filmic tone mapping exposure
+    exposure: 1.27,                  // ACES filmic tone mapping exposure
     sky: 0x0a1320,                   // night sky and fog: blue-black
     fogDensity: 0.0068,              // exponential fog: ~35% at 100 m, ~80% at 200 m
     dayFogDensity: 0.0022,
@@ -98,6 +98,8 @@ export const CONFIG = {
     lampShadow: true,                // the nearest lamp casts shadows (High only)
     coneOpacity: 0.09,               // faint light cone under each lantern
     poolOpacity: 0.5,                // fake light pool decal for lamps without a real light
+    baseWet: 0.4,                    // how damp the streets look on a clear night (rain = 1)
+    streakOpacity: 0.8,              // lamp reflections on the wet road
     // Post-processing (High: full-res bloom, Medium: half-res bloom, Low: off).
     post: {
       bloomStrength: 0.85,           // how much bright things glow

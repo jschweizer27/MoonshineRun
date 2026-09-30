@@ -113,9 +113,13 @@ export class Environment {
     w.uniforms.uDaylight.value = d;
     w.uniforms.uWindowLitRatio.value = 0.1 + (L.windowsLit - 0.1) * night;
 
-    // Wet cobbles and puddled dirt catch the light.
-    w.roadMaterial.roughness = 0.92 - 0.55 * this.wet;
-    w.roadMaterial.metalness = 0.05 + 0.25 * this.wet;
+    // Wet cobbles and puddled dirt catch the light. The streets look damp every night
+    // (visual only: grip still follows the rain alone).
+    this.sheen = Math.max(this.wet, L.baseWet * night);
+    w.roadMaterial.roughness = 1 - 0.55 * this.sheen;
+    w.roadMaterial.envMapIntensity = 0.25 + 1.1 * this.sheen;
+    w.roadMaterial.normalScale.setScalar(1 - 0.45 * this.wet);   // water fills the joints
+    if (w.streakMaterial) w.streakMaterial.opacity = L.streakOpacity * this.sheen;
     if (w.dirtMaterial) w.dirtMaterial.roughness = 0.95 - 0.4 * this.wet;
   }
 
