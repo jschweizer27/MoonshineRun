@@ -14,7 +14,9 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   fullyParallel: true,
   workers: 2,
-  retries: 0,
+  // CI runners are shared and software-rendered, so one slow frame can time out a test.
+  // Retry once there; the job summary still flags any test that needed it as flaky.
+  retries: CI ? 1 : 0,
   forbidOnly: CI,
   reporter: [
     ['list'],

@@ -13,8 +13,8 @@ const walk = (suite, trail) => {
   const here = suite.title ? [...trail, suite.title] : trail;
   for (const spec of suite.specs || []) {
     for (const t of spec.tests || []) {
-      const status = t.results?.at(-1)?.status ?? 'skipped';
-      const icon = { passed: '✅', failed: '❌', timedOut: '⏱️', skipped: '⏭️', interrupted: '⚠️' }[status] || '❔';
+      const status = t.status === 'flaky' ? 'flaky' : t.results?.at(-1)?.status ?? 'skipped';
+      const icon = { passed: '✅', flaky: '🔁', failed: '❌', timedOut: '⏱️', skipped: '⏭️', interrupted: '⚠️' }[status] || '❔';
       rows.push(`| ${icon} | ${[...here, spec.title].join(' › ').replace(/\|/g, '\\|')} | ${t.projectName} |`);
     }
   }
@@ -26,6 +26,8 @@ const st = report.stats || {};
 console.log(`## 🎮 SHINE playtest results
 
 **${st.expected ?? 0} passed** · **${st.unexpected ?? 0} failed** · ${st.flaky ?? 0} flaky · ${st.skipped ?? 0} skipped · ${((st.duration ?? 0) / 60000).toFixed(1)} min
+
+🔁 = passed on a retry (flaky). ❌ / ⏱️ = failed or timed out.
 
 | | Test | Suite |
 |---|---|---|

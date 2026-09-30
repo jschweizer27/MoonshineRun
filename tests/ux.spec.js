@@ -66,9 +66,8 @@ test('a gamepad drives the truck and navigates menus', async ({ page }) => {
   });
   await openGame(page);
   const press = async (i, down) => page.evaluate(([i, d]) => { window.__pad.buttons[i] = { pressed: d, value: d ? 1 : 0 }; }, [i, down]);
-  // Buttons are read once per frame and software rendering is slow, so hold each press
-  // long enough to span a few frames.
-  const tap = async (i) => { await press(i, true); await page.waitForTimeout(400); await press(i, false); await page.waitForTimeout(200); };
+  // Buttons are read once per frame, and a software-rendered frame on a CI runner can take
+  // longer than any fixed tap, so each button is held until the game reacts.
   await press(0, true);                       // A on the title screen = START
   await expect.poll(() => state(page)).toBe('playing');
   await press(0, false);
@@ -78,12 +77,12 @@ test('a gamepad drives the truck and navigates menus', async ({ page }) => {
   await press(9, true);                       // Start = pause
   await expect.poll(() => state(page)).toBe('paused');
   await press(9, false);
-  await press(13, true);                      // d-pad down (held until the menu reacts)
+  await press(13, true);                      // d-pad down
   await expect(page.locator('#pause-map')).toBeFocused({ timeout: 5000 });
   await press(13, false);
-  await page.waitForTimeout(200);
-  await tap(1);                               // B = back, which resumes
+  await press(1, true);                       // B = back, which resumes
   await expect.poll(() => state(page)).toBe('playing');
+  await press(1, false);
 });
 
 test('touch controls appear on phones and the GAS pedal drives', async ({ browser }) => {
