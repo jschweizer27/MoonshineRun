@@ -1,0 +1,58 @@
+# Attaches downloadable builds to a GitHub Release:
+#   Shine-offline-<version>.zip  -> unzip, double-click Shine.html, play (no install, no internet)
+#   Shine-web-<version>.zip      -> the website files, for hosting anywhere
+#
+# To publish: GitHub -> Releases -> "Draft a new release" -> create a tag like v0.3.0 ->
+# Publish. (Or from a terminal: git tag v0.3.0 && git push origin v0.3.0)
+name: Release
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          SHINE_BUILD_ID: ${{ github.ref_name }}
+
+      - name: Package
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p release/Shine
+          cp dist/Shine.html release/Shine/Shine.html
+          cp scripts/OFFLINE-README.txt release/Shine/README.txt
+          (cd release && zip -r "../Shine-offline-${TAG}.zip" Shine)
+          (cd dist && zip -r "../Shine-web-${TAG}.zip" .)
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Shine-*.zip --clobber
+          else
+            gh release create "$TAG" Shine-*.zip --title "SHINE ${TAG}" --generate-notes
+          fi

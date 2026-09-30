@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in the game is broken or behaves wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make SHINE better! A few details help us fix it fast.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      placeholder: e.g. The cops drove through a building near the drop.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      placeholder: |
+        1. Start a run
+        2. Pick up shine at the still
+        3. ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options: [Windows PC, Mac, Linux PC, iPhone / iPad, Android phone / tablet, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options: [Chrome, Edge, Firefox, Safari, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: controls
+    attributes:
+      label: Controls
+      options: [Keyboard, Gamepad / controller, Touch screen]
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or anything else
+      description: Drag an image in here. If you opened the game with ?debug, the numbers in the corner help too.

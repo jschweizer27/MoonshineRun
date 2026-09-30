@@ -11,11 +11,24 @@ import { HUD } from './hud.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { loadRecords, recordRun } from './save.js';
+import { installDebug } from './debug.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', GAMEOVER: 'gameover' };
 
+// URL options: ?debug (dev overlay + test API), ?test (test API, deterministic),
+// ?seed=123 (city layout and mission randomness).
+const params = new URLSearchParams(location.search);
+export const OPTIONS = {
+  debug: params.has('debug'),
+  test: params.has('test'),
+  seed: params.has('seed') ? Number(params.get('seed')) >>> 0 : null,
+};
+// Replaced with the commit id by the production build.
+const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
+
 class Game {
   constructor() {
+    this.buildId = BUILD_ID;
     this.canvas = document.getElementById('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -27,11 +40,13 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 1200);
 
     // The city is built once; restarting only resets state (no rebuild, no leaks).
-    this.world = new World(this.scene);
+    this.world = new World(this.scene, { seed: OPTIONS.seed ?? CONFIG.seed });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
-    this.rng = createRng((Date.now() ^ 0x5eed) >>> 0);
+    // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
+    const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
+    this.rng = createRng(missionSeed);
     this.mission = new Mission(this.scene, this.world, this.rng);
     this.waypoint = new Waypoint(this.scene);
     this.chase = new ChaseCamera(this.camera, this.world.collision);
@@ -189,7 +204,7 @@ async function boot() {
   document.getElementById('intro').classList.remove('hidden');
   const best = loadRecords().bestHaul;
   if (best > 0) document.getElementById('intro-best').textContent = `Best haul so far: $${best.toLocaleString()}`;
-  if (new URLSearchParams(location.search).has('debug')) window.shine = game;
+  if (OPTIONS.debug || OPTIONS.test) installDebug(game, { overlay: OPTIONS.debug });
 }
 
 boot().catch((e) => window.__shineFail('The game failed to start.', e && e.message ? e.message : String(e)));

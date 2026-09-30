@@ -1,0 +1,30 @@
+{
+  "name": "shine-demo",
+  "version": "0.2.0",
+  "private": true,
+  "description": "SHINE: a 1920s Prohibition bootlegging game demo built with Three.js",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node scripts/serve.mjs --open",
+    "serve": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "lint": "eslint .",
+    "build": "node scripts/build.mjs",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "vendor": "node scripts/vendor-three.mjs",
+    "verify": "npm run check && npm run lint && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.56.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "three": "0.160.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

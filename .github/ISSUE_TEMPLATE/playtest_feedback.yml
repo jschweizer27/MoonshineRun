@@ -1,0 +1,39 @@
+name: Playtest feedback
+description: Tell us how the game felt - what was fun, what wasn't.
+labels: [playtest]
+body:
+  - type: dropdown
+    id: fun
+    attributes:
+      label: How fun was it overall?
+      options: ['5 - Couldn’t stop playing', '4 - Fun', '3 - OK', '2 - Meh', '1 - Not fun']
+    validations:
+      required: true
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      options: [Too easy, About right, Too hard]
+  - type: dropdown
+    id: driving
+    attributes:
+      label: How did driving feel?
+      options: [Great, Good, Too slippery, Too stiff / slow to turn, Confusing]
+  - type: textarea
+    id: best
+    attributes:
+      label: Best moment
+      placeholder: e.g. Losing two Feds by cutting down an alley.
+  - type: textarea
+    id: worst
+    attributes:
+      label: Most frustrating moment
+  - type: textarea
+    id: ideas
+    attributes:
+      label: Ideas or requests
+  - type: dropdown
+    id: device
+    attributes:
+      label: What did you play on?
+      options: [Computer with keyboard, Computer with controller, Phone, Tablet]

@@ -1,74 +1,114 @@
-# SHINE — Playable Demo
+# SHINE — A Prohibition Bootlegging Demo
 
-A browser-playable vertical slice of **Shine**, a 1920s Prohibition-era, GTA-style
-bootlegging game. You are **Otto Braun**, a Baltimore brewer turned moonshine runner: load
-shine at a still, deliver it for cash, and beat the heat as cops and Temperance Alliance
-zealots run you down.
+Baltimore, 1922. You are **Otto Braun**, a Highlandtown brewer turned moonshine runner. Load
+shine at the still, deliver it across the city, and beat the heat as Prohibition Bureau
+Feds and Temperance Alliance zealots run you down.
 
-This repo has two parts:
+This repository has two parts:
 
-- **`/` (repo root)** — a fully playable **3D demo built in Three.js** (no install/build step).
-- **`/ue5`** — a **C++ scaffold for the full Unreal Engine 5 build**, following the
+- **The playable demo** (repo root): a 3D browser game built with Three.js.
+- **`ue5/`**: a C++ starting point for the full Unreal Engine 5 game, following the
   *Moonshine Run Dev Guide*. See [`ue5/README.md`](ue5/README.md).
 
-## Play the web demo
+---
 
-Because it uses ES modules + an importmap, open it through a local web server (not `file://`):
+## ▶ Play
 
-```bash
-# from the repo root
-python3 -m http.server 8000
-# then open http://localhost:8000 in a browser
-```
-
-Any static server works (`npx serve`, VS Code Live Server, etc.). It can also be hosted on
-GitHub Pages as-is.
+| Option | Setup | How |
+|---|---|---|
+| **In your browser** | Nothing | Open **https://jschweizer27.github.io/Shine-Demo/** *(live once GitHub Pages is on; see below)* |
+| **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** |
+| **From this folder** | [Node.js](https://nodejs.org) (free) | Double-click **`Play (Mac).command`** or **`Play (Windows).bat`**, or run `npm start` |
 
 ### Controls
 
 | Key | Action |
-|-----|--------|
+|---|---|
 | `W` / `↑` | Throttle |
-| `S` / `↓` | Brake & reverse |
-| `A` `D` / `← →` | Steer |
+| `S` / `↓` | Brake, then reverse |
+| `A` `D` / `←` `→` | Steer |
+| `Space` | Handbrake (slide around corners) |
 
-### The loop
+### How to play
 
-1. Click **START THE RUN** (the intro sets up Otto and the objective).
-2. Drive to the glowing **amber still** to load shine.
-3. Carrying shine raises the **heat** — pursuers spawn and chase you.
-4. Reach the **blue drop** to get paid; a new run spawns automatically.
-5. Get rammed by a pursuer = **BUSTED**. Lose them and the heat cools off.
+1. Click **START THE RUN**.
+2. Follow the **gold arrow** (and the compass in the objective banner) to the **amber still**
+   and drive into the ring to load shine.
+3. Deliver it to the **blue drop** to get paid. A new still appears after each delivery.
+4. While you haul, informants tip off the law. **Heat stars** send Feds and zealots after you.
+   - They need **line of sight** to see you. Duck around corners and stay out of view.
+     When the heat bar reads *LOSING THEM…* and fills, you shed a star.
+   - Get caught and you're **BUSTED**. Your best haul is saved in your browser.
 
-## Playtest checklist
+### Troubleshooting
 
-- [ ] Intro screen shows, **START** hides it and reveals the HUD.
-- [ ] Car drives, steers, brakes/reverses; chase camera follows.
-- [ ] Reaching the amber still flips the HUD to **CARGO: LOADED** and spawns a blue drop.
-- [ ] HEAT (★) rises while carrying; pursuer cars appear and chase.
-- [ ] Reaching the blue drop adds **+$850** and spawns the next still.
-- [ ] HEAT decays after delivery and pursuers leave once it hits 0.
-- [ ] Getting rammed shows **BUSTED**; **RUN AGAIN** restarts cleanly.
+- **Black screen or a "WebGL" message:** update your browser (Chrome, Edge, Firefox or
+  Safari) and turn on hardware acceleration in its settings.
+- **"Couldn't start" message:** reload the page. When playing from the folder, keep the
+  launcher window open while you play.
+- **macOS says the launcher can't be opened:** right-click `Play (Mac).command`, choose
+  **Open**, then **Open** again (only needed the first time).
+- Add `?debug` to the address to see frame rate and game stats in the corner, which is handy
+  for bug reports.
 
-## Project layout
+---
+
+## 🤖 What happens automatically
+
+| When | What | Where |
+|---|---|---|
+| Every pull request / push to `main` | Syntax check, lint, build, and **automated playtests** in a real browser. Gameplay **screenshots** are attached to every run. | Actions → CI → run → *Summary* (artifact **gameplay-screenshots**) |
+| Merge to `main` | The game is **published to GitHub Pages** | The play link above |
+| Publishing a release (tag `v*`) | **Downloadable zips** are attached: offline single-file game + website files | Releases |
+| Weekly | **Dependabot** opens update PRs for tools and Actions (each one is playtested by CI) | Pull requests |
+| New Claude Code cloud session | Dev tools install automatically (`.claude/hooks/session-start.sh`) | — |
+
+**One-time setup for the play link:** repository **Settings → Pages → Build and deployment →
+Source: GitHub Actions**. On a free GitHub plan the repository must be public.
+
+**To publish a release:** GitHub → **Releases → Draft a new release** → create a tag such as
+`v0.3.0` → **Publish**. The zips appear on the release a few minutes later.
+
+**Reporting bugs and feedback:** use the **Bug report** or **Playtest feedback** forms under
+Issues → New issue.
+
+---
+
+## 🛠 For developers
+
+```bash
+npm install        # dev tools only; the game itself has no dependencies
+npm start          # serve the source and open the browser (no build step)
+npm run verify     # check + lint + build + playtests (what CI runs)
+npm test           # playtests only; screenshots in artifacts/screenshots/
+npm run build      # dist/ website + dist/Shine.html (single-file offline game)
+```
+
+- **Tune the game** in [`src/config.js`](src/config.js): speeds, heat rates, rewards, police
+  and camera. Every number is commented.
+- URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic missions),
+  `?seed=123` (a different city layout).
+- Project conventions and architecture notes for AI-assisted work are in
+  [`CLAUDE.md`](CLAUDE.md).
+
+### Project layout
 
 ```
-index.html        # canvas, HUD, intro/game-over screens, Three.js importmap
-styles.css        # period-styled HUD + menus
+index.html, styles.css   page, HUD, menus (loading/error screens, responsive overlays)
 src/
-  main.js         # bootstrap + game loop + state machine
-  world.js        # night city: roads, buildings, lamps, fog
-  vehicle.js      # arcade driving + chase camera
-  cops.js         # pursuer AI (cops / zealots)
-  mission.js      # bootlegger loop, economy, wanted/heat
-  hud.js          # DOM HUD + overlays
-  input.js        # keyboard -> throttle/steer
-  audio.js        # procedural engine + siren (WebAudio)
-ue5/              # Unreal Engine 5 C++ scaffold (build on your PC)
+  main.js       boot, game loop, state machine
+  config.js     all tuning numbers
+  world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps
+  collision.js  2D colliders, bounds, line of sight
+  roadgraph.js  street graph + pathfinding
+  vehicle.js    driving physics (grip, handbrake, collisions)
+  models.js     procedural 1920s trucks, sedans and pickups
+  police.js     pursuer AI (pooled cars, road navigation, search, give up)
+  mission.js    bootlegger loop + heat / evasion
+  camera.js     chase camera
+  hud.js, waypoint.js, input.js, audio.js, save.js, debug.js, rng.js
+vendor/three/   Three.js r160 (bundled; no CDN needed)
+scripts/        dev server, build, checks, CI summary
+tests/          Playwright playtests
+ue5/            Unreal Engine 5 C++ scaffold
 ```
-
-## Notes
-
-The demo favors a fun, working loop over fidelity — primitive geometry and lighting set the
-mood rather than detailed art. Natural next steps: real car/building models, period jazz
-music, more mission variety, and porting the loop into the UE5 scaffold.

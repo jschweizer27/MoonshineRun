@@ -1,0 +1,23 @@
+# Keeps GitHub Actions and the dev tools up to date. Each update opens a PR that CI
+# playtests automatically.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Three.js is vendored into vendor/three and changes how the game renders; upgrade it
+      # deliberately (bump package.json, npm install, npm run vendor, playtest).
+      - dependency-name: three
+    groups:
+      dev-tools:
+        patterns: ['*']
