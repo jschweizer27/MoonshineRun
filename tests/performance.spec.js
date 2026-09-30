@@ -6,18 +6,36 @@ test.beforeEach(async ({ page }) => {
   await startRun(page);
 });
 
-test('the light count is fixed and no shaders compile when police spawn', async ({ page }) => {
+test('the light count is fixed and no shaders compile when police spawn or the lamps change', async ({ page }) => {
   const before = await page.evaluate(() => window.shine.renderInfo());
   const after = await page.evaluate(() => {
     const g = window.shine.game;
     g.mission.heat = 3;
     g.police.setTarget(3, g.player, g.camera);
     window.shine.step(1);
+    // Drive down the avenue: the lamp lights hop from lamp to lamp.
+    window.shine.teleport(0, 200, 0);
+    for (let i = 0; i < 6; i++) { window.shine.step(0.5, { throttle: 1 }); g.renderFrame(); }
     return window.shine.renderInfo();
   });
   expect(after.lights).toBe(before.lights);
-  expect(after.lights).toBeLessThanOrEqual(4);
+  expect(after.lights).toBeLessThanOrEqual(13);    // sky, moon, headlight, fx + 8 lamps + 1 lamp spot
   expect(after.programs).toBe(before.programs);
+});
+
+test('real lamp light follows the view: the lit lamps are the ones nearby', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world;
+    window.shine.teleport(-88, 150, 0);
+    window.shine.step(0.2);
+    g.renderFrame();
+    const lit = w.lampLights.filter((l) => l.intensity > 1);
+    const far = Math.max(...lit.map((l) => Math.hypot(l.position.x - g.camera.position.x, l.position.z - g.camera.position.z)));
+    return { lit: lit.length, far, spot: w.lampSpot.intensity };
+  });
+  expect(r.lit).toBeGreaterThanOrEqual(4);
+  expect(r.far).toBeLessThan(80);
+  expect(r.spot).toBeGreaterThan(1);
 });
 
 test('the whole city draws in a small number of draw calls', async ({ page }) => {

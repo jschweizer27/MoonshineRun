@@ -58,5 +58,5 @@ test('the moonlight casts shadows, and the light count stays fixed', async ({ pa
   expect(r.shadows).toBe(true);
   expect(r.map).toBe(2048);
   expect(r.fog).toBe(true);
-  expect(r.lights).toBe(4);
+  expect(r.lights).toBe(13);
 });

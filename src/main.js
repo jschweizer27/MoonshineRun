@@ -180,6 +180,7 @@ class Game {
     }
     this.world.setDetail(q);
     this.world.setShadows({ low: 0, medium: 1024, high: 2048 }[q] ?? 2048);
+    this.world.setLampDetail(q);
     this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
     this.particles.detail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
@@ -747,7 +748,18 @@ class Game {
   // Draw one frame of the 3D view.
   renderFrame() {
     this.world.updateShadow(this.camera);
+    this.world.updateLamps(this.camera);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Switches for the expensive effects, for scripts/shoot.mjs cost reports.
+  effectToggles() {
+    const w = this.world;
+    return {
+      lampLights: (on) => { for (const l of w.lampLights) l.visible = on; },
+      lampShadow: (on) => { w.lampSpot.castShadow = on && CONFIG.look.lampShadow; },
+      cones: (on) => { w.lampCones.visible = on; },
+    };
   }
 
   _loop() {

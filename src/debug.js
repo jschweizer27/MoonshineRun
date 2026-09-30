@@ -35,7 +35,7 @@ export function installDebug(game, { overlay }) {
       };
     },
     renderInfo() {
-      game.renderer.render(game.scene, game.camera);
+      game.renderFrame();
       const i = game.renderer.info;
       let lights = 0;
       game.scene.traverse((o) => { if (o.isLight) lights++; });

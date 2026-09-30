@@ -50,9 +50,10 @@ try {
 
   // Wide street view: a pedestrian's-eye camera on the corner looking down the avenue.
   await page.evaluate(() => {
-    const g = window.shine.game, p = g.player.position;
-    g.camera.position.set(p.x + 7, 3.2, p.z - 26);
-    g.camera.lookAt(p.x - 1, 2.2, p.z + 12);
+    const g = window.shine.game, v = g.player, p = v.position, fx = v.forwardX, fz = v.forwardZ;
+    // Up the road ahead of the truck, off to one side, looking back down the street.
+    g.camera.position.set(p.x + fx * 30 - fz * 3.5, 3.2, p.z + fz * 30 + fx * 3.5);
+    g.camera.lookAt(p.x - fx * 10, 2, p.z - fz * 10);
   });
   await shoot('wide');
 

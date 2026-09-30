@@ -335,41 +335,160 @@ export class World {
     const n = spots.length;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
 
+    const L = CONFIG.look;
     const poles = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.1, 0.16, 5.2, 6).translate(0, 2.6, 0),
-      new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.6, metalness: 0.5 }), n);
-    this.lampColor = new THREE.Color(0xffc27a);
+      new THREE.CylinderGeometry(0.09, 0.15, 5.0, 6).translate(0, 2.5, 0),
+      new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.55, metalness: 0.6 }), n);
+    // 1920s lantern heads: a glowing glass box under a dark iron cap.
+    this.lampColor = new THREE.Color(L.lampColor);
     this.bulbMaterial = new THREE.MeshBasicMaterial({ color: this.lampColor.clone() });
-    const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 10, 8), this.bulbMaterial, n);
+    const bulbs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.58, 0.42), this.bulbMaterial, n);
+    const caps = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.46, 0.34, 4).rotateY(Math.PI / 4).translate(0, 0.46, 0),
+      poles.material, n);
+    // A faint cone of light under each lantern (fog and bloom carry it).
+    this.coneMaterial = new THREE.MeshBasicMaterial({
+      map: gradientTexture([[0, 'rgba(255,190,120,0)'], [0.45, 'rgba(255,190,120,0.12)'], [0.85, 'rgba(255,205,150,0.55)'], [1, 'rgba(255,220,170,1)']]),
+      color: 0xffffff, transparent: true, opacity: L.coneOpacity, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide,
+    });
+    this.coneMaterial.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vFacing;')
+        .replace('#include <project_vertex>', `#include <project_vertex>
+          vec3 coneN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+          vFacing = abs(dot(coneN, normalize(-mvPosition.xyz)));`);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vFacing;')
+        .replace('#include <opaque_fragment>', 'diffuseColor.a *= smoothstep(0.05, 0.7, vFacing);\n#include <opaque_fragment>');
+    };
+    this.coneMaterial.customProgramCacheKey = () => 'shine-cone';
+    const cones = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 2.6, 5, 16, 1, true).translate(0, -2.5, 0), this.coneMaterial, n);
     this.poolMaterial = new THREE.MeshBasicMaterial({
-      map: radialTexture([[0, 'rgba(255,196,120,0.95)'], [0.45, 'rgba(255,170,90,0.35)'], [1, 'rgba(255,150,70,0)']]),
-      color: 0xffffff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending,
+      map: radialTexture([[0, 'rgba(255,178,92,0.9)'], [0.4, 'rgba(255,150,64,0.32)'], [1, 'rgba(255,130,50,0)']]),
+      color: 0xffffff, transparent: true, opacity: L.poolOpacity, blending: THREE.AdditiveBlending,
       depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
     });
     const pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.poolMaterial, n);
     const haloPos = new Float32Array(n * 3);
+    const white = new THREE.Color(1, 1, 1);
 
     spots.forEach((sp, k) => {
       const pole = sp.pole !== false;           // barn lanterns hang on the wall: no post
-      const y = pole ? 5.35 : 3.4;
+      const y = pole ? 5.3 : 3.4;
+      sp.y = y;
       poles.setMatrixAt(k, m.compose(p.set(sp.x, 0, sp.z), q, s.set(pole ? 1 : 0, pole ? 1 : 0, pole ? 1 : 0)));
       bulbs.setMatrixAt(k, m.compose(p.set(sp.x, y, sp.z), q, s.set(1, 1, 1)));
-      pools.setMatrixAt(k, m.compose(p.set(sp.x + sp.tx * 2.5, 0.04, sp.z + sp.tz * 2.5), q, s.set(22, 1, 22)));
+      caps.setMatrixAt(k, m);
+      cones.setMatrixAt(k, m.compose(p.set(sp.x, y - 0.3, sp.z), q, s.set(1, (y - 0.3) / 5, 1)));
+      pools.setMatrixAt(k, m.compose(p.set(sp.x + sp.tx * 2, 0.04, sp.z + sp.tz * 2), q, s.set(20, 1, 20)));
+      pools.setColorAt(k, white);
       haloPos.set([sp.x, y, sp.z], k * 3);
       if (pole) this.collision.addCircle(sp.x, sp.z, 0.25, { tag: 'lamp' });
     });
-    for (const im of [poles, bulbs, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+    for (const im of [poles, bulbs, caps, cones, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
     pools.renderOrder = 1;
+    cones.renderOrder = 2;
+    this.lampPools = pools;
+    this.lampCones = cones;
 
     const haloGeo = new THREE.BufferGeometry();
     haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
     this.haloMaterial = new THREE.PointsMaterial({
-      map: radialTexture([[0, 'rgba(255,230,180,1)'], [0.25, 'rgba(255,190,110,0.5)'], [1, 'rgba(255,160,80,0)']]),
-      size: 3.4, sizeAttenuation: true, transparent: true, depthWrite: false,
+      map: radialTexture([[0, 'rgba(255,226,170,1)'], [0.22, 'rgba(255,180,100,0.5)'], [1, 'rgba(255,150,70,0)']]),
+      size: 4, sizeAttenuation: true, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending, color: 0xffffff,
     });
     this.halos = new THREE.Points(haloGeo, this.haloMaterial);
     this.scene.add(this.halos);
+    this._buildLampLights();
+  }
+
+  // Real light for the lamps near the view: a fixed pool of warm point lights (plus one
+  // shadow-casting spot on the nearest lamp) that hop to whichever lamps are closest to
+  // the camera each frame. The count never changes, so shaders never recompile; each
+  // lamp's light fades in and out with its distance so hopping never pops. Every other
+  // lamp keeps its glowing pool decal.
+  _buildLampLights() {
+    const L = CONFIG.look;
+    this.lampLevel = 1;                       // 0 by day (set by the environment)
+    this.lampLights = [];
+    for (let k = 0; k < L.lampLights; k++) {
+      const light = new THREE.PointLight(L.lampColor, 0, L.lampRange, 2);
+      light.position.set(0, -50, 0);
+      this.scene.add(light);
+      this.lampLights.push(light);
+    }
+    const spot = new THREE.SpotLight(L.lampColor, 0, L.lampRange, 1.05, 0.65, 2);
+    spot.position.set(0, -50, 0);
+    spot.shadow.mapSize.set(512, 512);
+    spot.shadow.camera.near = 0.5;
+    spot.shadow.camera.far = L.lampRange;
+    spot.shadow.bias = -0.0008;
+    this.scene.add(spot, spot.target);
+    this.lampSpot = spot;
+    this._spotLamp = -1;
+    this._lampRank = new Int32Array(L.lampLights + 2).fill(-1);
+    this._lampDist = new Float32Array(L.lampLights + 2);
+    this._dimmed = [];
+  }
+
+  // Graphics level: how many lamp lights, and whether the nearest casts shadows. Changing
+  // it recompiles shaders once, so it only happens when the quality setting changes.
+  setLampDetail(level) {
+    const n = { low: 4, medium: 6, high: CONFIG.look.lampLights }[level] ?? CONFIG.look.lampLights;
+    this.lampLights.forEach((l, k) => { l.visible = k < n; });
+    this.lampSpot.visible = level !== 'low';
+    this.lampSpot.castShadow = level === 'high' && CONFIG.look.lampShadow;
+  }
+
+  updateLamps(camera) {
+    const L = CONFIG.look, spots = this.lampSpots;
+    camera.getWorldDirection(_v);
+    // Rank lamps by distance to a point a little ahead of the camera.
+    const fx = camera.position.x + _v.x * 16, fz = camera.position.z + _v.z * 16;
+    const active = this.lampLights.filter((l) => l.visible).length + (this.lampSpot.visible ? 1 : 0);
+    const want = active + 1;                  // one extra: the fade-out reference
+    const rank = this._lampRank, dist = this._lampDist;
+    rank.fill(-1);
+    dist.fill(Infinity);
+    for (let k = 0; k < spots.length; k++) {
+      const d = Math.hypot(spots[k].x - fx, spots[k].z - fz);
+      if (d >= dist[want - 1]) continue;
+      let i = want - 1;
+      while (i > 0 && dist[i - 1] > d) { dist[i] = dist[i - 1]; rank[i] = rank[i - 1]; i--; }
+      dist[i] = d; rank[i] = k;
+    }
+    // Weight: 1 near the view, fading to 0 by the distance of the first unlit lamp.
+    const edge = dist[want - 1] === Infinity ? 1e3 : dist[want - 1];
+    const weight = (d) => { const t = Math.min(1, Math.max(0, (edge - d) / (edge * 0.45))); return t * t * (3 - 2 * t); };
+
+    // The shadow-casting spot sticks to its lamp until another is clearly nearer.
+    let spotIdx = -1;
+    if (this.lampSpot.visible) {
+      const cur = rank.indexOf(this._spotLamp);
+      spotIdx = cur >= 0 && cur < active && dist[cur] < dist[0] * 1.35 + 3 ? cur : 0;
+      this._spotLamp = rank[spotIdx];
+    }
+    for (const k of this._dimmed) this.lampPools.setColorAt(k, _white);
+    this._dimmed.length = 0;
+    let li = 0;
+    for (let i = 0; i < active; i++) {
+      const k = rank[i];
+      if (k < 0) continue;
+      const sp = spots[k], w = weight(dist[i]) * this.lampLevel;
+      const light = i === spotIdx ? this.lampSpot : this.lampLights[li++];
+      if (!light || !light.visible) continue;
+      light.position.set(sp.x, sp.y - 0.35, sp.z);
+      light.intensity = L.lampIntensity * w * (light.isSpotLight ? 1.6 : 1);
+      if (light.isSpotLight) { light.target.position.set(sp.x + sp.tx * 1.5, 0, sp.z + sp.tz * 1.5); light.target.updateMatrixWorld(); }
+      // Its real light replaces the fake pool decal.
+      this.lampPools.setColorAt(k, _tint.setScalar(1 - 0.6 * w));
+      this._dimmed.push(k);
+    }
+    while (li < this.lampLights.length) this.lampLights[li++].intensity = 0;
+    if (spotIdx < 0) this.lampSpot.intensity = 0;
+    this.lampPools.instanceColor.needsUpdate = true;
   }
 
   // The Inner Harbor beyond the docks.
@@ -590,6 +709,7 @@ function makeCityTile(rng, cfg) {
 }
 
 const _v = new THREE.Vector3(), _c = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
+const _white = new THREE.Color(1, 1, 1), _tint = new THREE.Color();
 
 function radialTexture(stops, size = 128) {
   const cv = document.createElement('canvas');
@@ -604,3 +724,17 @@ function radialTexture(stops, size = 128) {
   return tex;
 }
 export { radialTexture };
+
+// A vertical gradient (top of the texture = stops[1]).
+function gradientTexture(stops) {
+  const cv = document.createElement('canvas');
+  cv.width = 4; cv.height = 128;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 128, 0, 0);
+  for (const [t, c] of stops) grad.addColorStop(t, c);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 128);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}

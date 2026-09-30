@@ -91,6 +91,13 @@ export const CONFIG = {
     windowGlow: 0.62,                // lit windows (warm amber)
     windowsLit: 0.3,                 // share of windows lit at night
     shadowRange: 70,                 // metres of shadow around the view (high: 2048 map)
+    lampColor: 0xffb466,             // gas-lamp amber
+    lampLights: 8,                   // real lights that follow the nearest lamps (High; 6 Medium, 4 Low)
+    lampIntensity: 58,               // candela per lamp
+    lampRange: 26,                   // metres a lamp's light reaches
+    lampShadow: true,                // the nearest lamp casts shadows (High only)
+    coneOpacity: 0.09,               // faint light cone under each lantern
+    poolOpacity: 0.5,                // fake light pool decal for lamps without a real light
   },
 };
 

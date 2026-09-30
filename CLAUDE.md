@@ -56,7 +56,9 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 
 ## Rules that keep the game fast and hitch-free
 - **Fixed light count.** Only hemisphere, moon (the shadow caster; its shadow box follows
-  the view in `world.updateShadow`), the player headlight and `world.fxLight` exist. Never add/remove lights at runtime (it recompiles every shader). Fake glows with
+  the view in `world.updateShadow`), the player headlight, `world.fxLight`, and the lamp pool
+  (`CONFIG.look.lampLights` point lights + one shadow spot that hop to the lamps nearest the
+  view in `world.updateLamps`; hide extras with `visible`, only on quality change) exist. Never add/remove lights at runtime (it recompiles every shader). Fake glows with
   emissive/additive materials; move/dim `fxLight` for effects.
 - **No mid-game allocation of meshes/materials.** Pool objects (see `Police`) and share
   materials (`models.js` `MATERIALS`). Tests assert shader programs and geometry counts

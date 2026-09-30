@@ -102,7 +102,10 @@ export class Environment {
     w.lightDir.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90).normalize();
 
     const night = 1 - d;
-    w.poolMaterial.opacity = 0.6 * night;
+    w.poolMaterial.opacity = L.poolOpacity * night;
+    w.coneMaterial.opacity = L.coneOpacity * night;
+    w.lampCones.visible = night > 0.05;
+    w.lampLevel = night;
     w.bulbMaterial.color.copy(w.lampColor).multiplyScalar(0.25 + 0.75 * night);
     w.halos.visible = w.detailHalos !== false && d < 0.5;
     w.uniforms.uWindowGlow.value = L.windowGlow * night + 0.03;
