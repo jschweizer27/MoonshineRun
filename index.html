@@ -2,39 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0b08" />
   <title>SHINE — A Prohibition Bootlegging Demo</title>
   <link rel="stylesheet" href="./styles.css" />
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
-  }
-  </script>
 </head>
 <body>
   <canvas id="game"></canvas>
 
   <!-- In-game HUD -->
   <div id="hud" class="hidden">
-    <div id="hud-top">
-      <div id="cash" class="hud-stat">$0</div>
-      <div id="wanted" class="hud-stat">
-        <span class="wanted-label">HEAT</span>
-        <span id="wanted-badges"></span>
-      </div>
+    <div class="hud-tl"><div id="cash" class="hud-stat">$0</div></div>
+    <div class="hud-tr">
+      <div id="heat" class="hud-stat"><span class="heat-label">HEAT</span><span id="stars"><i>★</i><i>★</i><i>★</i></span></div>
+      <div id="heat-status"></div>
+      <div id="evade-meter" class="meter hidden"><div></div></div>
     </div>
-    <div id="objective" class="hud-banner">Drive to the still</div>
-    <div id="cargo" class="hud-stat hidden">CARGO: LOADED</div>
-    <div id="speedo" class="hud-stat">0 mph</div>
+    <div id="objective" class="hud-banner">
+      <svg id="objective-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 L21 21 L12 15.5 L3 21 Z" /></svg>
+      <span id="objective-text">Drive to the still</span><span id="objective-dist"></span>
+    </div>
+    <div id="toast"></div>
+    <div class="hud-bl"><div id="cargo" class="pill hidden">CARGO: LOADED</div></div>
+    <div class="hud-br"><div id="speedo"><b id="speed">0</b> <small>mph</small></div></div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="overlay">
+    <div class="overlay-card compact">
+      <h1 class="title">SHINE</h1>
+      <p class="subtitle">Loading Baltimore, 1922&hellip;</p>
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- Friendly error -->
+  <div id="error" class="overlay hidden" role="alert">
+    <div class="overlay-card compact">
+      <h1 class="title small">SHINE</h1>
+      <p class="story" id="error-title">The game couldn’t start.</p>
+      <p class="hint" id="error-detail"></p>
+      <button class="btn" onclick="location.reload()">RELOAD</button>
+    </div>
   </div>
 
   <!-- Intro / story screen -->
-  <div id="intro" class="overlay">
+  <div id="intro" class="overlay hidden">
     <div class="overlay-card">
       <h1 class="title">SHINE</h1>
-      <p class="subtitle">Baltimore County, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
+      <p class="subtitle">Baltimore, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
       <p class="story">
         You are <strong>Otto Braun</strong>, a brewer turned bootlegger out of Highlandtown.
         The legitimate breweries are shuttered, but your stills run hot in the barns of the
@@ -42,27 +58,69 @@
         heat, and get paid before the Feds and the Temperance Alliance run you down.
       </p>
       <ul class="controls">
-        <li><b>W / &uarr;</b> &mdash; throttle</li>
-        <li><b>S / &darr;</b> &mdash; brake &amp; reverse</li>
-        <li><b>A / D / &larr; &rarr;</b> &mdash; steer</li>
+        <li><b>W / &uarr;</b> throttle</li>
+        <li><b>S / &darr;</b> brake &amp; reverse</li>
+        <li><b>A D / &larr; &rarr;</b> steer</li>
+        <li><b>Space</b> handbrake</li>
       </ul>
-      <p class="objective-hint">Drive to the <span class="amber">amber still</span> to load up,
-        then deliver to the <span class="blue">blue drop</span>. Carrying shine raises the heat.</p>
+      <p class="hint">Follow the <span class="gold">gold arrow</span> to the <span class="amber">amber still</span>, then
+        deliver to the <span class="blue">blue drop</span>. Hauling shine draws the law &mdash; break their line of sight to lose them.</p>
+      <p class="hint" id="intro-best"></p>
       <button id="start-btn" class="btn">START THE RUN</button>
     </div>
   </div>
 
-  <!-- Game over screen -->
+  <!-- Busted screen -->
   <div id="gameover" class="overlay hidden">
     <div class="overlay-card">
       <h1 class="title gameover-title">BUSTED</h1>
       <p class="story" id="gameover-msg">They ran you off the road.</p>
-      <p class="story">Best haul: <strong id="final-cash">$0</strong> &middot;
-        Runs completed: <strong id="final-runs">0</strong></p>
+      <p class="story">This run: <strong id="final-cash">$0</strong> &middot; Deliveries: <strong id="final-runs">0</strong></p>
+      <p class="story">Best haul: <strong id="best-cash">$0</strong> <span id="new-best" class="badge hidden">NEW BEST!</span></p>
       <button id="restart-btn" class="btn">RUN AGAIN</button>
     </div>
   </div>
 
+  <noscript><div class="overlay"><div class="overlay-card compact"><p class="story">SHINE needs JavaScript turned on.</p></div></div></noscript>
+
+  <script>
+    // Startup watchdog: if anything stops the game from booting, explain it instead of
+    // leaving a dead screen.
+    (function () {
+      var done = false;
+      window.__shineFail = function (title, detail) {
+        if (window.__shineReady || done) return;
+        done = true;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('error-title').textContent = title;
+        document.getElementById('error-detail').textContent = detail || '';
+        document.getElementById('error').classList.remove('hidden');
+      };
+      if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
+        window.addEventListener('DOMContentLoaded', function () {
+          window.__shineFail('This browser is too old to run SHINE.', 'Please update to the latest Chrome, Edge, Firefox or Safari.');
+        });
+      }
+      window.addEventListener('error', function (ev) {
+        var src = ev.target && ev.target.src;
+        window.__shineFail('The game couldn’t start.', src ? 'A game file failed to load (' + src + '). Check your connection and reload.' : (ev.message || ''));
+      }, true);
+      window.addEventListener('unhandledrejection', function (ev) {
+        var r = ev.reason;
+        window.__shineFail('The game couldn’t start.', (r && r.message) || String(r));
+      });
+      setTimeout(function () {
+        window.__shineFail('This is taking longer than expected.', 'Check your connection and reload. If it keeps happening, try the latest Chrome, Edge or Firefox.');
+      }, 25000);
+    })();
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/three.module.min.js"
+    }
+  }
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

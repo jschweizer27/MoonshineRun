@@ -1,0 +1,66 @@
+// Every gameplay number lives here so balance can be tuned without touching game code.
+// Units: distances in metres, speeds in metres/second (x 2.237 = mph), times in seconds.
+export const CONFIG = {
+  // Same seed = same city layout every visit.
+  seed: 1922,
+
+  world: {
+    blockSize: 44,        // distance between road centerlines
+    gridRadius: 5,        // roads from -5..5 blocks around the center
+    roadWidth: 12,
+    sidewalk: 3,
+    edge: 232,            // drivable half-extent of the city (outer roads sit at +/-220)
+  },
+
+  player: {
+    maxSpeed: 38,         // ~85 mph
+    accel: 18,
+    brake: 42,
+    reverseAccel: 10,
+    reverseMax: 12,
+    rolling: 4,           // coasting slowdown
+    turnRate: 2.1,        // rad/s at low-to-mid speed
+    grip: 12,             // how fast sideways sliding is killed
+    handbrakeGrip: 1.8,
+    radius: 1.45,         // two collision circles along the body
+    circleOffset: 1.5,
+  },
+
+  police: {
+    maxSpeed: 35,
+    accel: 16,
+    sightRange: 70,       // how far a pursuer can see you (needs clear line of sight)
+    catchRadius: 3.8,     // touching distance
+    maxUnits: 4,          // pooled cars (no allocations mid-game)
+    spawnMin: 150,        // spawn this far from the player, out of view
+    spawnMax: 260,
+    despawnDistance: 110, // leaving cars vanish once off-screen and this far away
+  },
+
+  heat: {
+    max: 3,
+    // Informants (the Temperance Alliance's civilian network) tip off the police while
+    // you haul shine. Suspicion fills at this rate; at 1.0 you get your first star.
+    tipOffRate: 0.08,
+    // While a pursuer can see you and you're carrying, heat climbs toward 3 stars.
+    buildRateSeen: 0.1,
+    // Seconds you must stay out of every pursuer's sight to shed one star, per star level.
+    evadeTime: [0, 5, 7, 9],
+  },
+
+  mission: {
+    reward: 850,
+    markerRadius: 7,
+    minPickupDistance: 150,   // stills never spawn on top of you
+    minDropDistance: 180,
+  },
+
+  camera: {
+    distance: 12,
+    height: 6,
+    follow: 6,            // higher = snappier chase camera
+    fov: 62,
+  },
+};
+
+export const MS_TO_MPH = 2.237;

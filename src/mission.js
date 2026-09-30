@@ -1,120 +1,125 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
+import { radialTexture } from './world.js';
 
-// The bootlegger loop + economy: place a still (pickup) and a drop (delivery),
-// detect proximity, move cargo, pay out cash, and run the wanted/heat system that
-// drives how many pursuers spawn. Mirrors Dev Guide Phases 4-5.
+// The bootlegger loop and the heat system.
+//  - Load shine at a still, deliver it to a drop, get paid.
+//  - While you haul, informants (the Temperance Alliance) build suspicion until the
+//    police are tipped off (1 star). Staying in a pursuer's sight while loaded builds
+//    heat toward 3 stars; staying out of every pursuer's sight sheds a star at a time.
+// update() returns events (pickup, deliver, spotted, lostTier, clear) for the HUD and
+// audio to react to, so this class never touches the DOM.
 export class Mission {
-  constructor(scene, world, hud) {
-    this.scene = scene;
+  constructor(scene, world, rng) {
     this.world = world;
-    this.hud = hud;
+    this.rng = rng;
+    this.pickup = makeMarker(scene, 0xe0a83a);
+    this.drop = makeMarker(scene, 0x5aa7d8);
+    this.reset(new THREE.Vector3());
+  }
 
+  reset(playerPos) {
     this.cash = 0;
     this.runs = 0;
     this.carrying = false;
-    this.wanted = 0;          // 0..3, continuous internally
-    this.maxWanted = 3;
-
-    this.reward = 850;
-    this.pickupRadius = 7;
-    this.deliverRadius = 7;
-
-    // Heat dynamics.
-    this.heatBuildRate = 0.18;   // per second while carrying
-    this.heatDecayRate = 0.45;   // per second while clean
-    this._lastWantedInt = 0;
-
-    this.pickup = this._makeMarker(0xe0a83a);   // amber still
-    this.drop = this._makeMarker(0x5aa7d8);     // blue drop
+    this.heat = 0;
+    this.suspicion = 0;
+    this.evade = 0;
     this.drop.visible = false;
-
-    this._placePickup();
+    this._placePickup(playerPos);
   }
 
-  _makeMarker(color) {
-    const group = new THREE.Group();
+  // Whole stars (0..3); `heat - tier` is progress toward the next star.
+  get tier() { return Math.min(CONFIG.heat.max, Math.floor(this.heat + 1e-6)); }
+  get target() { return this.carrying ? this.drop.position : this.pickup.position; }
+  get objective() { return this.carrying ? 'Deliver the shine' : 'Drive to the still'; }
+  get targetKind() { return this.carrying ? 'drop' : 'still'; }
 
-    // Glowing beacon pillar so it's visible from across the city.
-    const pillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.6, 0.6, 30, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
-    );
-    pillar.position.y = 15;
-    group.add(pillar);
-
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(6, 0.4, 8, 32),
-      new THREE.MeshBasicMaterial({ color })
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.3;
-    group.add(ring);
-
-    const glow = new THREE.PointLight(color, 8, 40, 2);
-    glow.position.y = 5;
-    group.add(glow);
-
-    group.userData.ring = ring;
-    this.scene.add(group);
-    return group;
-  }
-
-  _placePickup() {
-    const p = this.world.randomRoadPoint();
-    this.pickup.position.copy(p);
+  _placePickup(avoid) {
+    this.pickup.position.copy(this.world.randomRoadPoint(this.rng, avoid, CONFIG.mission.minPickupDistance));
     this.pickup.visible = true;
-    this.hud.setObjective('Drive to the still to load shine');
   }
 
-  _placeDrop(awayFrom) {
-    const p = this.world.randomRoadPoint(awayFrom, 90);
-    this.drop.position.copy(p);
+  _placeDrop(avoid) {
+    this.drop.position.copy(this.world.randomRoadPoint(this.rng, avoid, CONFIG.mission.minDropDistance));
     this.drop.visible = true;
-    this.hud.setObjective('Deliver the shine — beat the heat');
   }
 
-  update(dt, playerPos) {
-    // Spin the marker rings for a little life.
-    if (this.pickup.visible) this.pickup.userData.ring.rotation.z += dt * 1.2;
-    if (this.drop.visible) this.drop.userData.ring.rotation.z += dt * 1.2;
+  update(dt, playerPos, police, time) {
+    const events = [];
+    const H = CONFIG.heat;
+    const R = CONFIG.mission.markerRadius;
+    animateMarker(this.pickup, time);
+    animateMarker(this.drop, time);
 
-    // Pickup detection.
-    if (!this.carrying && this.pickup.visible &&
-        playerPos.distanceTo(this.pickup.position) < this.pickupRadius) {
+    if (!this.carrying && this.pickup.visible && flatDist(playerPos, this.pickup.position) < R) {
       this.carrying = true;
       this.pickup.visible = false;
-      this.hud.setCargo(true);
       this._placeDrop(playerPos);
-    }
-
-    // Delivery detection.
-    if (this.carrying && this.drop.visible &&
-        playerPos.distanceTo(this.drop.position) < this.deliverRadius) {
+      events.push({ type: 'pickup' });
+    } else if (this.carrying && this.drop.visible && flatDist(playerPos, this.drop.position) < R) {
       this.carrying = false;
       this.drop.visible = false;
-      this.cash += this.reward;
+      this.cash += CONFIG.mission.reward;
       this.runs += 1;
-      this.hud.setCargo(false);
-      this.hud.setCash(this.cash);
-      this.hud.flashObjective(`+$${this.reward} — shine delivered`);
-      this._placePickup();
+      events.push({ type: 'deliver', amount: CONFIG.mission.reward });
+      this._placePickup(playerPos);
     }
 
-    // Heat builds while carrying, cools while clean.
-    if (this.carrying) {
-      this.wanted = Math.min(this.maxWanted, this.wanted + this.heatBuildRate * dt);
-    } else {
-      this.wanted = Math.max(0, this.wanted - this.heatDecayRate * dt);
+    if (this.carrying && this.heat === 0) {
+      this.suspicion += H.tipOffRate * dt;
+      if (this.suspicion >= 1) {
+        this.heat = 1;
+        this.suspicion = 0;
+        this.evade = 0;
+        events.push({ type: 'spotted' });
+      }
     }
 
-    const wantedInt = Math.round(this.wanted);
-    if (wantedInt !== this._lastWantedInt) {
-      this.hud.setWanted(wantedInt);
-      this._lastWantedInt = wantedInt;
+    if (this.heat > 0) {
+      if (police.seen) {
+        this.evade = 0;
+        if (this.carrying) this.heat = Math.min(H.max, this.heat + H.buildRateSeen * dt);
+      } else if (police.contact || !this.carrying) {
+        const tier = Math.max(1, this.tier);
+        this.evade += dt / H.evadeTime[tier];
+        if (this.evade >= 1) {
+          this.heat = tier - 1;
+          this.evade = 0;
+          events.push(this.heat > 0 ? { type: 'lostTier', tier: this.tier } : { type: 'clear' });
+        }
+      }
     }
+    return events;
   }
+}
 
-  get wantedLevel() {
-    return Math.round(this.wanted);
-  }
+function flatDist(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
+
+let glowTex = null;
+function makeMarker(scene, color) {
+  const group = new THREE.Group();
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.1, 1.1, 60, 16, 1, true).translate(0, 30, 0),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  );
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(6.5, 0.35, 8, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color }));
+  ring.position.y = 0.35;
+  glowTex = glowTex || radialTexture([[0, 'rgba(255,255,255,0.9)'], [0.6, 'rgba(255,255,255,0.25)'], [1, 'rgba(255,255,255,0)']]);
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(18, 18).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: glowTex, color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  glow.position.y = 0.06;
+  group.add(beam, ring, glow);
+  group.userData = { ring, beam };
+  scene.add(group);
+  return group;
+}
+
+function animateMarker(m, time) {
+  if (!m.visible) return;
+  m.userData.ring.rotation.y = time * 1.2;
+  m.userData.ring.scale.setScalar(1 + Math.sin(time * 3) * 0.05);
+  m.userData.beam.material.opacity = 0.28 + Math.sin(time * 2.2) * 0.08;
 }

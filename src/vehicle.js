@@ -1,112 +1,163 @@
 import * as THREE from 'three';
+import { CONFIG, MS_TO_MPH } from './config.js';
+import { buildVehicle } from './models.js';
 
-// Otto's retrofitted steeplechase trailer. Arcade driving on the XZ plane with a
-// chase camera that trails behind. Shared base used by the player and pursuers.
+// Arcade car physics on the ground plane. Heading 0 faces north (-Z); positive steer
+// turns right. The car keeps a velocity vector: grip bleeds off sideways slide (the
+// handbrake lowers grip for drifts), and two collision circles along the body push it
+// out of buildings with a bounce.
 export class Vehicle {
-  constructor(scene, { color = 0x6b3f2a, cab = 0x2a1d14 } = {}) {
+  constructor(scene, collision, { style = 'player', tuning = CONFIG.player } = {}) {
     this.scene = scene;
-    this.position = new THREE.Vector3(0, 0, 0);
-    this.heading = 0;          // radians, 0 = facing +Z
-    this.speed = 0;            // units/sec along heading
+    this.collision = collision;
+    this.t = { ...tuning };
+    this.position = new THREE.Vector3();
+    this.heading = 0;
+    this.vx = 0;
+    this.vz = 0;
+    this.speed = 0;          // forward speed (negative when reversing)
+    this.slip = 0;           // sideways speed, for screeches and dust
+    this.impact = 0;         // speed lost to the last wall hit (0 if none this frame)
+    this.steerVisual = 0;
+    this.spin = 0;
 
-    // Tuning (arcade feel).
-    this.maxSpeed = 95;
-    this.accel = 70;
-    this.reverseSpeed = 30;
-    this.brakePower = 120;
-    this.drag = 28;
-    this.turnRate = 2.2;       // rad/sec at speed
-
-    this.mesh = this._buildMesh(color, cab);
+    const model = buildVehicle(style);
+    this.mesh = model.group;
+    this.model = model;
     scene.add(this.mesh);
   }
 
-  _buildMesh(color, cab) {
-    const group = new THREE.Group();
-
-    const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.1 });
-    const cabMat = new THREE.MeshStandardMaterial({ color: cab, roughness: 0.6 });
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-
-    // Trailer body (long box) + cab up front.
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.4, 6), bodyMat);
-    body.position.y = 1.1;
-    group.add(body);
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.3, 2), cabMat);
-    cabin.position.set(0, 1.5, 2.1);
-    group.add(cabin);
-
-    // Wheels.
-    const wheelGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.5, 12);
-    const wheelPos = [
-      [-1.4, 0.6, 2], [1.4, 0.6, 2],
-      [-1.4, 0.6, -2], [1.4, 0.6, -2],
-    ];
-    for (const [x, y, z] of wheelPos) {
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, y, z);
-      group.add(wheel);
-    }
-
-    // Headlamps to read direction of travel at night.
-    const lamp = new THREE.SpotLight(0xfff0c0, 30, 60, Math.PI / 6, 0.4, 1.5);
-    lamp.position.set(0, 1.4, 3);
-    const target = new THREE.Object3D();
-    target.position.set(0, 0, 20);
-    group.add(target);
-    lamp.target = target;
-    group.add(lamp);
-
-    return group;
+  place(x, z, heading = 0) {
+    this.position.set(x, 0, z);
+    this.heading = heading;
+    this.vx = this.vz = this.speed = this.slip = this.impact = 0;
+    this._syncMesh(0, 0);
   }
 
-  // Integrate one step. `input` = {throttle:-1..1, steer:-1..1}.
+  get forwardX() { return Math.sin(this.heading); }
+  get forwardZ() { return -Math.cos(this.heading); }
+  get speedMph() { return Math.round(Math.abs(this.speed) * MS_TO_MPH); }
+
+  // input: { throttle: -1..1, steer: -1..1 (right +), handbrake: bool }
   update(dt, input) {
-    const { throttle = 0, steer = 0 } = input;
+    const t = this.t;
+    const thr = input.throttle || 0;
+    const steer = input.steer || 0;
+    const hb = !!input.handbrake;
+    let h = this.heading;
+    let fx = Math.sin(h), fz = -Math.cos(h), rx = Math.cos(h), rz = Math.sin(h);
+    let vF = this.vx * fx + this.vz * fz;
+    let vR = this.vx * rx + this.vz * rz;
+    const maxF = t.maxSpeed * (this.speedFactor ?? 1);
 
-    if (throttle > 0) {
-      this.speed += this.accel * throttle * dt;
-    } else if (throttle < 0) {
-      // Brake when moving forward, otherwise reverse.
-      if (this.speed > 0.5) this.speed -= this.brakePower * dt;
-      else this.speed -= this.accel * dt;
+    if (thr > 0) {
+      if (vF < -0.5) vF = Math.min(0, vF + t.brake * thr * dt);
+      else vF += t.accel * thr * dt * Math.max(0.12, 1 - Math.max(0, vF) / maxF);
+    } else if (thr < 0) {
+      if (vF > 0.5) vF = Math.max(0, vF + t.brake * thr * dt);
+      else vF = Math.max(-t.reverseMax, vF + t.reverseAccel * thr * dt);
     } else {
-      // Coast: drag toward zero.
-      const sign = Math.sign(this.speed);
-      this.speed -= sign * this.drag * dt;
-      if (Math.sign(this.speed) !== sign) this.speed = 0;
+      const d = t.rolling * dt;
+      vF = Math.abs(vF) <= d ? 0 : vF - Math.sign(vF) * d;
     }
+    if (hb) {
+      const d = 9 * dt;
+      vF = Math.abs(vF) <= d ? 0 : vF - Math.sign(vF) * d;
+    }
+    if (vF > maxF) vF = Math.max(maxF, vF - t.brake * dt);
 
-    this.speed = THREE.MathUtils.clamp(this.speed, -this.reverseSpeed, this.maxSpeed);
+    // Steering authority grows with speed, then eases off near top speed.
+    const sp = Math.abs(vF);
+    const steerScale = Math.min(1, sp / 4) * (1 - 0.4 * Math.min(1, sp / t.maxSpeed));
+    h += steer * t.turnRate * steerScale * (hb ? 1.45 : 1) * (vF >= 0 ? 1 : -1) * dt;
 
-    // Steering scales with how fast we're going (and flips in reverse).
-    const speedFactor = THREE.MathUtils.clamp(Math.abs(this.speed) / 18, 0, 1);
-    this.heading += steer * this.turnRate * dt * speedFactor * Math.sign(this.speed || 1);
+    // Re-express velocity in the new heading, then let the tyres kill sideways slide.
+    const vx = fx * vF + rx * vR, vz = fz * vF + rz * vR;
+    fx = Math.sin(h); fz = -Math.cos(h); rx = Math.cos(h); rz = Math.sin(h);
+    vF = vx * fx + vz * fz;
+    vR = (vx * rx + vz * rz) * Math.exp(-(hb ? t.handbrakeGrip : t.grip) * dt);
+    this.vx = fx * vF + rx * vR;
+    this.vz = fz * vF + rz * vR;
+    this.heading = h;
+    this.speed = vF;
+    this.slip = Math.abs(vR);
 
-    this.position.x += Math.sin(this.heading) * this.speed * dt;
-    this.position.z += Math.cos(this.heading) * this.speed * dt;
+    this.position.x += this.vx * dt;
+    this.position.z += this.vz * dt;
+    this.impact = 0;
+    if (this.collision) this._collide();
+    this._syncMesh(dt, steer);
+  }
 
+  // Resolve the front and rear circles in turn, then bounce off the combined normal.
+  _collide() {
+    const { radius: r, circleOffset: off } = this.t;
+    let px = 0, pz = 0;
+    for (const s of [1, -1]) {
+      const cx = this.position.x + this.forwardX * off * s;
+      const cz = this.position.z + this.forwardZ * off * s;
+      const res = this.collision.resolveCircle(cx, cz, r);
+      if (res.hit) {
+        const dx = res.x - cx, dz = res.z - cz;
+        this.position.x += dx; this.position.z += dz;
+        px += dx; pz += dz;
+      }
+    }
+    const len = Math.hypot(px, pz);
+    if (len < 1e-6) return;
+    const nx = px / len, nz = pz / len;
+    const vn = this.vx * nx + this.vz * nz;
+    if (vn < 0) {
+      this.vx -= 1.25 * vn * nx;
+      this.vz -= 1.25 * vn * nz;
+      this.vx *= 0.96; this.vz *= 0.96;
+      this.speed = this.vx * this.forwardX + this.vz * this.forwardZ;
+      this.impact = -vn;
+    }
+  }
+
+  _syncMesh(dt, steer) {
     this.mesh.position.copy(this.position);
-    this.mesh.rotation.y = this.heading;
+    this.mesh.rotation.y = -this.heading;
+    this.steerVisual += (steer * 0.45 - this.steerVisual) * Math.min(1, dt * 10);
+    this.spin += (this.speed * dt) / this.model.wheelRadius;
+    for (const w of this.model.wheels) w.rotation.x = -this.spin;
+    for (const p of this.model.frontPivots) p.rotation.y = -this.steerVisual;
   }
 
-  // Trail the chase camera behind and slightly above the car.
-  updateCamera(camera) {
-    const back = 13;
-    const up = 7;
-    const camX = this.position.x - Math.sin(this.heading) * back;
-    const camZ = this.position.z - Math.cos(this.heading) * back;
-    camera.position.lerp(new THREE.Vector3(camX, up, camZ), 0.12);
-    camera.lookAt(this.position.x, 1.5, this.position.z);
-  }
+  setVisible(v) { this.mesh.visible = v; }
+}
 
-  get speedMph() {
-    return Math.round(Math.abs(this.speed) * 1.4);
+// Push two cars apart (two circles each) and trade momentum. Returns the closing speed
+// if they touched, else 0.
+export function collideVehicles(a, b, massRatio = 0.5) {
+  const ra = a.t.radius, rb = b.t.radius, oa = a.t.circleOffset, ob = b.t.circleOffset;
+  let touched = 0;
+  for (const sa of [1, -1]) {
+    for (const sb of [1, -1]) {
+      const ax = a.position.x + a.forwardX * oa * sa, az = a.position.z + a.forwardZ * oa * sa;
+      const bx = b.position.x + b.forwardX * ob * sb, bz = b.position.z + b.forwardZ * ob * sb;
+      const dx = bx - ax, dz = bz - az;
+      const d = Math.hypot(dx, dz);
+      const min = ra + rb;
+      if (d >= min || d < 1e-5) continue;
+      const nx = dx / d, nz = dz / d, pen = min - d;
+      a.position.x -= nx * pen * massRatio; a.position.z -= nz * pen * massRatio;
+      b.position.x += nx * pen * (1 - massRatio); b.position.z += nz * pen * (1 - massRatio);
+      const rel = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
+      if (rel < 0) {
+        const j = -1.3 * rel;
+        a.vx -= nx * j * massRatio; a.vz -= nz * j * massRatio;
+        b.vx += nx * j * (1 - massRatio); b.vz += nz * j * (1 - massRatio);
+        touched = Math.max(touched, -rel);
+      } else {
+        touched = Math.max(touched, 0.01);
+      }
+    }
   }
-
-  dispose() {
-    this.scene.remove(this.mesh);
+  if (touched) {
+    a.speed = a.vx * a.forwardX + a.vz * a.forwardZ;
+    b.speed = b.vx * b.forwardX + b.vz * b.forwardZ;
   }
+  return touched;
 }
