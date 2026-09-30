@@ -19,6 +19,13 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - `src/main.js` game loop + state machine; `step(dt, input)` is the single simulation step
   (tests call it through `window.shine.step(seconds, input)` at a fixed 60 Hz).
 - `src/config.js` — **all gameplay tuning numbers**. Change balance here, not in code.
+  `CONFIG.look` holds the night palette (exposure, FogExp2, teal fill, moonlight).
+- `src/juice.js` — **all game-feel values** (`JUICE`) plus `VehicleFeel` (sprung body roll /
+  pitch / bounce for truck and horse box, skid marks, tyre smoke, spray, headlight flicker).
+  Juice is visual only; `J` toggles it. `camera.js` reads `JUICE.camera`.
+- Visual review loop: `npm run shots -- <label>` and `npm run reel -- <label>` write
+  screenshots / contact sheets to `artifacts/shots/` (they stop the game loop and step it
+  themselves). Headless timings are a software GPU: compare them, don't read them as fps.
 - `src/world.js` city generation (seeded), `collision.js` (2D grid colliders + line of
   sight), `roadgraph.js` (pathfinding), `vehicle.js` (physics), `models.js` (procedural
   vehicles), `police.js` (pursuer AI), `mission.js` (loop + heat), `hud.js` (DOM).
@@ -48,8 +55,8 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   the C++ is otherwise uncompiled. Beginner setup lives in `ue5/CHECKLIST.md`.
 
 ## Rules that keep the game fast and hitch-free
-- **Fixed light count.** Only hemisphere, moon, the player headlight and `world.fxLight`
-  exist. Never add/remove lights at runtime (it recompiles every shader). Fake glows with
+- **Fixed light count.** Only hemisphere, moon (the shadow caster; its shadow box follows
+  the view in `world.updateShadow`), the player headlight and `world.fxLight` exist. Never add/remove lights at runtime (it recompiles every shader). Fake glows with
   emissive/additive materials; move/dim `fxLight` for effects.
 - **No mid-game allocation of meshes/materials.** Pool objects (see `Police`) and share
   materials (`models.js` `MATERIALS`). Tests assert shader programs and geometry counts
@@ -57,6 +64,8 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - **Instance repeated scenery** (`InstancedMesh`), keep draw calls low (test budget < 60).
 - Heading 0 faces north (−Z); positive steer turns right. Forward = (sin h, −cos h).
 - Game logic returns events; only `main.js`/`hud.js` touch the DOM.
+- Draw frames through `game.renderFrame()` (shadows follow the camera there; post-processing
+  will hook in there too), not `renderer.render` directly.
 - Storage goes through `save.js` (never throws; private mode safe).
 
 ## Conventions

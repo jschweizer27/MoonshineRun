@@ -2,6 +2,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "MoonshineDeliveryManager.h"
 #include "MoonshineMarker.h"

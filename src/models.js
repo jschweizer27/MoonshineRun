@@ -199,8 +199,18 @@ export function buildVehicle(style = 'player') {
     wheelSpots = [[-0.93, -1.7, true], [0.93, -1.7, true], [-0.93, 1.45], [0.93, 1.45]];
   }
 
-  group.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body));
-  group.add(new THREE.Mesh(mergeParts(lamps), MATERIALS.glow));
+  // The body sits on its springs: a sub-group that can roll, pitch and bounce about axle
+  // height while the wheels stay on the road. Lights and banners ride on the body too.
+  const PIVOT = 0.65;
+  const body = new THREE.Group(), sprung = new THREE.Group();
+  body.position.y = PIVOT;
+  body.userData.pivot = PIVOT;
+  sprung.position.y = -PIVOT;
+  body.add(sprung);
+  for (const child of [...group.children]) sprung.add(child);   // sirens, torches, banners
+  const lampMesh = new THREE.Mesh(mergeParts(lamps), MATERIALS.glow);
+  sprung.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body), lampMesh);
+  group.add(body);
 
   // Wheels: a pivot (steer) holding the wheel (spin).
   const wheelGeo = buildWheel(r);
@@ -215,7 +225,7 @@ export function buildVehicle(style = 'player') {
     wheels.push(w);
     if (isFront) front.push(pivot);
   }
-  const out = { group, wheels, frontPivots: front, sirens, torches, wheelRadius: r };
+  const out = { group, body: sprung, bodyPivot: body, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots };
   if (style === 'player') out.trailer = buildHorseTrailer(wheelGeo, r);
   return out;
 }
@@ -239,10 +249,18 @@ function buildHorseTrailer(wheelGeo, r) {
     part(box(0.02, 0.2, 0.16), 0xf2eee4, -1.14, 2.36, -1.95, 0, 0, -0.35),       // white blaze
   ];
   for (let k = 0; k < 4; k++) parts.push(part(box(2.04, 0.05, 3.94), PLANK, 0, 1.1 + k * 0.42, -0.35));
-  group.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body));
-  group.add(new THREE.Mesh(mergeParts([
+  // The box rides on springs over the axle (it sways through corners); wheels stay put.
+  const PIVOT = 0.7;
+  const body = new THREE.Group(), sprung = new THREE.Group();
+  body.position.y = PIVOT;
+  body.userData.pivot = PIVOT;
+  sprung.position.y = -PIVOT;
+  body.add(sprung);
+  sprung.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body));
+  sprung.add(new THREE.Mesh(mergeParts([
     part(box(0.22, 0.16, 0.06), 0xff2a1a, -0.8, 1.0, 1.7), part(box(0.22, 0.16, 0.06), 0xff2a1a, 0.8, 1.0, 1.7),
   ]), MATERIALS.glow));
+  group.add(body);
   const wheels = [];
   for (const x of [-1.02, 1.02]) {
     const w = new THREE.Mesh(wheelGeo, MATERIALS.body);
@@ -250,5 +268,5 @@ function buildHorseTrailer(wheelGeo, r) {
     group.add(w);
     wheels.push(w);
   }
-  return { group, wheels, hitchLength: 3.6 };
+  return { group, bodyPivot: body, wheels, hitchLength: 3.6 };
 }

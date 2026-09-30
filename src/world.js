@@ -51,6 +51,7 @@ export class World {
     this._buildDressing();
     this._buildWater();
     this._buildBounds();
+    this.enableShadows();
   }
 
   // Art-deco dressing: glowing blade signs along the streets (drop sites get theirs),
@@ -162,17 +163,25 @@ export class World {
   inCounty(p) { return p.z < -250; }
 
   _buildLights() {
-    const s = this.scene;
-    s.background = new THREE.Color(0x141c30);
-    s.fog = new THREE.Fog(0x141c30, 70, 430);
+    const s = this.scene, L = CONFIG.look;
+    s.background = new THREE.Color(L.sky);
+    s.fog = new THREE.FogExp2(L.sky, L.fogDensity);
 
-    // Cool moonlit sky over warm ground bounce keeps the night readable.
-    this.hemi = new THREE.HemisphereLight(0x8196d0, 0x3a3026, 2.4);
+    // A dim teal fill so nothing is pure black; the lamps do the real lighting.
+    this.hemi = new THREE.HemisphereLight(L.ambientSky, L.ambientGround, L.ambient);
     s.add(this.hemi);
 
-    this.moon = new THREE.DirectionalLight(0xc2d0ff, 1.5);
+    // Cool moonlight (the sun by day) is the key light and casts the shadows. Its shadow
+    // box follows the view (see updateShadow).
+    this.moon = new THREE.DirectionalLight(L.moon, L.moonIntensity);
     this.moon.position.set(-120, 220, -90);
-    s.add(this.moon);
+    this.lightDir = new THREE.Vector3(-0.45, 0.8, -0.35).normalize();
+    const sc = this.moon.shadow.camera, r = L.shadowRange;
+    sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r;
+    sc.near = 1; sc.far = 600;
+    this.moon.shadow.bias = -0.0004;
+    this.moon.shadow.normalBias = 0.04;
+    s.add(this.moon, this.moon.target);
 
     // One shared effects light (fires, muzzle flashes). It always exists, even at zero
     // intensity, so the light count never changes and shaders never recompile.
@@ -416,6 +425,46 @@ export class World {
     return !this.collision.segmentBlocked(a.x, a.z, b.x, b.z);
   }
 
+  // Graphics level: 0 = no shadows, else the shadow map size. Changing it recompiles
+  // shaders, so it only happens when the quality setting changes.
+  setShadows(size) {
+    const m = this.moon;
+    m.castShadow = size > 0;
+    if (size > 0 && m.shadow.mapSize.x !== size) {
+      m.shadow.mapSize.set(size, size);
+      m.shadow.map?.dispose();
+      m.shadow.map = null;
+    }
+  }
+
+  // Centre the key light's shadow box ahead of the camera, snapped to whole shadow-map
+  // texels so shadow edges don't shimmer as the view moves.
+  updateShadow(camera) {
+    const m = this.moon;
+    if (!m.castShadow) return;
+    const dir = this.lightDir, r = CONFIG.look.shadowRange;
+    camera.getWorldDirection(_v);
+    _c.set(camera.position.x + _v.x * r * 0.55, 0, camera.position.z + _v.z * r * 0.55);
+    const texel = (r * 2) / m.shadow.mapSize.x;
+    // Light-space axes: right = up x dir, up2 = dir x right.
+    _r.set(0, 1, 0).cross(dir).normalize();
+    _u.copy(dir).cross(_r);
+    const a = Math.round(_c.dot(_r) / texel) * texel, b = Math.round(_c.dot(_u) / texel) * texel, d = _c.dot(dir);
+    _c.copy(_r).multiplyScalar(a).addScaledVector(_u, b).addScaledVector(dir, d);
+    m.target.position.copy(_c);
+    m.position.copy(_c).addScaledVector(dir, 300);
+    m.target.updateMatrixWorld();
+  }
+
+  // Everything solid casts and receives shadows; flat ground only receives.
+  enableShadows(root = this.scene) {
+    root.traverse((o) => {
+      if (!o.isMesh || !o.material || o.material.transparent || !o.material.isMeshStandardMaterial) return;
+      o.receiveShadow = true;
+      o.castShadow = o.geometry.type !== 'PlaneGeometry';
+    });
+  }
+
   setAnisotropy(n) {
     this.groundTexture.anisotropy = n;
     this.groundTexture.needsUpdate = true;
@@ -462,7 +511,7 @@ function addWindowShader(material, uniforms) {
           float win = step(0.22, f.x) * step(f.x, 0.78) * step(0.3, f.y) * step(f.y, 0.84) * step(0.0, id.y);
           float h = fract(sin(dot(id + vec2(faceSeed, faceSeed * 1.7), vec2(12.9898, 78.233))) * 43758.5453);
           float lit = step(1.0 - uWindowLitRatio, h);
-          vec3 warm = mix(vec3(1.0, 0.68, 0.34), vec3(1.0, 0.86, 0.6), fract(h * 7.0));
+          vec3 warm = mix(vec3(1.0, 0.5, 0.18), vec3(1.0, 0.74, 0.42), fract(h * 7.0)) * (0.45 + 0.55 * fract(h * 13.0));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.06, 0.08), win * 0.85);
           totalEmissiveRadiance += win * lit * warm * uWindowGlow;
         }`);
@@ -539,6 +588,8 @@ function makeCityTile(rng, cfg) {
   }
   return cv;
 }
+
+const _v = new THREE.Vector3(), _c = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
 
 function radialTexture(stops, size = 128) {
   const cv = document.createElement('canvas');

@@ -106,8 +106,10 @@ void AMoonshineDeliveryManager::Tick(float DeltaSeconds)
 	const int32 Tier = GetTier();
 	if (Tier != PrevTier)
 	{
+		// New pursuers join only when the heat rises; losing a star just sends extras home.
+		const bool bRising = Tier > PrevTier;
 		PrevTier = Tier;
-		SetPursuers(Tier, P);
+		SetPursuers(Tier, P, bRising);
 		OnWantedChanged.Broadcast(Tier);
 	}
 	MaintainPatrols(DeltaSeconds, P);
@@ -446,7 +448,7 @@ void AMoonshineDeliveryManager::Bust()
 	{
 		Truck->bCarryingCargo = false;
 		Truck->ResetTo(HomeTransform);
-		SetPursuers(0, Truck->GetActorLocation());
+		SetPursuers(0, Truck->GetActorLocation(), false);
 		PlacePickup(HomeTransform.GetLocation());
 	}
 	OnWantedChanged.Broadcast(0);
@@ -499,8 +501,9 @@ FShinePoliceReport AMoonshineDeliveryManager::UpdatePolice(const FVector& Player
 	return Report;
 }
 
-// Keep Count pursuers on Otto; extras head home. Nearby patrols join first.
-void AMoonshineDeliveryManager::SetPursuers(int32 Count, const FVector& PlayerLocation)
+// Keep Count pursuers on Otto (recruiting only when bRecruit); extras head home. Nearby
+// patrols join first.
+void AMoonshineDeliveryManager::SetPursuers(int32 Count, const FVector& PlayerLocation, bool bRecruit)
 {
 	if (Count == 0)
 	{
@@ -515,7 +518,7 @@ void AMoonshineDeliveryManager::SetPursuers(int32 Count, const FVector& PlayerLo
 			Chasing.Add(Brain);
 		}
 	}
-	while (Chasing.Num() < Count)
+	while (bRecruit && Chasing.Num() < Count)
 	{
 		AProhibitionCopController* Recruit = nullptr;
 		float RecruitDistance = JoinChaseRange;

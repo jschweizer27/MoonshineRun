@@ -37,6 +37,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Map | `Tab` or `N` | View / Back | map button |
 | Pause menu | `Esc` or `P` | Start | ❚❚ button |
 | Mute / fullscreen | `M` / `F` | — | buttons, top right |
+| Game-feel effects on/off (to compare) | `J` | — | — |
 
 Every key can be changed in **Settings → Controls**. Menus work with the arrow keys and
 Enter, the D-pad and A/B, or touch.
@@ -129,8 +130,15 @@ npm test           # playtests only; screenshots in artifacts/screenshots/
 npm run build      # dist/ website + dist/Shine.html (single-file offline game)
 ```
 
-- **Tune the game** in [`src/config.js`](src/config.js): speeds, heat rates, rewards, police
-  and camera. Every number is commented.
+- **Tune the game** in [`src/config.js`](src/config.js): speeds, heat rates, rewards, police,
+  camera and the night look (`look`: exposure, fog, moonlight, window glow). Every number
+  is commented.
+- **Tune the game feel** in [`src/juice.js`](src/juice.js) (`JUICE`: camera spring, FOV kick,
+  shake, body roll, skid marks, smoke...). With `?debug` every value has a live slider;
+  press `J` in-game to switch all of it off and compare.
+- **Art-direction screenshots:** `npm run shots -- mylabel` (chase, street and truck views
+  plus render cost) and `npm run reel -- mylabel` (a launch / brake / drift / crash contact
+  sheet with the effect values), in `artifacts/shots/`.
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic missions),
   `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in

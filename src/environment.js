@@ -1,9 +1,12 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 
 // Day/night cycle and weather. One in-game day passes in ~16 real minutes, starting at
 // 9:30 PM. Night is darker but safer (fewer witnesses); rain makes the cobbles slick;
-// fog shortens how far the law can see.
-const NIGHT = new THREE.Color(0x141c30), DUSK = new THREE.Color(0x4a3448), DAY = new THREE.Color(0x8fb0d6);
+// fog shortens how far the law can see. The night palette lives in CONFIG.look.
+const L = CONFIG.look;
+const NIGHT = new THREE.Color(L.sky), DUSK = new THREE.Color(0x4a3448), DAY = new THREE.Color(0x8fb0d6);
+const HEMI_DAY = new THREE.Color(0xc4d8ff), SUN = new THREE.Color(0xfff0d8), FOG_GREY = new THREE.Color(0x3a4450);
 const WEATHERS = [['clear', 0.5], ['rain', 0.3], ['fog', 0.2]];
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -86,26 +89,25 @@ export class Environment {
     const w = this.world, s = w.scene, d = this.daylight;
     const dusk = Math.max(0, 1 - Math.abs(d - 0.35) / 0.35) * 0.6;
     this._col.copy(NIGHT).lerp(DAY, d).lerp(DUSK, dusk);
-    if (this.fog > 0.01) this._col.lerp(new THREE.Color(0x5a6270), this.fog * 0.6 * (0.4 + d));
+    if (this.fog > 0.01) this._col.lerp(FOG_GREY, this.fog * 0.7 * (0.3 + d));
     s.background.copy(this._col);
     s.fog.color.copy(this._col);
-    s.fog.near = THREE.MathUtils.lerp(70 + 60 * d, 20, this.fog);
-    s.fog.far = THREE.MathUtils.lerp(430 + 250 * d, 170, this.fog);
+    s.fog.density = THREE.MathUtils.lerp(THREE.MathUtils.lerp(L.fogDensity, L.dayFogDensity, d), L.fogWeatherDensity, this.fog);
 
-    w.hemi.intensity = 2.4 + 1.4 * d;
-    w.hemi.color.setHex(0x8196d0).lerp(new THREE.Color(0xc4d8ff), d);
-    w.moon.intensity = 1.5 + 2.2 * d;
-    w.moon.color.setHex(0xc2d0ff).lerp(new THREE.Color(0xfff0d8), d);
+    w.hemi.intensity = L.ambient + 2.6 * d;
+    w.hemi.color.setHex(L.ambientSky).lerp(HEMI_DAY, d);
+    w.moon.intensity = L.moonIntensity + 2.4 * d;
+    w.moon.color.setHex(L.moon).lerp(SUN, d);
     const sunAngle = ((this.hour - 6) / 12) * Math.PI;   // sun by day, moon by night
-    w.moon.position.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90);
+    w.lightDir.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90).normalize();
 
     const night = 1 - d;
-    w.poolMaterial.opacity = 0.55 * night;
+    w.poolMaterial.opacity = 0.6 * night;
     w.bulbMaterial.color.copy(w.lampColor).multiplyScalar(0.25 + 0.75 * night);
     w.halos.visible = w.detailHalos !== false && d < 0.5;
-    w.uniforms.uWindowGlow.value = 1.1 * night + 0.04;
+    w.uniforms.uWindowGlow.value = L.windowGlow * night + 0.03;
     if (w.signMaterial) w.signMaterial.color.setScalar(0.5 + 0.5 * night);
-    w.uniforms.uWindowLitRatio.value = 0.12 + 0.33 * night;
+    w.uniforms.uWindowLitRatio.value = 0.1 + (L.windowsLit - 0.1) * night;
 
     // Wet cobbles and puddled dirt catch the light.
     w.roadMaterial.roughness = 0.92 - 0.55 * this.wet;

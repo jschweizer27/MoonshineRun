@@ -54,7 +54,7 @@ export function snapshot(page) {
 
 export async function screenshot(page, name) {
   fs.mkdirSync(SHOTS, { recursive: true });
-  await page.evaluate(() => window.shine && window.shine.game.renderer.render(window.shine.game.scene, window.shine.game.camera));
+  await page.evaluate(() => window.shine && window.shine.game.renderFrame());
   await page.screenshot({ path: `${SHOTS}/${name}.png`, timeout: 120_000 });
 }
 
@@ -62,7 +62,7 @@ export async function screenshot(page, name) {
 export function luminance(page) {
   return page.evaluate(() => {
     const g = window.shine.game;
-    g.renderer.render(g.scene, g.camera);
+    g.renderFrame();
     const off = document.createElement('canvas');
     off.width = 160; off.height = 90;
     const x = off.getContext('2d');

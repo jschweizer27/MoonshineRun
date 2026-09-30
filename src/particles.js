@@ -19,12 +19,13 @@ const VERT = `
   }`;
 const FRAG = `
   uniform sampler2D map;
+  uniform float uLight;
   varying float vAlpha;
   varying vec3 vColor;
   void main() {
     vec4 t = texture2D(map, gl_PointCoord);
     if (t.a * vAlpha < 0.01) discard;
-    gl_FragColor = vec4(vColor * t.rgb, t.a * vAlpha);
+    gl_FragColor = vec4(vColor * t.rgb * uLight, t.a * vAlpha);
   }`;
 
 class Pool {
@@ -49,7 +50,7 @@ class Pool {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
-      uniforms: { map: { value: radialTexture([[0, 'rgba(255,255,255,1)'], [0.5, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']], 64) }, uScale: { value: 400 } },
+      uniforms: { map: { value: radialTexture([[0, 'rgba(255,255,255,1)'], [0.5, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']], 64) }, uScale: { value: 400 }, uLight: { value: 1 } },
     });
     this.points = new THREE.Points(g, this.material);
     this.points.frustumCulled = false;
@@ -100,27 +101,35 @@ export class Particles {
 
   setScale(px) { this.smoke.material.uniforms.uScale.value = px; this.glow.material.uniforms.uScale.value = px; }
 
+  // Smoke and dust aren't lit by the scene, so they're dimmed to match it (sparks glow).
+  setLight(level) { this.smoke.material.uniforms.uLight.value = level; }
+
+  // Whole particles to emit this frame for a steady `perSecond` rate (per emitter `key`).
   _rate(key, perSecond, dt) {
-    this._acc[key] += perSecond * dt * this.detail;
+    this._acc[key] = (this._acc[key] || 0) + perSecond * dt * this.detail;
     const n = Math.floor(this._acc[key]);
     this._acc[key] -= n;
     return n;
   }
 
-  // Exhaust from the tailpipe (more under throttle) and dust off the wheels on dirt/grass.
-  vehicle(dt, v, { throttle = 0, dusty = false }) {
+  // Exhaust from the tailpipe (bigger, darker puffs under throttle) and dust off the wheels
+  // on dirt/grass (more when sliding). `exhaust` and `dust` scale them (JUICE.wheels).
+  vehicle(dt, v, { throttle = 0, dusty = false, exhaust = 1, dust = 1 }) {
     if (!this.detail) return;
     const fx = v.forwardX, fz = v.forwardZ, p = v.position;
-    const speed = Math.abs(v.speed);
-    for (let k = this._rate('exhaust', 4 + 18 * Math.max(0, throttle), dt); k > 0; k--) {
-      this.smoke.emit(p.x - fx * 3.1 + fz * 0.7, 0.7, p.z - fz * 3.1 - fx * 0.7, -fx * 1.5 + (Math.random() - 0.5), 0.8 + Math.random() * 0.6, -fz * 1.5 + (Math.random() - 0.5),
-        { life: 1.4, size: 0.8, grow: 2.2, color: [0.55, 0.55, 0.55], alpha: 0.35 });
+    const speed = Math.abs(v.speed), thr = Math.max(0, throttle);
+    if (exhaust > 0) {
+      const shade = 0.55 - 0.25 * thr;
+      for (let k = this._rate('exhaust', (4 + 22 * thr) * exhaust, dt); k > 0; k--) {
+        this.smoke.emit(p.x - fx * 3.1 + fz * 0.7, 0.7, p.z - fz * 3.1 - fx * 0.7, -fx * 1.5 + (Math.random() - 0.5), 0.8 + Math.random() * 0.6, -fz * 1.5 + (Math.random() - 0.5),
+          { life: 1.4 + thr * 0.6, size: 0.8 + 0.7 * thr, grow: 2.2 + 1.5 * thr, color: [shade, shade, shade], alpha: 0.3 + 0.2 * thr });
+      }
     }
-    if (dusty && speed > 5) {
-      for (let k = this._rate('dust', speed * 1.6 + v.slip * 3, dt); k > 0; k--) {
+    if (dusty && speed > 5 && dust > 0) {
+      for (let k = this._rate('dust', (speed * 1.6 + v.slip * 6) * dust, dt); k > 0; k--) {
         const side = Math.random() < 0.5 ? -1 : 1;
-        this.smoke.emit(p.x - fx * 2 + fz * side * 1.1, 0.4, p.z - fz * 2 - fx * side * 1.1, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2,
-          { life: 1.8, size: 1.5, grow: 3.5, color: [0.55, 0.45, 0.33], alpha: 0.4 });
+        this.smoke.emit(p.x - fx * 2 + fz * side * 1.1, 0.4, p.z - fz * 2 - fx * side * 1.1, (Math.random() - 0.5) * 2 + v.vx * 0.2, 1 + Math.random(), (Math.random() - 0.5) * 2 + v.vz * 0.2,
+          { life: 1.8 + v.slip * 0.1, size: 1.5 + v.slip * 0.1, grow: 3.5, color: [0.55, 0.45, 0.33], alpha: 0.4 });
       }
     }
   }

@@ -1,3 +1,5 @@
+import { JUICE } from './juice.js';
+
 // Developer + test hooks, enabled with ?debug (overlay) or ?test (no overlay).
 // window.shine exposes a small API the automated playtests use to drive the game
 // deterministically (fixed 60 Hz steps instead of waiting on real frames).
@@ -44,6 +46,7 @@ export function installDebug(game, { overlay }) {
   window.shine = api;
 
   if (overlay) {
+    juicePanel();
     const el = document.createElement('pre');
     el.id = 'debug-overlay';
     el.style.cssText = 'position:fixed;left:8px;bottom:70px;z-index:30;margin:0;padding:6px 8px;font:11px/1.35 ui-monospace,Menlo,monospace;color:#cfe;background:rgba(0,0,0,.6);pointer-events:none;white-space:pre';
@@ -70,4 +73,38 @@ export function installDebug(game, { overlay }) {
     requestAnimationFrame(tick);
   }
   return api;
+}
+
+// ?debug: a slider for every value in JUICE (src/juice.js), live. "Copy values" puts the
+// tuned numbers on the clipboard to paste back into juice.js.
+function juicePanel() {
+  const box = document.createElement('details');
+  box.id = 'juice-panel';
+  box.style.cssText = 'position:fixed;right:8px;top:120px;z-index:30;max-height:70vh;overflow:auto;padding:6px 8px;font:11px ui-monospace,Menlo,monospace;color:#cfe;background:rgba(0,0,0,.75);border-radius:4px';
+  box.innerHTML = '<summary style="cursor:pointer">JUICE sliders (J = all on/off)</summary>';
+  for (const [group, values] of Object.entries(JUICE)) {
+    if (typeof values !== 'object') continue;
+    const head = document.createElement('div');
+    head.textContent = group;
+    head.style.cssText = 'margin-top:6px;color:#fc6';
+    box.append(head);
+    for (const [key, value] of Object.entries(values)) {
+      const row = document.createElement('label');
+      row.style.cssText = 'display:grid;grid-template-columns:118px 110px 44px;gap:4px;align-items:center';
+      const input = document.createElement('input');
+      Object.assign(input, { type: 'range', min: '0', max: String(Math.max(1, value * 3)), step: String(value >= 5 ? 0.5 : 0.005), value: String(value) });
+      const shown = document.createElement('span');
+      shown.textContent = String(value);
+      input.addEventListener('input', () => { values[key] = Number(input.value); shown.textContent = input.value; });
+      input.addEventListener('keydown', (e) => e.stopPropagation());   // arrows move the slider, not the truck
+      row.append(key, input, shown);
+      box.append(row);
+    }
+  }
+  const copy = document.createElement('button');
+  copy.textContent = 'Copy values';
+  copy.style.cssText = 'margin-top:8px;font:inherit';
+  copy.addEventListener('click', () => navigator.clipboard?.writeText(JSON.stringify(JUICE, null, 2)).then(() => { copy.textContent = 'Copied'; }, () => {}));
+  box.append(copy);
+  document.body.append(box);
 }

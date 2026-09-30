@@ -19,6 +19,7 @@ CONTROLS (keyboard / controller)
   Tab or N             map                 View / Back
   Esc or P             pause menu          Start
   M / F                mute / fullscreen
+  J                    game-feel effects on/off (to compare)
 
   Keys can be changed in Settings. Touch screens get on-screen pedals.
 

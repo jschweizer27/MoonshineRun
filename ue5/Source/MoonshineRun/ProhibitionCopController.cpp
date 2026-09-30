@@ -140,7 +140,12 @@ void AProhibitionCopController::UpdatePursuit(float DeltaSeconds)
 	}
 	else if (IsChasing())
 	{
-		TimeOutOfSight += DeltaSeconds;
+		// The give-up clock only runs once they've actually seen him; before that they
+		// follow dispatch's radio reports.
+		if (Ctx.bContact)
+		{
+			TimeOutOfSight += DeltaSeconds;
+		}
 		// Reached the last sighting and he's gone: start combing the streets around it.
 		if (Mode == EPursuerMode::Chase && Ctx.bContact && FVector::Dist2D(Cop->GetActorLocation(), LastKnownLocation) < ArriveRadius)
 		{

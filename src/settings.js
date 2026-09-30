@@ -16,6 +16,7 @@ export const ACTIONS = [
   ['pause', 'Pause'],
   ['mute', 'Mute'],
   ['fullscreen', 'Fullscreen'],
+  ['juice', 'Effects on/off (compare)'],
 ];
 
 export const DEFAULT_BINDINGS = {
@@ -31,6 +32,7 @@ export const DEFAULT_BINDINGS = {
   pause: ['Escape', 'KeyP'],
   mute: ['KeyM'],
   fullscreen: ['KeyF'],
+  juice: ['KeyJ'],
 };
 
 const prefersReducedMotion = () => {

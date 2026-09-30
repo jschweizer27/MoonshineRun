@@ -72,9 +72,25 @@ export const CONFIG = {
   camera: {
     distance: 15,         // far enough back to see the horse trailer
     height: 7.2,          // high enough to see the road over it
-    follow: 6,            // higher = snappier chase camera
-    fov: 62,
-    fovKick: 10,          // extra field of view at top speed (off with Reduce motion)
+    fov: 62,              // chase feel (lag, pull-back, FOV kick, shake) is in src/juice.js
+  },
+
+  // The night look: moody noir, warm amber lamps against deep teal shadows. Colors are hex,
+  // intensities in three.js physical units. Day values blend in with the daylight cycle.
+  look: {
+    exposure: 1.1,                   // ACES filmic tone mapping exposure
+    sky: 0x0a1320,                   // night sky and fog: blue-black
+    fogDensity: 0.0068,              // exponential fog: ~35% at 100 m, ~80% at 200 m
+    dayFogDensity: 0.0022,
+    fogWeatherDensity: 0.016,        // in fog weather
+    ambientSky: 0x3f7890,            // hemisphere fill: teal from above...
+    ambientGround: 0x1a120c,         // ...warm dark from below
+    ambient: 1.7,
+    moon: 0x9db6ff,                  // cool moonlight, the shadow-casting key light
+    moonIntensity: 1.9, 
+    windowGlow: 0.62,                // lit windows (warm amber)
+    windowsLit: 0.3,                 // share of windows lit at night
+    shadowRange: 70,                 // metres of shadow around the view (high: 2048 map)
   },
 };
 

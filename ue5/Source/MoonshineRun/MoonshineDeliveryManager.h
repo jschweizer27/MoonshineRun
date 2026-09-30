@@ -216,7 +216,7 @@ private:
 	FShinePoliceReport UpdatePolice(const FVector& PlayerLocation);
 	void UpdateHeat(float DeltaSeconds, const FShinePoliceReport& Police);
 	void UpdateBust(float DeltaSeconds, const FShinePoliceReport& Police, const AMoonshineVehicle* Truck);
-	void SetPursuers(int32 Count, const FVector& PlayerLocation);
+	void SetPursuers(int32 Count, const FVector& PlayerLocation, bool bRecruit);
 	void MaintainPatrols(float DeltaSeconds, const FVector& PlayerLocation);
 	void UpdateRoadblocks(float DeltaSeconds, const AMoonshineVehicle* Truck);
 

@@ -20,6 +20,7 @@ import { BEATS, nextBeat } from './story.js';
 import { showOrders, showGarage, showLedger, playDialog, money } from './screens.js';
 import { Fire } from './effects.js';
 import { Particles } from './particles.js';
+import { JUICE, juice, VehicleFeel } from './juice.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 
@@ -60,8 +61,11 @@ class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     mark('webgl');
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = CONFIG.look.exposure;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 1400);
@@ -74,6 +78,7 @@ class Game {
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
+    this.world.enableShadows();   // the vehicles too
     // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
     const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
     this.rng = createRng(missionSeed);
@@ -82,6 +87,7 @@ class Game {
     this.chase = new ChaseCamera(this.camera, this.world.collision);
     this.fire = new Fire(this.scene, this.world.fxLight);
     this.particles = new Particles(this.scene);
+    this.feel = new VehicleFeel(this.scene, this.player, this.particles, this.headlight);
     this.warehouse = this.world.buildings
       .filter((b) => !b.barn && b.minX > 150 && b.maxX < 226 && b.minZ > 50 && b.maxZ < 90)
       .sort((a, b) => b.h - a.h)[0] || this.world.buildings[0];
@@ -122,13 +128,21 @@ class Game {
   }
 
   _addHeadlight() {
-    // The only moving real light; it always exists so the light count never changes.
+    // The only moving real light; it always exists so the light count never changes. It
+    // rides on the sprung body, so the beam dips when the nose dives under braking.
     const lamp = new THREE.SpotLight(0xfff0cc, 90, 75, Math.PI / 5.5, 0.55, 1.2);
     lamp.position.set(0, 1.6, -2.6);
     const target = new THREE.Object3D();
     target.position.set(0, 0, -22);
-    this.player.mesh.add(lamp, target);
+    this.player.model.body.add(lamp, target);
     lamp.target = target;
+    this.headlight = lamp;
+  }
+
+  // J: all the game-feel effects on or off, to compare.
+  toggleJuice() {
+    JUICE.enabled = !JUICE.enabled;
+    this.hud.toast(JUICE.enabled ? 'Juice ON' : 'Juice OFF — press J to turn it back on', '', 1600);
   }
 
   // ---------- Settings ----------
@@ -165,6 +179,7 @@ class Game {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
     this.world.setDetail(q);
+    this.world.setShadows({ low: 0, medium: 1024, high: 2048 }[q] ?? 2048);
     this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
     this.particles.detail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
@@ -334,6 +349,7 @@ class Game {
     this.mission.reset(this.player.position, mode);
     this.fire.out();
     this.particles.clear();
+    this.feel.reset();
     this.chase.snap(this.player);
     this._applyPerks();
     this.hud.setCash(this.career.cash);
@@ -501,6 +517,7 @@ class Game {
     if (a === 'pause') this.pause();
     else if (a === 'map') this.openMap();
     else if (a === 'horn') this.audio.horn();
+    else if (a === 'juice') this.toggleJuice();
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
     else if (a === 'mute') this.toggleMute();
     else if (a === 'fullscreen') this.toggleFullscreen();
@@ -563,11 +580,13 @@ class Game {
       this.hud.flash();
       this.audio.crash(Math.min(1, status.touching / 15));
       this.chase.shake(Math.min(0.8, status.touching / 18));
+      this.feel.hit(status.touching / 15);
       this.particles.sparks(p.x, p.z, status.touching / 15);
     } else if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
       this._lastRam = this.time;
       this.audio.crash(Math.min(0.6, this.player.impact / 25));
       this.chase.shake(Math.min(0.5, this.player.impact / 30));
+      this.feel.hit(this.player.impact / 20);
       this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
     }
 
@@ -578,9 +597,15 @@ class Game {
       this.particles.fire(dt, (b.minX + b.maxX) / 2, b.h + 1, (b.minZ + b.maxZ) / 2, b.maxX - b.minX);
       if (m.mode !== 'escape' && p.distanceTo(this.fire.light.position) > 260) this.fire.out();
     }
-    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: this.world.inCounty(p) });
+    const county = this.world.inCounty(p);
+    this.feel.update(dt, {
+      brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: this.env.wet,
+      ground: county ? (this.surface < 1 ? 'grass' : 'dirt') : 'cobble',
+    });
+    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust') });
+    this.particles.setLight(0.5 + 0.5 * this.env.daylight);
     this.particles.update(dt);
-    this.chase.update(dt, this.player, !!input.lookBack);
+    this.chase.update(dt, this.player, !!input.lookBack, this.feel.accel01);
     this.waypoint.update(this.player, m.target, this.time);
     this._updateHud(status, disguised, safeZone);
     this._updateAudio(status);
@@ -719,20 +744,26 @@ class Game {
     return units;
   }
 
+  // Draw one frame of the 3D view.
+  renderFrame() {
+    this.world.updateShadow(this.camera);
+    this.renderer.render(this.scene, this.camera);
+  }
+
   _loop() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.input.poll();
     if (this.state === STATE.PLAYING) {
       this.step(dt, this.input.read());
       this.minimap.draw(this.player, this._mapMarkers(), this._mapPolice(), this.time);
-      this.renderer.render(this.scene, this.camera);
+      this.renderFrame();
     } else if (this.state === STATE.INTRO) {
       // Title: a slow flyover of the city, drawn every other frame once the quality check
       // is done so the menu stays light.
       this.chase.flyover(dt);
       this._probeQuality(dt);
       this._titleFrame = !this._titleFrame;
-      if (!this._probe.done || this._titleFrame) this.renderer.render(this.scene, this.camera);
+      if (!this._probe.done || this._titleFrame) this.renderFrame();
     } else if (this.ui.isOpen('map')) {
       this.time += dt;
       this._drawBigMap();
@@ -747,7 +778,7 @@ class Game {
     const h = this.renderer.domElement.height;
     this.particles.setScale(h / (2 * Math.tan((CONFIG.camera.fov * Math.PI) / 360)));
     // Resizing clears the canvas; redraw so a paused game doesn't go black.
-    if (render) this.renderer.render(this.scene, this.camera);
+    if (render) this.renderFrame();
   }
 }
 

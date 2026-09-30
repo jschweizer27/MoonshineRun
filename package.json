@@ -14,7 +14,9 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "vendor": "node scripts/vendor-three.mjs",
-    "verify": "npm run check && npm run lint && npm run build && npm test"
+    "verify": "npm run check && npm run lint && npm run build && npm test",
+    "shots": "node scripts/shoot.mjs",
+    "reel": "node scripts/reel.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
