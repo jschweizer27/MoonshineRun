@@ -20,6 +20,10 @@ function part(geo, color, x, y, z, rx = 0, ry = 0, rz = 0) {
 }
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (r, h, seg = 14) => new THREE.CylinderGeometry(r, r, h, seg);
+// Half a cylinder lying across the car (axis along X), arched on top: a wheel fender.
+const fender = (r, width) => new THREE.CylinderGeometry(r, r, width, 12, 1, false, 0, Math.PI).rotateZ(Math.PI / 2);
+// Half a cylinder along the car (axis along Z), arched on top: a curved roof.
+const arch = (r, len) => new THREE.CylinderGeometry(r, r, len, 12, 1, false, -Math.PI / 2, Math.PI).rotateX(-Math.PI / 2);
 
 // Merge parts into a single geometry with per-vertex colours.
 export function mergeParts(parts) {
@@ -49,109 +53,202 @@ export function mergeParts(parts) {
   return out;
 }
 
-const WHEEL_RADIUS = 0.55;
-
-function buildWheel(tire = 0x161616, spoke = 0xb08850) {
-  const parts = [part(cyl(WHEEL_RADIUS, 0.34, 16), tire, 0, 0, 0, 0, 0, Math.PI / 2)];
+function buildWheel(r, tire = 0x161616, spoke = 0xb08850) {
+  const parts = [part(cyl(r, 0.28, 16), tire, 0, 0, 0, 0, 0, Math.PI / 2)];
   // Wooden artillery spokes so you can see the wheels turn.
-  for (let k = 0; k < 3; k++) parts.push(part(box(0.36, 0.1, WHEEL_RADIUS * 1.7), spoke, 0, 0, 0, (k * Math.PI) / 3, 0, 0));
-  parts.push(part(cyl(0.14, 0.4, 10), 0x8a8a8a, 0, 0, 0, 0, 0, Math.PI / 2));
+  for (let k = 0; k < 3; k++) parts.push(part(box(0.3, 0.09, r * 1.7), spoke, 0, 0, 0, (k * Math.PI) / 3, 0, 0));
+  parts.push(part(cyl(r * 0.25, 0.34, 10), 0x8a8a8a, 0, 0, 0, 0, 0, Math.PI / 2));
   return mergeParts(parts);
 }
 
-const STYLES = {
-  // Otto's truck with its retrofitted steeplechase horse box.
-  player: { body: 0x9c5a32, cab: 0x2f4a3a, trim: 0xd9c9a0, box: 0x7a5234, boxTrim: 0xc9a46a, siren: false },
-  // Prohibition Bureau sedan.
-  fed: { body: 0x1b1c20, cab: 0x1b1c20, trim: 0xe8e4da, box: null, siren: true },
-  // Temperance Alliance pickup.
-  zealot: { body: 0x6a1f1c, cab: 0x4a1714, trim: 0xd8cfb8, box: null, siren: false, torches: true },
-};
+const BRASS = 0xc9a24a, BLACK = 0x121212, GLASS = 0x1a222c, WOOD = 0x7a5234, PLANK = 0xc9a46a;
 
+function headlamps(z, y, x = 0.62) {
+  return [
+    part(cyl(0.2, 0.14, 12), 0xfff2c8, -x, y, z, Math.PI / 2, 0, 0),
+    part(cyl(0.2, 0.14, 12), 0xfff2c8, x, y, z, Math.PI / 2, 0, 0),
+  ];
+}
+function lampHousings(z, y, x = 0.62) {
+  return [
+    part(cyl(0.24, 0.3, 12), BLACK, -x, y, z + 0.14, Math.PI / 2, 0, 0),
+    part(cyl(0.24, 0.3, 12), BLACK, x, y, z + 0.14, Math.PI / 2, 0, 0),
+    part(box(0.06, 0.4, 0.06), BLACK, -x, y - 0.3, z + 0.2),
+    part(box(0.06, 0.4, 0.06), BLACK, x, y - 0.3, z + 0.2),
+  ];
+}
+function frontEnd(body, trim, hoodLen = 1.6, z = -1.8) {
+  return [
+    part(box(1.15, 0.85, hoodLen), body, 0, 1.3, z),                           // hood
+    part(box(1.3, 1.05, 0.16), trim, 0, 1.33, z - hoodLen / 2 - 0.06),          // radiator shell
+    part(box(1.05, 0.8, 0.05), 0x2a2a2a, 0, 1.3, z - hoodLen / 2 - 0.15),      // grille
+    part(box(0.1, 0.22, 0.1), trim, 0, 1.86, z - hoodLen / 2 - 0.05),          // radiator cap
+  ];
+}
+function fendersAndBoards(body, zf, zr, r) {
+  return [
+    part(fender(r + 0.12, 0.42), body, -0.95, r, zf), part(fender(r + 0.12, 0.42), body, 0.95, r, zf),
+    part(fender(r + 0.12, 0.42), body, -0.95, r, zr), part(fender(r + 0.12, 0.42), body, 0.95, r, zr),
+    part(box(0.36, 0.06, zr - zf - 1.1), 0x2a2a2a, -0.97, 0.58, (zf + zr) / 2),  // running boards
+    part(box(0.36, 0.06, zr - zf - 1.1), 0x2a2a2a, 0.97, 0.58, (zf + zr) / 2),
+  ];
+}
+
+let bannerTex = null;
+function temperanceBanner() {
+  if (!bannerTex) {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 64;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#e8e0cc'; g.fillRect(0, 0, 256, 64);
+    g.strokeStyle = '#7a1f1c'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 58);
+    g.fillStyle = '#7a1f1c'; g.font = 'bold 34px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('TEMPERANCE', 128, 34);
+    bannerTex = new THREE.CanvasTexture(cv);
+    bannerTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  return bannerTex;
+}
+const bannerMat = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide });
+
+// Returns { group, wheels, frontPivots, sirens, torches, wheelRadius, trailer? }
 export function buildVehicle(style = 'player') {
-  const s = STYLES[style];
   const group = new THREE.Group();
-  const parts = [
-    part(box(2.1, 0.35, 5.8), 0x151515, 0, 0.72, 0),                      // chassis
-    part(box(1.5, 0.95, 1.9), s.body, 0, 1.28, -1.95),                   // hood
-    part(box(1.35, 0.85, 0.12), s.trim, 0, 1.28, -2.94),                 // radiator grille
-    part(box(0.12, 0.3, 0.9), s.trim, 0, 1.9, -2.9),                     // radiator cap / mascot
-    part(box(2.3, 0.1, 1.9), s.body, 0, 0.93, -1.95),                    // front fender line
-    part(box(0.35, 0.08, 2.6), 0x2a2a2a, -1.15, 0.64, -0.3),             // running boards
-    part(box(0.35, 0.08, 2.6), 0x2a2a2a, 1.15, 0.64, -0.3),
-    part(box(2.1, 1.3, 1.6), s.cab, 0, 1.75, -0.35),                     // cab
-    part(box(2.3, 0.12, 1.85), s.cab, 0, 2.46, -0.35),                   // roof
-    part(box(1.85, 0.62, 0.06), 0x1c2430, 0, 2.02, -1.17),               // windshield
-    part(box(0.06, 0.5, 1.0), 0x1c2430, -1.06, 2.02, -0.35),             // side windows
-    part(box(0.06, 0.5, 1.0), 0x1c2430, 1.06, 2.02, -0.35),
-    part(box(1.6, 0.12, 0.1), s.trim, 0, 0.78, -3.0),                    // bumper
-    part(box(1.6, 0.12, 0.1), s.trim, 0, 0.78, 2.95),
-  ];
-  if (s.box) {
-    // Horse box: planked sides, curved-roof hint and a little window for the horse.
-    parts.push(part(box(2.3, 2.05, 3.2), s.box, 0, 2.0, 1.35));
-    parts.push(part(box(2.4, 0.14, 3.3), s.boxTrim, 0, 3.08, 1.35));
-    parts.push(part(box(1.9, 0.2, 3.0), s.box, 0, 3.22, 1.35));
-    for (let k = 0; k < 4; k++) {
-      parts.push(part(box(2.34, 0.05, 3.22), s.boxTrim, 0, 1.3 + k * 0.45, 1.35));
-    }
-    parts.push(part(box(2.34, 0.45, 0.8), 0x14161a, 0, 2.6, 0.6));
-  } else {
-    // Sedan / pickup rear.
-    parts.push(part(box(2.1, 1.0, 2.3), s.body, 0, 1.4, 1.6));
-    if (style === 'fed') parts.push(part(box(2.12, 1.25, 2.3), s.cab, 0, 1.75, 1.3));
-    parts.push(part(box(0.9, 0.1, 5.0), s.trim, 0, 1.92, 0.1));
-  }
-  if (s.torches) {
-    for (const x of [-0.8, 0.8]) parts.push(part(cyl(0.05, 1.6, 6), 0x3a2a1a, x, 2.4, 2.5));
-  }
-  const body = new THREE.Mesh(mergeParts(parts), MATERIALS.body);
-  group.add(body);
-
-  // Headlamps and tail lamps (emissive, no real lights).
-  const lamps = [
-    part(cyl(0.2, 0.15, 12), 0xfff2c8, -0.8, 1.45, -2.95, Math.PI / 2, 0, 0),
-    part(cyl(0.2, 0.15, 12), 0xfff2c8, 0.8, 1.45, -2.95, Math.PI / 2, 0, 0),
-    part(box(0.3, 0.2, 0.08), 0xff2a1a, -0.85, 1.05, 3.0),
-    part(box(0.3, 0.2, 0.08), 0xff2a1a, 0.85, 1.05, 3.0),
-  ];
-  group.add(new THREE.Mesh(mergeParts(lamps), MATERIALS.glow));
-
-  // Siren lamps flash red/blue (per-car material, same shader program).
+  const parts = [];
+  const lamps = [];
   const sirens = [];
-  if (s.siren) {
-    for (const [x, c] of [[-0.45, 0xff2020], [0.45, 0x2060ff]]) {
+  const torches = [];
+  let wheelSpots, r;
+
+  if (style === 'player') {
+    // Model TT-style truck: green hood and cab, short flatbed, towing the horse box.
+    const body = 0x2f4a3a, cab = 0x2a3f33;
+    r = 0.5;
+    parts.push(
+      part(box(1.8, 0.28, 4.9), BLACK, 0, 0.72, 0),                             // chassis
+      ...frontEnd(body, BRASS, 1.6, -1.75),
+      ...fendersAndBoards(body, -1.75, 1.55, r),
+      part(box(1.7, 1.25, 1.25), cab, 0, 1.78, -0.35),                           // cab
+      part(box(1.86, 0.1, 1.55), cab, 0, 2.46, -0.3),                            // roof
+      part(box(1.55, 0.55, 0.05), GLASS, 0, 2.05, -0.99),                        // windshield
+      part(box(0.05, 0.45, 0.7), GLASS, -0.86, 2.02, -0.35), part(box(0.05, 0.45, 0.7), GLASS, 0.86, 2.02, -0.35),
+      part(box(1.8, 0.35, 1.5), WOOD, 0, 1.05, 1.35),                            // flatbed
+      part(box(1.84, 0.08, 1.5), PLANK, 0, 1.24, 1.35),
+      part(box(1.4, 0.1, 0.1), BRASS, 0, 0.78, -2.72),                           // bumper
+      part(cyl(0.08, 0.5, 8), 0x333333, 0, 0.72, 2.4, Math.PI / 2, 0, 0),         // hitch bar
+      ...lampHousings(-2.2, 1.6),
+    );
+    lamps.push(...headlamps(-2.2, 1.6), part(box(0.22, 0.16, 0.06), 0xff2a1a, -0.8, 1.0, 2.12), part(box(0.22, 0.16, 0.06), 0xff2a1a, 0.8, 1.0, 2.12));
+    wheelSpots = [[-0.95, -1.75, true], [0.95, -1.75, true], [-0.95, 1.55], [0.95, 1.55]];
+  } else if (style === 'fed') {
+    // Prohibition Bureau sedan: tall Tudor body, black with white door panels.
+    const body = 0x18191c;
+    r = 0.48;
+    parts.push(
+      part(box(1.75, 0.28, 4.6), BLACK, 0, 0.7, 0),
+      ...frontEnd(body, 0x8a8a8a, 1.3, -1.75),
+      ...fendersAndBoards(body, -1.75, 1.45, r),
+      part(box(1.72, 1.35, 2.5), body, 0, 1.75, 0.35),                           // cabin
+      part(box(1.86, 0.1, 2.7), body, 0, 2.47, 0.35),                            // roof
+      part(box(1.5, 0.55, 0.05), GLASS, 0, 2.0, -0.92),
+      part(box(0.05, 0.5, 1.9), GLASS, -0.87, 2.0, 0.35), part(box(0.05, 0.5, 1.9), GLASS, 0.87, 2.0, 0.35),
+      part(box(0.04, 0.5, 1.1), 0xe8e4da, -0.87, 1.4, 0.2), part(box(0.04, 0.5, 1.1), 0xe8e4da, 0.87, 1.4, 0.2),  // doors
+      part(cyl(0.46, 0.2, 14), 0x161616, 0, 1.45, 1.72, Math.PI / 2, 0, 0),       // spare tyre
+      part(box(1.3, 0.1, 0.1), 0x8a8a8a, 0, 0.76, -2.55),
+      ...lampHousings(-2.15, 1.55, 0.6),
+    );
+    lamps.push(...headlamps(-2.15, 1.55, 0.6), part(box(0.2, 0.15, 0.06), 0xff2a1a, -0.7, 1.0, 1.66), part(box(0.2, 0.15, 0.06), 0xff2a1a, 0.7, 1.0, 1.66));
+    for (const [x, c] of [[-0.35, 0xff2020], [0.35, 0x2060ff]]) {
       const mat = new THREE.MeshBasicMaterial({ color: c });
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.4), mat);
-      lamp.position.set(x, 2.66, -0.35);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.36), mat);
+      lamp.position.set(x, 2.66, -0.4);
       lamp.userData.base = new THREE.Color(c);
       group.add(lamp);
       sirens.push(lamp);
     }
-  }
-  const torches = [];
-  if (s.torches) {
-    for (const x of [-0.8, 0.8]) {
-      const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
-      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 8), flameMat);
-      flame.position.set(x, 3.45, 2.5);
+    wheelSpots = [[-0.93, -1.75, true], [0.93, -1.75, true], [-0.93, 1.45], [0.93, 1.45]];
+  } else {
+    // Temperance Alliance roadster pickup: oxblood, soft top, torches in the bed.
+    const body = 0x5e1c19;
+    r = 0.48;
+    parts.push(
+      part(box(1.75, 0.28, 4.5), BLACK, 0, 0.7, 0),
+      ...frontEnd(body, 0x7a7a7a, 1.4, -1.7),
+      ...fendersAndBoards(body, -1.7, 1.45, r),
+      part(box(1.7, 0.9, 1.2), body, 0, 1.45, -0.35),                            // low cab
+      part(arch(0.85, 1.25), 0x2a2420, 0, 1.9, -0.35),                           // soft top
+      part(box(1.72, 0.55, 1.9), body, 0, 1.15, 1.25),                           // bed
+      part(box(1.3, 0.1, 0.1), 0x7a7a7a, 0, 0.76, -2.5),
+      part(cyl(0.05, 1.6, 6), 0x3a2a1a, -0.7, 2.2, 1.6), part(cyl(0.05, 1.6, 6), 0x3a2a1a, 0.7, 2.2, 1.6),     // torch poles
+      ...lampHousings(-2.05, 1.5, 0.58),
+    );
+    lamps.push(...headlamps(-2.05, 1.5, 0.58), part(box(0.2, 0.15, 0.06), 0xff2a1a, -0.7, 1.0, 2.2), part(box(0.2, 0.15, 0.06), 0xff2a1a, 0.7, 1.0, 2.2));
+    for (const x of [-0.7, 0.7]) {
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 8), new THREE.MeshBasicMaterial({ color: 0xff8a2a }));
+      flame.position.set(x, 3.25, 1.6);
       group.add(flame);
       torches.push(flame);
     }
+    bannerMat.map = temperanceBanner();
+    for (const x of [-0.88, 0.88]) {
+      const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42), bannerMat);
+      banner.position.set(x, 1.18, 1.25);
+      banner.rotation.y = Math.PI / 2;
+      group.add(banner);
+    }
+    wheelSpots = [[-0.93, -1.7, true], [0.93, -1.7, true], [-0.93, 1.45], [0.93, 1.45]];
   }
 
+  group.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body));
+  group.add(new THREE.Mesh(mergeParts(lamps), MATERIALS.glow));
+
   // Wheels: a pivot (steer) holding the wheel (spin).
-  const wheelGeo = buildWheel();
+  const wheelGeo = buildWheel(r);
   const wheels = [];
   const front = [];
-  for (const [x, z] of [[-1.05, -1.95], [1.05, -1.95], [-1.05, 1.95], [1.05, 1.95]]) {
+  for (const [x, z, isFront] of wheelSpots) {
     const pivot = new THREE.Group();
-    pivot.position.set(x, WHEEL_RADIUS, z);
+    pivot.position.set(x, r, z);
     const w = new THREE.Mesh(wheelGeo, MATERIALS.body);
     pivot.add(w);
     group.add(pivot);
     wheels.push(w);
-    if (z < 0) front.push(pivot);
+    if (isFront) front.push(pivot);
   }
-  return { group, wheels, frontPivots: front, sirens, torches, wheelRadius: WHEEL_RADIUS };
+  const out = { group, wheels, frontPivots: front, sirens, torches, wheelRadius: r };
+  if (style === 'player') out.trailer = buildHorseTrailer(wheelGeo, r);
+  return out;
+}
+
+// Otto's retrofitted steeplechase horse box: planked sides, curved roof, a ramp door, and
+// a thoroughbred looking out of the window (the best disguise in the county).
+function buildHorseTrailer(wheelGeo, r) {
+  const group = new THREE.Group();          // origin at the axle, facing -Z
+  const parts = [
+    part(box(0.12, 0.12, 2.4), 0x333333, 0, 0.72, -2.4),                         // A-frame drawbar
+    part(box(2.0, 0.22, 3.9), BLACK, 0, 0.78, -0.35),                            // floor
+    part(box(2.0, 1.9, 3.9), WOOD, 0, 1.84, -0.35),                              // box
+    part(arch(1.02, 4.0), 0xb49a6e, 0, 2.78, -0.35),                             // curved roof
+    part(fender(r + 0.12, 0.4), 0x2a2a2a, -1.02, r, 0), part(fender(r + 0.12, 0.4), 0x2a2a2a, 1.02, r, 0),
+    part(box(1.9, 1.7, 0.08), 0x8a603c, 0, 1.75, 1.64),                          // rear ramp door
+    part(box(1.92, 0.05, 0.1), PLANK, 0, 1.3, 1.68), part(box(1.92, 0.05, 0.1), PLANK, 0, 1.75, 1.68), part(box(1.92, 0.05, 0.1), PLANK, 0, 2.2, 1.68),
+    part(box(0.08, 1.7, 0.1), 0x2a2a2a, -0.9, 1.75, 1.69), part(box(0.08, 1.7, 0.1), 0x2a2a2a, 0.9, 1.75, 1.69),   // hinges
+    part(box(0.5, 0.26, 0.04), 0xe8dcb0, 0, 0.98, 1.7),                          // number plate
+    part(box(2.04, 0.5, 0.9), 0x14161a, 0, 2.3, -1.6),                           // window
+    part(box(0.36, 0.42, 0.62), 0x5a3a24, -0.95, 2.35, -1.75, 0, 0, -0.35),      // the horse, peeking out
+    part(box(0.02, 0.2, 0.16), 0xf2eee4, -1.14, 2.36, -1.95, 0, 0, -0.35),       // white blaze
+  ];
+  for (let k = 0; k < 4; k++) parts.push(part(box(2.04, 0.05, 3.94), PLANK, 0, 1.1 + k * 0.42, -0.35));
+  group.add(new THREE.Mesh(mergeParts(parts), MATERIALS.body));
+  group.add(new THREE.Mesh(mergeParts([
+    part(box(0.22, 0.16, 0.06), 0xff2a1a, -0.8, 1.0, 1.7), part(box(0.22, 0.16, 0.06), 0xff2a1a, 0.8, 1.0, 1.7),
+  ]), MATERIALS.glow));
+  const wheels = [];
+  for (const x of [-1.02, 1.02]) {
+    const w = new THREE.Mesh(wheelGeo, MATERIALS.body);
+    w.position.set(x, r, 0);
+    group.add(w);
+    wheels.push(w);
+  }
+  return { group, wheels, hitchLength: 3.6 };
 }

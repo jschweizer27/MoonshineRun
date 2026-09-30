@@ -19,6 +19,7 @@ import { Environment } from './environment.js';
 import { BEATS, nextBeat } from './story.js';
 import { showOrders, showGarage, showLedger, playDialog, money } from './screens.js';
 import { Fire } from './effects.js';
+import { Particles } from './particles.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 
@@ -43,13 +44,21 @@ const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev
 const HIDEOUT_SPAWN = { heading: Math.PI / 2 };   // facing east, back toward York Road
 const WAREHOUSE_SPAWN = { x: 176, z: 44, heading: -Math.PI / 2 };
 
+// How long each startup phase took (shown in the ?debug overlay; used to diagnose slow
+// devices and CI).
+export const BOOT = { t0: performance.now(), phases: {} };
+window.__shineBoot = BOOT.phases;
+const mark = (name) => { BOOT.phases[name] = Math.round(performance.now() - BOOT.t0); };
+
 class Game {
   constructor() {
     this.buildId = BUILD_ID;
     this.settings = loadSettings();
     this.career = new Career();
     this.canvas = $('game');
+    mark('start');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
+    mark('webgl');
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -60,6 +69,7 @@ class Game {
     // The world is built once; restarting only resets state (no rebuild, no leaks).
     this.citySeed = OPTIONS.seed ?? this.settings.citySeed ?? CONFIG.seed;
     this.world = new World(this.scene, { seed: this.citySeed });
+    mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this._addHeadlight();
@@ -71,6 +81,7 @@ class Game {
     this.waypoint = new Waypoint(this.scene);
     this.chase = new ChaseCamera(this.camera, this.world.collision);
     this.fire = new Fire(this.scene, this.world.fxLight);
+    this.particles = new Particles(this.scene);
     this.warehouse = this.world.buildings
       .filter((b) => !b.barn && b.minX > 150 && b.maxX < 226 && b.minZ > 50 && b.maxZ < 90)
       .sort((a, b) => b.h - a.h)[0] || this.world.buildings[0];
@@ -91,8 +102,10 @@ class Game {
 
     this.resetRun('loop');
     this.applySettings();
+    mark('setup');
     // Compile every shader now so nothing hitches when cops, roadblocks or fire appear.
     this.renderer.compile(this.scene, this.camera);
+    mark('shaders');
     this.world.setAnisotropy(Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
 
     this._bindUI();
@@ -100,6 +113,11 @@ class Game {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
     window.addEventListener('blur', () => { if (!OPTIONS.test) this.pause(); });
     document.addEventListener('fullscreenchange', () => this._onResize());
+    // Music on the title screen once the browser allows sound (after any click or key).
+    const wake = () => { this.audio.start(); if (this.state !== STATE.PLAYING) this.audio.setActive(false); };
+    window.addEventListener('pointerdown', wake, { once: true });
+    window.addEventListener('keydown', wake, { once: true });
+    this._onResize({ render: false });   // the first frame is drawn by the loop, not during loading
     this.renderer.setAnimationLoop(() => this._loop());
   }
 
@@ -119,6 +137,7 @@ class Game {
     this.audio.setVolumes({ master: s.masterVolume, music: s.musicVolume, sfx: s.sfxVolume, muted: s.muted });
     this.hud.setMuted(s.muted);
     this.chase.distanceScale = { near: 0.78, normal: 1, far: 1.3 }[s.cameraDistance] || 1;
+    this.chase.reducedMotion = !!s.reducedMotion;
     document.documentElement.classList.toggle('large-text', !!s.largeText);
     document.documentElement.classList.toggle('reduced-motion', !!s.reducedMotion);
     this.minimap.rotate = !!s.minimapRotate;
@@ -147,6 +166,7 @@ class Game {
     }
     this.world.setDetail(q);
     this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
+    this.particles.detail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
 
   // "Auto" graphics: time the title screen and pick a level that keeps it smooth.
@@ -313,6 +333,7 @@ class Game {
     this.police.reset();
     this.mission.reset(this.player.position, mode);
     this.fire.out();
+    this.particles.clear();
     this.chase.snap(this.player);
     this._applyPerks();
     this.hud.setCash(this.career.cash);
@@ -480,6 +501,7 @@ class Game {
     if (a === 'pause') this.pause();
     else if (a === 'map') this.openMap();
     else if (a === 'horn') this.audio.horn();
+    else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
     else if (a === 'mute') this.toggleMute();
     else if (a === 'fullscreen') this.toggleFullscreen();
   }
@@ -534,24 +556,34 @@ class Game {
     this.bustMeter = Math.max(0, Math.min(1, this.bustMeter + (pinned ? dt / this.bustTime : -dt * P.bustRecover)));
     this.hud.setBust(this.bustMeter);
 
-    // Collisions: a thud and a red flash when rammed.
+    // Collisions: a thud, sparks, a shake and a red flash when rammed.
+    const p = this.player.position;
     if (status.touching > 4 && this.time - this._lastRam > 0.4) {
       this._lastRam = this.time;
       this.hud.flash();
       this.audio.crash(Math.min(1, status.touching / 15));
+      this.chase.shake(Math.min(0.8, status.touching / 18));
+      this.particles.sparks(p.x, p.z, status.touching / 15);
     } else if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
       this._lastRam = this.time;
       this.audio.crash(Math.min(0.6, this.player.impact / 25));
+      this.chase.shake(Math.min(0.5, this.player.impact / 30));
+      this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
     }
 
     this.env.update(dt, this.camera.position);
     this.fire.update(this.time);
-    if (this.fire.active && m.mode !== 'escape' && this.player.position.distanceTo(this.fire.light.position) > 260) this.fire.out();
+    if (this.fire.active) {
+      const b = this.warehouse;
+      this.particles.fire(dt, (b.minX + b.maxX) / 2, b.h + 1, (b.minZ + b.maxZ) / 2, b.maxX - b.minX);
+      if (m.mode !== 'escape' && p.distanceTo(this.fire.light.position) > 260) this.fire.out();
+    }
+    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: this.world.inCounty(p) });
+    this.particles.update(dt);
     this.chase.update(dt, this.player, !!input.lookBack);
     this.waypoint.update(this.player, m.target, this.time);
     this._updateHud(status, disguised, safeZone);
-    this.audio.update(Math.min(1, Math.abs(this.player.speed) / this.player.t.maxSpeed),
-      this.police.pursuing ? Math.max(0.25, 1 - status.nearest / 160) : 0);
+    this._updateAudio(status);
 
     this.tutorial.update(dt, {
       time: this.runTime, speed: Math.abs(this.player.speed), carrying: m.carrying, tier,
@@ -606,6 +638,31 @@ class Game {
       }
       if (e.type === 'escaped') this._escaped();
     }
+  }
+
+  // Engine through the gears, tyre screech, siren with Doppler shift, music, ambience.
+  _updateAudio(status) {
+    const v = this.player, speed = Math.abs(v.speed);
+    const gears = [0, 8, 16, 26, 60];
+    let g = 0;
+    while (g < gears.length - 2 && speed > gears[g + 1]) g++;
+    const rpm01 = Math.min(1, (speed - gears[g]) / (gears[g + 1] - gears[g]));
+    let doppler = 1;
+    const chasing = this.police.active.filter((u) => u.mode === 'chase' || u.mode === 'search');
+    if (chasing.length) {
+      const u = chasing.reduce((a, b) => (a.car.position.distanceToSquared(v.position) < b.car.position.distanceToSquared(v.position) ? a : b));
+      const dx = v.position.x - u.car.position.x, dz = v.position.z - u.car.position.z, d = Math.hypot(dx, dz) || 1;
+      const closing = ((u.car.vx - v.vx) * dx + (u.car.vz - v.vz) * dz) / d;   // + when approaching
+      doppler = Math.max(0.8, Math.min(1.25, 343 / (343 - closing)));
+    }
+    const night = this.env.daylight < 0.3;
+    this.audio.update({
+      speed01: Math.min(1, speed / v.t.maxSpeed), rpm01,
+      slip01: speed > 6 ? Math.min(1, Math.max(0, (v.slip - 3) / 8)) : 0,
+      siren01: this.police.pursuing ? Math.max(0.25, 1 - status.nearest / 160) : 0,
+      doppler, hot: this.mission.tier > 0, rain01: this.env.wet,
+      crickets: night && this.env.weather === 'clear' && this.world.inCounty(v.position) && this.mission.tier === 0,
+    });
   }
 
   async _escaped() {
@@ -670,8 +727,12 @@ class Game {
       this.minimap.draw(this.player, this._mapMarkers(), this._mapPolice(), this.time);
       this.renderer.render(this.scene, this.camera);
     } else if (this.state === STATE.INTRO) {
+      // Title: a slow flyover of the city, drawn every other frame once the quality check
+      // is done so the menu stays light.
+      this.chase.flyover(dt);
       this._probeQuality(dt);
-      this.renderer.render(this.scene, this.camera);
+      this._titleFrame = !this._titleFrame;
+      if (!this._probe.done || this._titleFrame) this.renderer.render(this.scene, this.camera);
     } else if (this.ui.isOpen('map')) {
       this.time += dt;
       this._drawBigMap();
@@ -679,11 +740,14 @@ class Game {
     // Paused / busted: the last frame stays on screen; nothing to redraw.
   }
 
-  _onResize() {
+  _onResize({ render = true } = {}) {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.render(this.scene, this.camera);
+    const h = this.renderer.domElement.height;
+    this.particles.setScale(h / (2 * Math.tan((CONFIG.camera.fov * Math.PI) / 360)));
+    // Resizing clears the canvas; redraw so a paused game doesn't go black.
+    if (render) this.renderer.render(this.scene, this.camera);
   }
 }
 
@@ -704,14 +768,17 @@ function registerServiceWorker() {
 }
 
 async function boot() {
+  mark('module');
   // Let the loading screen paint before the world is generated.
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+  mark('painted');
   if (!webglAvailable()) {
     window.__shineFail('Your browser can’t show 3D graphics (WebGL is off or unsupported).',
       'Try the latest Chrome, Edge, Firefox or Safari, and make sure hardware acceleration is turned on in your browser settings.');
     return;
   }
   const game = new Game();
+  mark('ready');
   window.__shineReady = true;
   $('loading').classList.add('hidden');
   game.showTitle();

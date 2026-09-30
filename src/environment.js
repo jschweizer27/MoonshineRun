@@ -104,6 +104,7 @@ export class Environment {
     w.bulbMaterial.color.copy(w.lampColor).multiplyScalar(0.25 + 0.75 * night);
     w.halos.visible = w.detailHalos !== false && d < 0.5;
     w.uniforms.uWindowGlow.value = 1.1 * night + 0.04;
+    if (w.signMaterial) w.signMaterial.color.setScalar(0.5 + 0.5 * night);
     w.uniforms.uWindowLitRatio.value = 0.12 + 0.33 * night;
 
     // Wet cobbles and puddled dirt catch the light.

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun, step, snapshot, screenshot } from './helpers.js';
+import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
 
 // Batch D: the county, the order book, the garage and ledger, disguise, patrols,
 // roadblocks, the sheriff, the story, day/night and seeded cities.
@@ -98,7 +98,7 @@ test('the ledger records deliveries and busts; progress survives a reload', asyn
   await expect(page.locator('#ledger-runs')).toContainText('✓');
   await screenshot(page, '14-ledger');
   await page.reload();
-  await page.waitForFunction(() => window.__shineReady === true);
+  await waitForBoot(page);
   await expect(page.locator('#continue-btn')).toBeVisible();
   const cash = await page.evaluate(() => window.shine.game.career.cash);
   expect(cash).toBeGreaterThan(0);

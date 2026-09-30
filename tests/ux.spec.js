@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun, step, snapshot, screenshot } from './helpers.js';
+import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
 
 const state = (page) => page.evaluate(() => window.shine.game.state);
 
@@ -109,7 +109,7 @@ test('settings are remembered between visits', async ({ page }) => {
   await screenshot(page, '10-settings');
   await page.click('#settings-done');
   await page.reload();
-  await page.waitForFunction(() => window.__shineReady === true);
+  await waitForBoot(page);
   expect(await page.evaluate(() => window.shine.game.chase.distanceScale)).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.classList.contains('large-text'))).toBe(true);
 });
@@ -210,13 +210,13 @@ test('installable app: manifest, icons and offline play', async ({ page, context
   for (const icon of manifest.icons) expect((await page.request.get(`/${icon.src}`)).ok()).toBe(true);
 
   await page.goto('/?sw');
-  await page.waitForFunction(() => window.__shineReady === true);
+  await waitForBoot(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();                                  // now controlled by the service worker
-  await page.waitForFunction(() => window.__shineReady === true);
+  await waitForBoot(page);
   await context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => window.__shineReady === true, null, { timeout: 60_000 });
+  await waitForBoot(page);
   await expect(page.locator('#intro')).toBeVisible();
   await context.setOffline(false);
 });

@@ -7,17 +7,19 @@ import { buildCounty, COUNTY } from './county.js';
 
 // Named drop sites around the city (intersections), for the order board.
 export const DROPS = [
-  { name: 'Highlandtown Speakeasy', x: 176, z: 44 },
-  { name: 'Fells Point Docks', x: 132, z: 176 },
-  { name: 'Mount Vernon Hotel', x: 0, z: -132 },
-  { name: 'Little Italy Social Club', x: 44, z: 132 },
-  { name: 'Hampden Mill', x: -176, z: -132 },
-  { name: 'Canton Cannery', x: 220, z: 132 },
-  { name: 'Federal Hill Tavern', x: -88, z: 176 },
-  { name: 'Station North Jazz Club', x: 88, z: -176 },
-  { name: 'Charles Village Drugstore', x: -88, z: -88 },
-  { name: 'Lexington Market', x: -132, z: 44 },
+  { name: 'Highlandtown Speakeasy', sign: 'PRIVATE CLUB', x: 176, z: 44 },
+  { name: 'Fells Point Docks', sign: 'PIER 5', x: 132, z: 176 },
+  { name: 'Mount Vernon Hotel', sign: 'HOTEL', x: 0, z: -132 },
+  { name: 'Little Italy Social Club', sign: 'SOCIAL CLUB', x: 44, z: 132 },
+  { name: 'Hampden Mill', sign: 'HAMPDEN MILL', x: -176, z: -132 },
+  { name: 'Canton Cannery', sign: 'CANNERY', x: 220, z: 132 },
+  { name: 'Federal Hill Tavern', sign: 'TAVERN', x: -88, z: 176 },
+  { name: 'Station North Jazz Club', sign: 'JAZZ CLUB', x: 88, z: -176 },
+  { name: 'Charles Village Drugstore', sign: 'DRUGSTORE', x: -88, z: -88 },
+  { name: 'Lexington Market', sign: 'MARKET', x: -132, z: 44 },
 ];
+const SIGN_WORDS = ['CAFE', 'DINER', 'BARBER', 'THEATRE', 'JAZZ', 'CIGARS', 'BANK', 'GARAGE', 'TAILOR', 'BAKERY', 'RADIO', 'DANCING', 'BILLIARDS', 'SHOES', 'LUNCH', 'HOTEL'];
+const NEON = ['#ff5a8a', '#5ae0ff', '#ffd05a', '#7dff8a', '#ff7a4a', '#f2f2ff'];
 
 // The 1920s city: a street grid with cobbles and streetcar rails, brick blocks with lit
 // windows, and gas lamps. Street lighting is faked with glowing decals instead of
@@ -46,8 +48,115 @@ export class World {
     this.hideout = county.hideout;
     this.drops = DROPS;
     this._buildLamps();
+    this._buildDressing();
     this._buildWater();
     this._buildBounds();
+  }
+
+  // Art-deco dressing: glowing blade signs along the streets (drop sites get theirs),
+  // rooftop water towers and chimneys. Signs share one texture atlas and one draw call.
+  _buildDressing() {
+    const rng = this.rng, B = this.cfg.blockSize, edge = this.edge - 1;
+    const words = [...SIGN_WORDS, ...DROPS.map((d) => d.sign)];
+    const rows = 32, rowH = 64;
+    const cv = document.createElement('canvas');
+    cv.width = 512; cv.height = rows * rowH;
+    const g = cv.getContext('2d');
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    words.forEach((w, k) => {
+      const y = k * rowH, c = NEON[k % NEON.length];
+      g.fillStyle = '#120e0c'; g.fillRect(0, y, 512, rowH);
+      g.strokeStyle = c; g.lineWidth = 4; g.strokeRect(6, y + 6, 500, rowH - 12);
+      g.font = `bold ${w.length > 9 ? 30 : 40}px Georgia, serif`;
+      g.shadowColor = c; g.shadowBlur = 14; g.fillStyle = c;
+      g.fillText(w, 256, y + rowH / 2 + 2);
+      g.shadowBlur = 0; g.fillStyle = '#fff8ee'; g.globalAlpha = 0.55; g.fillText(w, 256, y + rowH / 2 + 2); g.globalAlpha = 1;
+    });
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.signMaterial = new THREE.MeshBasicMaterial({ map: tex });
+
+    const pos = [], uv = [], idx = [];
+    // A double-sided blade sign sticking out of a facade: (x,z) on the wall, (nx,nz) the
+    // outward normal, word row k.
+    const addSign = (x, z, nx, nz, y, k) => {
+      const len = 3.2, h = 0.8, v0 = 1 - (k + 1) / rows + 0.002, v1 = 1 - k / rows - 0.002;
+      const ax = x + nx * 0.3, az = z + nz * 0.3, bx = x + nx * (0.3 + len), bz = z + nz * (0.3 + len);
+      for (const side of [1, -1]) {
+        const base = pos.length / 3;
+        const o = side * 0.06;       // two faces, a hair apart, each reading correctly
+        const px = -nz * o, pz = nx * o;
+        const [s, e] = side === 1 ? [[ax, az], [bx, bz]] : [[bx, bz], [ax, az]];
+        pos.push(s[0] + px, y - h / 2, s[1] + pz, e[0] + px, y - h / 2, e[1] + pz, e[0] + px, y + h / 2, e[1] + pz, s[0] + px, y + h / 2, s[1] + pz);
+        uv.push(0, v0, 1, v0, 1, v1, 0, v1);
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    };
+    // Which facades face a street: walls within 12 m of a road centreline.
+    const faces = (b) => {
+      const out = [];
+      const near = (v) => Math.abs(v - Math.round(v / B) * B) < 12;
+      if (near(b.minX)) out.push(['w', b.minX, (b.minZ + b.maxZ) / 2, -1, 0]);
+      if (near(b.maxX)) out.push(['e', b.maxX, (b.minZ + b.maxZ) / 2, 1, 0]);
+      if (near(b.minZ)) out.push(['n', (b.minX + b.maxX) / 2, b.minZ, 0, -1]);
+      if (near(b.maxZ)) out.push(['s', (b.minX + b.maxX) / 2, b.maxZ, 0, 1]);
+      return out;
+    };
+    const city = this.buildings.filter((b) => !b.barn && [b.minX, b.maxX, b.minZ, b.maxZ].every((v) => Math.abs(v) < edge));
+    for (const b of city) {
+      if (b.h < 9 || !rng.chance(0.22)) continue;
+      const f = faces(b);
+      if (!f.length) continue;
+      const [dir, fx, fz, nx, nz] = rng.pick(f);
+      const along = dir === 'w' || dir === 'e' ? [0, (b.maxZ - b.minZ) / 2 - 1.5] : [(b.maxX - b.minX) / 2 - 1.5, 0];
+      const sgn = rng.chance(0.5) ? 1 : -1;
+      addSign(fx + along[0] * sgn, fz + along[1] * sgn, nx, nz, rng.range(4.2, 6.5), rng.int(0, SIGN_WORDS.length - 1));
+    }
+    // Each buyer's corner building carries its sign.
+    DROPS.forEach((d, k) => {
+      let best = null, bestD = Infinity;
+      for (const b of city) {
+        const cx = Math.max(b.minX, Math.min(d.x, b.maxX)), cz = Math.max(b.minZ, Math.min(d.z, b.maxZ));
+        const dist = Math.hypot(cx - d.x, cz - d.z);
+        if (dist < bestD) { bestD = dist; best = b; }
+      }
+      if (!best) return;
+      const west = best.maxX < d.x, north = best.maxZ < d.z;
+      const x = west ? best.maxX : best.minX, z = north ? best.maxZ - 1.5 : best.minZ + 1.5;
+      addSign(x, z, west ? 1 : -1, 0, 5, SIGN_WORDS.length + k);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    this.signMaterial.side = THREE.DoubleSide;
+    this.scene.add(new THREE.Mesh(geo, this.signMaterial));
+
+    // Rooftops: water towers on the tall ones, chimneys on the rest.
+    const towers = [], chimneys = [];
+    for (const b of city) {
+      const top = b.h > 40 ? b.h * 1.48 : b.h > 26 ? b.h * 1.3 : b.h;
+      const scale = b.h > 40 ? 0.46 : b.h > 26 ? 0.72 : 1;
+      const w = (b.maxX - b.minX) * scale, d = (b.maxZ - b.minZ) * scale;
+      const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+      if (b.h > 18 && rng.chance(0.4) && w > 5 && d > 5) towers.push([cx + rng.range(-w / 4, w / 4), top, cz + rng.range(-d / 4, d / 4)]);
+      else if (rng.chance(0.5)) chimneys.push([cx + rng.range(-w / 3, w / 3), top, cz + rng.range(-d / 3, d / 3)]);
+    }
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.9 });
+    const tank = new THREE.InstancedMesh(new THREE.CylinderGeometry(2, 2, 3.6, 12).translate(0, 4.6, 0), wood, towers.length);
+    const cap = new THREE.InstancedMesh(new THREE.ConeGeometry(2.3, 1.6, 12).translate(0, 7.2, 0), new THREE.MeshStandardMaterial({ color: 0x2c2c30, roughness: 0.8 }), towers.length);
+    const legs = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 2.8, 5).translate(0, 1.4, 0), new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.6 }), towers.length * 4);
+    towers.forEach(([x, y, z], i) => {
+      tank.setMatrixAt(i, m.compose(p.set(x, y, z), q, s));
+      cap.setMatrixAt(i, m.compose(p.set(x, y, z), q, s));
+      [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]].forEach(([lx, lz], k) => legs.setMatrixAt(i * 4 + k, m.compose(p.set(x + lx, y, z + lz), q, s)));
+    });
+    const chim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 2.4, 0.9).translate(0, 1.2, 0), new THREE.MeshStandardMaterial({ color: 0x5a2e24, roughness: 0.95 }), chimneys.length);
+    chimneys.forEach(([x, y, z], i) => chim.setMatrixAt(i, m.compose(p.set(x, y, z), q, s)));
+    for (const im of [tank, cap, legs, chim]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
   }
 
   inCounty(p) { return p.z < -250; }

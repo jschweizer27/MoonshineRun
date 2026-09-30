@@ -50,7 +50,7 @@ export class Input {
     if (this.playing && (actions.length || ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code))) e.preventDefault();
     if (e.repeat) { this.down.add(e.code); return; }
     this.down.add(e.code);
-    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn'].includes(a)) this.onAction(a, 'keyboard');
+    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio'].includes(a)) this.onAction(a, 'keyboard');
   }
 
   isDown(action) { return (this.bindings[action] || []).some((c) => this.down.has(c)); }

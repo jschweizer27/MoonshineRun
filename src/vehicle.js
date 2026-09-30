@@ -25,12 +25,23 @@ export class Vehicle {
     this.mesh = model.group;
     this.model = model;
     scene.add(this.mesh);
+    // The horse trailer is towed: it swings behind the hitch through corners.
+    if (model.trailer) {
+      this.trailer = { ...model.trailer, x: 0, z: 0, heading: 0, spin: 0 };
+      scene.add(model.trailer.group);
+    }
   }
 
   place(x, z, heading = 0) {
     this.position.set(x, 0, z);
     this.heading = heading;
     this.vx = this.vz = this.speed = this.slip = this.impact = 0;
+    if (this.trailer) {
+      const t = this.trailer, hx = x - Math.sin(heading) * HITCH, hz = z + Math.cos(heading) * HITCH;
+      t.heading = heading;
+      t.x = hx - Math.sin(heading) * t.hitchLength;
+      t.z = hz + Math.cos(heading) * t.hitchLength;
+    }
     this._syncMesh(0, 0);
   }
 
@@ -123,10 +134,32 @@ export class Vehicle {
     this.spin += (this.speed * dt) / this.model.wheelRadius;
     for (const w of this.model.wheels) w.rotation.x = -this.spin;
     for (const p of this.model.frontPivots) p.rotation.y = -this.steerVisual;
+    if (this.trailer) this._towTrailer();
   }
 
-  setVisible(v) { this.mesh.visible = v; }
+  // Kinematic trailer: the axle is dragged toward the hitch, keeping its length. The angle
+  // to the truck is limited so it can't fold right back on itself.
+  _towTrailer() {
+    const t = this.trailer;
+    const hx = this.position.x - this.forwardX * HITCH, hz = this.position.z - this.forwardZ * HITCH;
+    let th = Math.atan2(hx - t.x, -(hz - t.z));
+    const diff = Math.atan2(Math.sin(th - this.heading), Math.cos(th - this.heading));
+    th = this.heading + Math.max(-1.3, Math.min(1.3, diff));
+    const nx = hx - Math.sin(th) * t.hitchLength, nz = hz + Math.cos(th) * t.hitchLength;
+    t.spin += (Math.hypot(nx - t.x, nz - t.z) * Math.sign(this.speed || 1)) / this.model.wheelRadius;
+    t.x = nx; t.z = nz; t.heading = th;
+    t.group.position.set(nx, 0, nz);
+    t.group.rotation.y = -th;
+    for (const w of t.wheels) w.rotation.x = -t.spin;
+  }
+
+  setVisible(v) {
+    this.mesh.visible = v;
+    if (this.trailer) this.trailer.group.visible = v;
+  }
 }
+
+const HITCH = 2.65;   // hitch point behind the truck's center
 
 // Push two cars apart (two circles each) and trade momentum. Returns the closing speed
 // if they touched, else 0.

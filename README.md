@@ -31,6 +31,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
 | Handbrake (slide) | `Space` | A | DRIFT |
 | Horn | `H` | B | HORN |
+| Radio (the jazz soundtrack) | `R` | — | — |
 | Look back | `C` | Y | — |
 | Map | `Tab` or `N` | View / Back | map button |
 | Pause menu | `Esc` or `P` | Start | ❚❚ button |
@@ -64,6 +65,13 @@ Enter, the D-pad and A/B, or touch.
 
 Tips pop up the first time you need them (turn them off or replay them in Settings).
 Settings → Help also lets you **roll a new city layout** or **copy a link** to share yours.
+
+**Sights and sounds:** everything is generated in the browser, with no image or audio files.
+You get a stride-piano ragtime soundtrack that turns to hot jazz in a chase, a Model TT
+truck towing a swinging horse trailer, 1920s Bureau sedans and Temperance pickups, neon
+blade signs, rooftop water towers, and exhaust, dust and sparks. The engine shifts gears,
+the tyres screech, sirens have Doppler shift, and you hear rain on the cobbles and
+crickets in the valley.
 
 ### Settings
 
@@ -141,6 +149,8 @@ src/
   story.js      story beats from the treatment
   screens.js    order book, garage, ledger, dialogue cards
   effects.js    the Act I warehouse fire
+  particles.js  exhaust, dust, sparks, smoke and embers
+  music.js      generated ragtime soundtrack
   collision.js  2D colliders, bounds, line of sight
   roadgraph.js  street graph + pathfinding
   vehicle.js    driving physics (grip, handbrake, collisions)

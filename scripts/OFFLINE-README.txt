@@ -14,6 +14,7 @@ CONTROLS (keyboard / controller)
   A D or Left Right    steer               left stick
   Space                handbrake           A
   H                    horn                B
+  R                    radio on/off
   C                    look back           Y
   Tab or N             map                 View / Back
   Esc or P             pause menu          Start

@@ -70,10 +70,11 @@ export const CONFIG = {
   },
 
   camera: {
-    distance: 12,
-    height: 6,
+    distance: 15,         // far enough back to see the horse trailer
+    height: 7.2,          // high enough to see the road over it
     follow: 6,            // higher = snappier chase camera
     fov: 62,
+    fovKick: 10,          // extra field of view at top speed (off with Reduce motion)
   },
 };
 
