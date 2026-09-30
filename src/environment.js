@@ -110,6 +110,7 @@ export class Environment {
     w.halos.visible = w.detailHalos !== false && d < 0.5;
     w.uniforms.uWindowGlow.value = L.windowGlow * night + 0.03;
     if (w.signMaterial) w.signMaterial.color.setScalar(0.5 + 0.5 * night);
+    w.uniforms.uDaylight.value = d;
     w.uniforms.uWindowLitRatio.value = 0.1 + (L.windowsLit - 0.1) * night;
 
     // Wet cobbles and puddled dirt catch the light.

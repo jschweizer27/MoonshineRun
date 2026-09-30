@@ -19,6 +19,7 @@ export const DROPS = [
   { name: 'Lexington Market', sign: 'MARKET', x: -132, z: 44 },
 ];
 const SIGN_WORDS = ['CAFE', 'DINER', 'BARBER', 'THEATRE', 'JAZZ', 'CIGARS', 'BANK', 'GARAGE', 'TAILOR', 'BAKERY', 'RADIO', 'DANCING', 'BILLIARDS', 'SHOES', 'LUNCH', 'HOTEL'];
+const AWNINGS = [0xd84a3a, 0x3f9a6a, 0x4a72b8, 0xd8a040, 0xb85a8a];
 const NEON = ['#ff5a8a', '#5ae0ff', '#ffd05a', '#7dff8a', '#ff7a4a', '#f2f2ff'];
 
 // The 1920s city: a street grid with cobbles and streetcar rails, brick blocks with lit
@@ -37,6 +38,7 @@ export class World {
     this.uniforms = {
       uWindowGlow: { value: 1.1 },
       uWindowLitRatio: { value: 0.45 },
+      uDaylight: { value: 0 },
     };
 
     this._buildLights();
@@ -114,6 +116,28 @@ export class World {
       const sgn = rng.chance(0.5) ? 1 : -1;
       addSign(fx + along[0] * sgn, fz + along[1] * sgn, nx, nz, rng.range(4.2, 6.5), rng.int(0, SIGN_WORDS.length - 1));
     }
+    // Fascia boards over some shopfronts (flat on the wall, above the display window),
+    // and striped canvas awnings over others.
+    const addFascia = (x, z, nx, nz, len, k) => {
+      const h = 0.62, y = 4.05, v0 = 1 - (k + 1) / rows + 0.002, v1 = 1 - k / rows - 0.002;
+      const ax = -nz, az = nx, cx = x + nx * 0.06, cz = z + nz * 0.06, base = pos.length / 3;
+      pos.push(cx - ax * len / 2, y - h / 2, cz - az * len / 2, cx + ax * len / 2, y - h / 2, cz + az * len / 2,
+        cx + ax * len / 2, y + h / 2, cz + az * len / 2, cx - ax * len / 2, y + h / 2, cz - az * len / 2);
+      uv.push(1, v0, 0, v0, 0, v1, 1, v1);
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+    const awnings = [];
+    for (const b of city) {
+      if (b.h < 7) continue;
+      for (const [dir, fx, fz, nx, nz] of faces(b)) {
+        const len = dir === 'w' || dir === 'e' ? b.maxZ - b.minZ : b.maxX - b.minX;
+        const r = rng();
+        if (r < 0.28) addFascia(fx, fz, nx, nz, Math.min(len - 1, rng.range(3.2, 5.5)), rng.int(0, SIGN_WORDS.length - 1));
+        else if (r < 0.6) awnings.push([fx, fz, nx, nz, Math.min(len - 1.2, rng.range(3.5, 8)), rng.int(0, AWNINGS.length - 1)]);
+      }
+    }
+    this._buildAwnings(awnings);
+
     // Each buyer's corner building carries its sign.
     DROPS.forEach((d, k) => {
       let best = null, bestD = Infinity;
@@ -135,8 +159,8 @@ export class World {
     this.signMaterial.side = THREE.DoubleSide;
     this.scene.add(new THREE.Mesh(geo, this.signMaterial));
 
-    // Rooftops: water towers on the tall ones, chimneys on the rest.
-    const towers = [], chimneys = [];
+    // Rooftops: water towers on the tall ones, chimneys, stair bulkheads and skylights.
+    const towers = [], chimneys = [], bulkheads = [];
     for (const b of city) {
       const top = b.h > 40 ? b.h * 1.48 : b.h > 26 ? b.h * 1.3 : b.h;
       const scale = b.h > 40 ? 0.46 : b.h > 26 ? 0.72 : 1;
@@ -144,6 +168,8 @@ export class World {
       const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
       if (b.h > 18 && rng.chance(0.4) && w > 5 && d > 5) towers.push([cx + rng.range(-w / 4, w / 4), top, cz + rng.range(-d / 4, d / 4)]);
       else if (rng.chance(0.5)) chimneys.push([cx + rng.range(-w / 3, w / 3), top, cz + rng.range(-d / 3, d / 3)]);
+      if (w > 6 && d > 6 && rng.chance(0.55)) bulkheads.push([cx + rng.range(-w / 4, w / 4), top, cz + rng.range(-d / 4, d / 4), rng.range(2, 3.2), rng.range(2.2, 3), rng.range(2, 3.2)]);
+      if (w > 8 && d > 8 && rng.chance(0.35)) bulkheads.push([cx + rng.range(-w / 4, w / 4), top, cz + rng.range(-d / 4, d / 4), rng.range(1.6, 2.6), 0.7, rng.range(1.2, 2)]);
     }
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
     const wood = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.9 });
@@ -157,7 +183,42 @@ export class World {
     });
     const chim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 2.4, 0.9).translate(0, 1.2, 0), new THREE.MeshStandardMaterial({ color: 0x5a2e24, roughness: 0.95 }), chimneys.length);
     chimneys.forEach(([x, y, z], i) => chim.setMatrixAt(i, m.compose(p.set(x, y, z), q, s)));
-    for (const im of [tank, cap, legs, chim]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+    const bulk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0x3e3834, roughness: 0.9 }), bulkheads.length);
+    bulkheads.forEach(([x, y, z, bw, bh, bd], i) => bulk.setMatrixAt(i, m.compose(p.set(x, y, z), q, s.set(bw, bh, bd))));
+    s.set(1, 1, 1);
+    for (const im of [tank, cap, legs, chim, bulk]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+  }
+
+  // Striped canvas awnings sloping out over the shopfronts: one draw call, colourway by
+  // instance colour. They start above the truck's roof.
+  _buildAwnings(list) {
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 8;
+    const g = cv.getContext('2d');
+    // Stripes: the instance colour tints the whole awning, so the texture alternates full
+    // (bright stripe) and grey (darker stripe of the same colour).
+    for (let x = 0; x < 64; x += 8) { g.fillStyle = (x / 8) % 2 ? '#ffffff' : '#8a8a8a'; g.fillRect(x, 0, 8, 8); }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.repeat.set(3, 1);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, side: THREE.DoubleSide });
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.06, 1), mat, list.length);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ');
+    const p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
+    const depth = 1.7, tilt = 0.38;
+    list.forEach(([x, z, nx, nz, len, k], i) => {
+      e.set(tilt, Math.atan2(nx, nz), 0);
+      q.setFromEuler(e);
+      const out = (depth / 2) * Math.cos(tilt);
+      p.set(x + nx * out, 3.7 - (depth / 2) * Math.sin(tilt), z + nz * out);
+      mesh.setMatrixAt(i, m.compose(p, q, s.set(len, 1, depth)));
+      mesh.setColorAt(i, c.setHex(AWNINGS[k]));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    this.awnings = mesh;
+    this.scene.add(mesh);
   }
 
   inCounty(p) { return p.z < -250; }
@@ -300,22 +361,44 @@ export class World {
     addWall(wallIn, -wallIn, wallOut, wallIn);       // east
     this.edge = Math.min(edge, wallIn);
 
-    // One instanced mesh for every box, with procedural lit windows.
+    // One instanced mesh for every box. Facades come from a generated atlas of brick and
+    // stone bays (windows, shopfronts), laid out in world space by the facade shader.
     const geo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.02 });
-    addWindowShader(mat, this.uniforms);
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.02 });
+    const atlas = makeFacadeAtlas(rng);
+    this.facadeTextures = [atlas.color, atlas.mask];
+    addFacadeShader(mat, this.uniforms, atlas);
     const mesh = new THREE.InstancedMesh(geo, mat, boxes.length);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
     const c = new THREE.Color();
+    // Cornices: a stone slab and a thinner course under it on every roof line, and a
+    // string course above the shopfronts.
+    const trims = [];
     boxes.forEach((b, k) => {
       m.compose(p.set(b.x, b.y, b.z), q, s.set(b.w, b.h, b.d));
       mesh.setMatrixAt(k, m);
-      mesh.setColorAt(k, c.setHex(b.color));
+      const t = rng.range(0.82, 1.06);
+      mesh.setColorAt(k, c.setRGB(t, t * rng.range(0.96, 1.02), t * rng.range(0.93, 1.0)));
+      const top = b.y + b.h, shade = rng.range(0.7, 1);
+      trims.push([b.x, top - 0.1, b.z, b.w + 0.7, 0.45, b.d + 0.7, shade]);
+      trims.push([b.x, top - 0.45, b.z, b.w + 0.35, 0.22, b.d + 0.35, shade * 0.85]);
+      if (b.y === 0 && b.h > 7) trims.push([b.x, 4.5, b.z, b.w + 0.25, 0.28, b.d + 0.25, shade]);
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
     this.buildingMesh = mesh;
     this.scene.add(mesh);
+
+    const trim = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+      new THREE.MeshStandardMaterial({ color: 0x8c8378, roughness: 0.8 }), trims.length);
+    trims.forEach(([x, y, z, w, h, d, shade], k) => {
+      trim.setMatrixAt(k, m.compose(p.set(x, y, z), q, s.set(w, h, d)));
+      trim.setColorAt(k, c.setScalar(shade));
+    });
+    trim.instanceMatrix.needsUpdate = true;
+    trim.instanceColor.needsUpdate = true;
+    this.cornices = trim;
+    this.scene.add(trim);
   }
 
   _buildLamps() {
@@ -479,7 +562,7 @@ export class World {
       const sp = spots[k], w = weight(dist[i]) * this.lampLevel;
       const light = i === spotIdx ? this.lampSpot : this.lampLights[li++];
       if (!light || !light.visible) continue;
-      light.position.set(sp.x, sp.y - 0.35, sp.z);
+      light.position.set(sp.x + sp.tx * 1.4, sp.y - 0.35, sp.z + sp.tz * 1.4);
       light.intensity = L.lampIntensity * w * (light.isSpotLight ? 1.6 : 1);
       if (light.isSpotLight) { light.target.position.set(sp.x + sp.tx * 1.5, 0, sp.z + sp.tz * 1.5); light.target.updateMatrixWorld(); }
       // Its real light replaces the fake pool decal.
@@ -585,8 +668,7 @@ export class World {
   }
 
   setAnisotropy(n) {
-    this.groundTexture.anisotropy = n;
-    this.groundTexture.needsUpdate = true;
+    for (const t of [this.groundTexture, ...(this.facadeTextures || [])]) { t.anisotropy = n; t.needsUpdate = true; }
   }
 
   // Graphics level: low drops the lamp halos (lots of overdraw on weak GPUs). The
@@ -597,17 +679,25 @@ export class World {
   }
 }
 
-// Procedural lit windows: computed from world position, so every building of any size
-// gets correctly spaced windows from one shared material.
-function addWindowShader(material, uniforms) {
+// Facades: every building face is laid out in world space as 2.6 m bays. The ground floor
+// (4.6 m) is a shopfront bay, the floors above are window bays, 3.4 m each. The style
+// (red brick, brown brick, limestone, grey ashlar) is picked per building from its centre,
+// so setback tiers match. The atlas alpha-free mask marks the glass: a random share of
+// windows glows warm at night, the rest are dark glossy panes.
+const BAY_W = 2.6, SHOP_H = 4.6, FLOOR_H = 3.4, STYLES = 4;
+
+function addFacadeShader(material, uniforms, atlas) {
+  const u = { ...uniforms, uFacade: { value: atlas.color }, uFacadeMask: { value: atlas.mask } };
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vShineWorldPos;\nvarying vec3 vShineWorldNormal;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vShineWorldPos;\nvarying vec3 vShineWorldNormal;\nvarying vec3 vShineBox;')
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 shineWP = vec4(transformed, 1.0);
+        vShineBox = vec3(0.0);
         #ifdef USE_INSTANCING
           shineWP = instanceMatrix * shineWP;
+          vShineBox = instanceMatrix[3].xyz;
         #endif
         shineWP = modelMatrix * shineWP;
         vShineWorldPos = shineWP.xyz;
@@ -616,26 +706,118 @@ function addWindowShader(material, uniforms) {
       .replace('#include <common>', `#include <common>
         varying vec3 vShineWorldPos;
         varying vec3 vShineWorldNormal;
+        varying vec3 vShineBox;
         uniform float uWindowGlow;
-        uniform float uWindowLitRatio;`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        uniform float uWindowLitRatio;
+        uniform float uDaylight;
+        uniform sampler2D uFacade;
+        uniform sampler2D uFacadeMask;
+        float shineHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
         vec3 shineN = abs(vShineWorldNormal);
+        float shineGlass = 0.0;
+        vec3 shineGlow = vec3(0.0);
         if (shineN.y < 0.5) {
           bool faceX = shineN.x > shineN.z;
           float along = faceX ? vShineWorldPos.z : vShineWorldPos.x;
           float faceSeed = floor((faceX ? vShineWorldPos.x : vShineWorldPos.z) * 0.37);
-          vec2 cell = vec2(along / 2.6, (vShineWorldPos.y - 1.2) / 3.4);
+          float style = floor(shineHash(floor(vShineBox.xz * 0.5)) * ${STYLES}.0);
+          bool shop = vShineBox.y < 0.5 && vShineWorldPos.y < ${SHOP_H.toFixed(1)};
+          vec2 cell = vec2(along / ${BAY_W.toFixed(1)}, shop ? vShineWorldPos.y / ${SHOP_H.toFixed(1)} : (vShineWorldPos.y - (vShineBox.y < 0.5 ? ${SHOP_H.toFixed(1)} : vShineBox.y)) / ${FLOOR_H.toFixed(1)});
           vec2 id = floor(cell);
-          vec2 f = fract(cell);
-          float win = step(0.22, f.x) * step(f.x, 0.78) * step(0.3, f.y) * step(f.y, 0.84) * step(0.0, id.y);
-          float h = fract(sin(dot(id + vec2(faceSeed, faceSeed * 1.7), vec2(12.9898, 78.233))) * 43758.5453);
-          float lit = step(1.0 - uWindowLitRatio, h);
-          vec3 warm = mix(vec3(1.0, 0.5, 0.18), vec3(1.0, 0.74, 0.42), fract(h * 7.0)) * (0.45 + 0.55 * fract(h * 13.0));
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.06, 0.08), win * 0.85);
-          totalEmissiveRadiance += win * lit * warm * uWindowGlow;
-        }`);
+          vec2 f = clamp(fract(cell), 0.004, 0.996);
+          vec2 tile = vec2(style, shop ? 0.0 : 1.0);
+          vec2 uv = (tile + f) / vec2(${STYLES}.0, 2.0);
+          vec2 gx = dFdx(cell) / vec2(${STYLES}.0, 2.0), gy = dFdy(cell) / vec2(${STYLES}.0, 2.0);
+          diffuseColor.rgb *= textureGrad(uFacade, uv, gx, gy).rgb;
+          vec2 mk = textureGrad(uFacadeMask, uv, gx, gy).rg;
+          shineGlass = mk.r;
+          // By day the panes reflect the sky instead of looking like holes.
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.25, 0.3) * (0.7 + 0.3 * f.y), shineGlass * uDaylight * 0.45);
+          // Which windows are lit: per bay, shops a little more often.
+          float h = shineHash(id + vec2(faceSeed, faceSeed * 1.7) + style * 3.1);
+          float lit = step(1.0 - uWindowLitRatio * (shop ? 0.9 : 1.0), h);
+          vec3 warm = mix(vec3(1.0, 0.42, 0.12), vec3(1.0, 0.66, 0.32), fract(h * 7.0)) * (0.35 + 0.65 * fract(h * 13.0)) * (shop ? 0.75 : 1.0);
+          // Brighter low in the pane (lamp inside), with the curtain pattern from the mask.
+          shineGlow = shineGlass * lit * warm * uWindowGlow * (0.55 + 0.45 * (1.0 - f.y)) * (0.6 + 0.4 * mk.g);
+        } else if (vShineWorldNormal.y > 0.5) {
+          diffuseColor.rgb *= vec3(0.16, 0.15, 0.15);   // tar-paper roofs
+        }`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, 0.16, shineGlass);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance += shineGlow;`);
   };
-  material.customProgramCacheKey = () => 'shine-windows';
+  material.customProgramCacheKey = () => 'shine-facades';
+}
+
+// The facade atlas: STYLES columns x 2 rows (shopfront bay, window bay). `color` is the
+// albedo; `mask` has the glass in red and a curtain/blind pattern in green.
+function makeFacadeAtlas(rng) {
+  const TW = 256, TH = 336, W = TW * STYLES, H = TH * 2;
+  const cv = document.createElement('canvas'), mv = document.createElement('canvas');
+  cv.width = mv.width = W; cv.height = mv.height = H;
+  const g = cv.getContext('2d'), mg = mv.getContext('2d');
+  mg.fillStyle = '#000'; mg.fillRect(0, 0, W, H);
+  const styles = [
+    { base: [150, 72, 52], mortar: '#6a5c52', brick: true, trim: '#c8bba4' },      // red brick
+    { base: [112, 78, 58], mortar: '#584a40', brick: true, trim: '#bdb09a' },      // brown brick
+    { base: [184, 172, 150], mortar: '#8f8575', brick: false, trim: '#e0d6c2' },   // limestone
+    { base: [128, 128, 124], mortar: '#6a6a66', brick: false, trim: '#b8b6ae' },   // grey ashlar
+  ];
+  const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
+  const wall = (st, x0, y0, w, h, pxPerM) => {
+    g.fillStyle = st.mortar; g.fillRect(x0, y0, w, h);
+    const bw = (st.brick ? 0.24 : 0.62) * pxPerM, bh = (st.brick ? 0.075 : 0.36) * pxPerM, gap = st.brick ? 1.2 : 1.6;
+    for (let y = y0, row = 0; y < y0 + h; y += bh, row++) {
+      for (let x = x0 - (row & 1 ? bw / 2 : 0); x < x0 + w; x += bw) {
+        g.fillStyle = rgb(st.base, rng.range(0.82, 1.1));
+        const xx = Math.max(x0, x), ww = Math.min(x + bw, x0 + w) - xx;
+        if (ww > gap) g.fillRect(xx, y, ww - gap, Math.min(bh, y0 + h - y) - gap);
+      }
+    }
+    // Soot and weathering streaks.
+    for (let k = 0; k < 18; k++) {
+      g.fillStyle = `rgba(20,16,14,${rng.range(0.03, 0.1)})`;
+      g.fillRect(x0 + rng() * w, y0 + rng() * h * 0.5, rng.range(2, 8), rng.range(20, h));
+    }
+  };
+  // A window: stone lintel and sill, dark frame, glass with mullions; blinds in the mask.
+  const drawWindow = (st, x, y, w, h, panes) => {
+    g.fillStyle = st.trim;
+    g.fillRect(x - 6, y - 10, w + 12, 10);          // lintel
+    g.fillRect(x - 8, y + h, w + 16, 8);            // sill
+    g.fillStyle = '#2a2420'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#10161c'; g.fillRect(x + 4, y + 4, w - 8, h - 8);
+    mg.fillStyle = 'rgb(255,0,0)'; mg.fillRect(x + 4, y + 4, w - 8, h - 8);
+    // Blind pulled down part of the way (curtain pattern in green).
+    const blind = rng.range(0, 0.55) * (h - 8);
+    mg.fillStyle = 'rgb(255,110,0)'; mg.fillRect(x + 4, y + 4, w - 8, blind);
+    mg.fillStyle = 'rgb(255,255,0)'; mg.fillRect(x + 4, y + 4 + blind, w - 8, h - 8 - blind);
+    g.fillStyle = '#2a2420';
+    const [cols, rows] = panes;
+    for (let i = 1; i < cols; i++) { g.fillRect(x + (w * i) / cols - 2, y, 4, h); mg.fillStyle = 'rgb(0,0,0)'; mg.fillRect(x + (w * i) / cols - 2, y, 4, h); }
+    for (let j = 1; j < rows; j++) { g.fillRect(x, y + (h * j) / rows - 2, w, 4); mg.fillStyle = 'rgb(0,0,0)'; mg.fillRect(x, y + (h * j) / rows - 2, w, 4); }
+  };
+  styles.forEach((st, k) => {
+    const x0 = k * TW;
+    // The texture is flipped on upload: the canvas's lower half is atlas row 0.
+    // Row 0: shopfront bay (4.6 m tall): plinth, display window, sign band.
+    const y0 = TH, pxm = TH / 4.6;
+    wall(st, x0, y0, TW, TH, TW / 2.6);
+    g.fillStyle = '#2e2a26'; g.fillRect(x0, y0 + TH - 0.9 * pxm, TW, 0.9 * pxm);     // plinth
+    g.fillStyle = '#1c1714'; g.fillRect(x0, y0, TW, 1.0 * pxm);                        // sign band
+    drawWindow(st, x0 + 18, y0 + 1.25 * pxm, TW - 36, 2.4 * pxm, [3, 2]);
+    // Row 1: window bay (3.4 m tall).
+    const pxm1 = TH / 3.4;
+    wall(st, x0, 0, TW, TH, TW / 2.6);
+    drawWindow(st, x0 + TW * 0.27, 0.62 * pxm1, TW * 0.46, 1.75 * pxm1, [2, 2]);
+  });
+  const color = new THREE.CanvasTexture(cv);
+  color.colorSpace = THREE.SRGBColorSpace;
+  const mask = new THREE.CanvasTexture(mv);
+  for (const t of [color, mask]) { t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; }
+  return { color, mask };
 }
 
 // One city tile centered on an intersection: cobbled roads with streetcar rails,

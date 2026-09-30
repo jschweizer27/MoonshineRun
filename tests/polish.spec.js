@@ -102,3 +102,23 @@ test('the city is dressed: neon signs, water towers, a sign for every buyer', as
   await page.evaluate(() => { window.shine.teleport(-44, 44, 0); window.shine.step(0.5, { throttle: 0.3 }); });
   await screenshot(page, '19-neon');
 });
+
+test('buildings have brick and stone facades, cornices, awnings and shop signs', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const w = window.shine.game.world;
+    const info = window.shine.renderInfo();
+    return {
+      atlas: w.facadeTextures.length, width: w.facadeTextures[0].image.width,
+      cornices: w.cornices.count, awnings: w.awnings.count, calls: info.calls,
+    };
+  });
+  expect(r.atlas).toBe(2);                     // colour + glass mask
+  expect(r.width).toBe(1024);                  // 4 facade styles
+  expect(r.cornices).toBeGreaterThan(300);
+  expect(r.awnings).toBeGreaterThan(20);
+  expect(r.calls).toBeLessThan(60);
+  await page.evaluate(() => window.shine.teleport(-88, 60, Math.PI / 2));
+  await screenshot(page, '21-facades');
+});
