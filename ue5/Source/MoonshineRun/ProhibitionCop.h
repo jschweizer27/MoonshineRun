@@ -1,47 +1,53 @@
-// ProhibitionCop.h — Dev Guide Phase 3
-// AI pursuer (cop or Temperance Alliance zealot). Patrols, chases the player on
-// detection, and gives up after losing them. Pair with a Behavior Tree asset.
-// SKELETON: not compiled here.
+// ProhibitionCop.h: Dev Guide Phase 3. A pursuer car: a Prohibition Bureau Fed or a
+// Temperance Alliance zealot. The pawn only holds settings; the brain is
+// AProhibitionCopController, which runs the Behavior Tree below if one is set and the same
+// logic in C++ if not, so cops work before you have built any AI assets.
+//
+// Make one Blueprint child per look (BP_FedSedan, BP_ZealotPickup), give each a mesh, and
+// hand them to the delivery manager (CHECKLIST.md, step 5).
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MoonshineVehicle.h"
+#include "MoonshineVehicleBase.h"
+#include "ShineTuning.h"
+#include "ShineTypes.h"
 #include "ProhibitionCop.generated.h"
 
-UENUM(BlueprintType)
-enum class EPursuerState : uint8
-{
-	Patrol,
-	Chase,
-	Searching
-};
+class UBehaviorTree;
 
 UCLASS()
-class MOONSHINERUN_API AProhibitionCop : public AMoonshineVehicle
+class MOONSHINERUN_API AProhibitionCop : public AMoonshineVehicleBase
 {
 	GENERATED_BODY()
 
 public:
 	AProhibitionCop();
 
-	// Distance at which the cop spots Otto.
+	// Feds aim ahead to cut you off; zealots drive straight at you to ram.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float DetectionRange = 4000.f;
+	EPursuerKind Kind = EPursuerKind::Fed;
 
-	// Seconds out of sight before giving up the chase (Dev Guide: ~10s).
+	// Optional. Leave empty to use the built-in C++ behaviour (it does the same thing).
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
+	TObjectPtr<UBehaviorTree> BehaviorTree;
+
+	// Top chase speed, cm/s. Patrols cruise at 40%, searches at 70%.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float GiveUpTime = 10.f;
+	float MaxSpeed = ShineTuning::CopMaxSpeed;
 
-	// Visual/behavior variant: false = federal cop, true = zealot.
+	// How far this cop can see Otto (with a clear line of sight).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	bool bIsZealot = false;
+	float SightRange = ShineTuning::SightRange;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AI")
-	EPursuerState State = EPursuerState::Patrol;
+	// Patrols see through the horse-box disguise only this close.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float CloseRange = ShineTuning::CloseRange;
 
-protected:
-	virtual void Tick(float DeltaSeconds) override;
+	// Seconds out of sight before this cop gives up and goes back to patrolling.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float GiveUpTime = ShineTuning::GiveUpTime;
 
-	bool CanSeePlayer() const;
-	void DriveToward(const FVector& Target, float DeltaSeconds);
+	// Hook for sirens, flashing lights or a torch-waving zealot in Blueprint.
+	UFUNCTION(BlueprintImplementableEvent, Category = "AI")
+	void OnModeChanged(EPursuerMode NewMode);
 };

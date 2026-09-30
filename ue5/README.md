@@ -1,35 +1,72 @@
-# Shine — Unreal Engine 5 Scaffold
+# Shine: Unreal Engine 5 project
 
-This folder is a **starting point for the full 3D build of _Shine_ in Unreal Engine 5**,
-following the *Moonshine Run Dev Guide*. The C++ classes here are skeletons with the right
-shape and comments pointing at what to fill in — **they have not been compiled** (the web
-demo in the repo root was built in a cloud Linux container with no UE5). Build and iterate on
-these on your own PC.
+A **ready-to-open UE5 C++ project** for the full 3D build of *Shine*, following the
+*Moonshine Run Dev Guide*. It carries the same game rules as the playable web demo in the
+repo root (heat, evasion, bust meter, patrols, wanted tiers, pay), with the same numbers, so
+anything tuned in the browser carries straight over.
 
-> The playable web demo in the repo root is a design prototype of the same loop. Use it to
-> feel out tuning (speeds, heat build/decay, reward) before reproducing it here.
+**→ Start with [CHECKLIST.md](CHECKLIST.md)**: step-by-step from installing the engine to
+driving the loop.
 
-## How to use this scaffold
+> **Status:** written without an Unreal Engine install, so it has **not been compiled yet**.
+> CI runs static checks on it (`scripts/check-ue5.mjs`: Unreal Header Tool rules, includes,
+> module dependencies, project file), because GitHub's machines have no engine to build it.
+> If the first build reports an error, paste the first error line to Claude.
 
-1. Follow **Part 1 & 2** of the Dev Guide: install UE5, VS Code, Node, and Claude Code, then
-   create a **C++** project named `MoonshineRun` with the **Chaos Vehicles** plugin enabled.
-2. Copy the files under `Source/MoonshineRun/` into your project's `Source/MoonshineRun/`
-   folder.
-3. Right-click the `.uproject` → **Generate Visual Studio project files**, then build.
-4. Work through the phases below, using these classes as the anchor points.
+## What works out of the box
 
-## Dev Guide phase → file map
+- **Double-click `MoonshineRun.uproject`**: the project file, build targets, module
+  dependencies (Chaos Vehicles, Enhanced Input, AI, Navigation, UMG) and config are included.
+- **Driving** with keyboard or controller. Default Enhanced Input bindings are created in code,
+  so no input assets are needed (assign your own in the truck Blueprint if you like).
+- **The loop:** stills, drops and hideout markers are placed automatically (tagged actors, or
+  random points on the navmesh), with pay by distance, suspicion, stars, evading, pinned →
+  busted → fine → restart at the hideout, and lying low.
+- **Police AI:** patrols that notice a suspicious truck, chases that need line of sight,
+  searches around the last sighting, giving up, heading home. Feds cut you off; zealots ram.
+  They route around buildings on the navmesh, get faster at 3 stars and put up roadblocks
+  at 2+ stars. Each cop has its **own** timers; the old scaffold shared one `static` timer
+  between every cop.
+- **A HUD drawn in code:** cash, stars, the suspicion / heat / evade meter, the bust bar,
+  objective and distance, speed, and pop-ups.
+- **Optional Behavior Trees:** a *Shine Pursuit* service plus *Shine Drive To* and *Shine
+  Pick Road Point* tasks. Without a tree, the controller runs the same logic in C++.
 
-| Phase | Goal | Anchor file |
-|-------|------|-------------|
-| 1 — Get a car moving | Driveable Chaos vehicle, WASD, chase cam | `MoonshineVehicle.{h,cpp}` |
-| 2 — Test city block | Night lighting, fog, art-deco blocks | *(editor work — see Dev Guide; mirror `src/world.js`)* |
-| 3 — Cop AI | Patrol / chase / lose via Behavior Tree | `ProhibitionCop.{h,cpp}` |
-| 4 — Bootlegger loop | Pickup → deliver → cash, HUD | `MoonshineDeliveryManager.{h,cpp}` |
-| 5 — Polish | Wanted tiers, audio, menus | `MoonshineDeliveryManager` (wanted) + UMG |
+What you add in the editor: meshes (the free Vehicle content pack is enough), a level with a
+Nav Mesh Bounds Volume, and three small Blueprints. See CHECKLIST.md, steps 3–6.
+
+## Files
+
+| File | What it is | Web demo equivalent |
+|---|---|---|
+| `MoonshineRun.uproject`, `Config/`, `Source/*.Target.cs`, `MoonshineRun.Build.cs` | Project, plugins, build setup | `package.json` |
+| `ShineTuning.h` | Default numbers | `src/config.js` |
+| `ShineTypes.h` | Pursuer modes and kinds, orders, heat context | — |
+| `MoonshineVehicleBase` | Chaos vehicle shared by the truck and the cops (4 wheels, RWD, one drive API) | `src/vehicle.js` |
+| `MoonshineWheels` | Front (steer) and rear (drive, handbrake) wheels | — |
+| `MoonshineVehicle` | Otto's truck: chase camera, look back, Enhanced Input, cargo, disguise | `src/input.js`, `src/camera.js` |
+| `ProhibitionCop` | Pursuer pawn settings (Fed or zealot, speed, sight, give-up time) | `src/police.js` |
+| `ProhibitionCopController` | Per-cop brain: perception, modes, navmesh driving, unsticking | `src/police.js` |
+| `BTService_ShinePursuit`, `BTTask_ShineDriveTo`, `BTTask_ShinePickRoadPoint` | Behavior Tree nodes | — |
+| `MoonshineDeliveryManager` | Loop, pay, heat, evasion, bust, tiers, patrols, roadblocks | `src/mission.js`, `src/main.js` |
+| `MoonshineMarker` | STILL / DROP / HIDEOUT columns with labels | markers in `src/mission.js` |
+| `MoonshineGameMode`, `MoonshineHUD` | Wiring and the in-code HUD | `src/hud.js` |
+
+## Dev Guide phases
+
+| Phase | Goal | Where |
+|---|---|---|
+| 1: Get a car moving | Drivable Chaos vehicle, WASD, chase cam | `MoonshineVehicleBase`, `MoonshineVehicle` (+ CHECKLIST step 4) |
+| 2: Test city block | Night lighting, fog, art-deco blocks | Editor work; mirror `src/world.js` and `src/environment.js` |
+| 3: Cop AI | Patrol / chase / lose them, Behavior Tree | `ProhibitionCopController` + BT nodes (CHECKLIST step 9) |
+| 4: Bootlegger loop | Pickup → deliver → cash, HUD | `MoonshineDeliveryManager`, `MoonshineMarker`, `MoonshineHUD` |
+| 5: Polish | Wanted tiers, audio, menus | Tiers, roadblocks and bust are in; audio and UMG menus are next |
 
 ## Treatment beats these support
 
-- **Steeplechase smuggling loop** → `MoonshineDeliveryManager` pickup/deliver runs.
-- **Temperance Alliance / Corrupt Feds** → `ProhibitionCop` (reskin/var for zealot vs fed).
-- **Wanted/heat escalation** → wanted tiers in `MoonshineDeliveryManager`.
+- **Steeplechase smuggling loop** → `MoonshineDeliveryManager` (orders, pay by distance).
+- **The horse-box disguise** → `bDisguiseUnlocked` on the truck: under 30 mph, suspicion
+  builds 4× slower and patrols only notice up close.
+- **Temperance Alliance zealots vs. corrupt Feds** → `EPursuerKind` on `ProhibitionCop`.
+- **The County Sheriff racket** → `bInSafeZone` on the delivery manager (set it from a
+  trigger volume once the sheriff is bribed).

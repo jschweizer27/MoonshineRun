@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Syntax + vendored Three.js check
+      - name: Syntax, vendored Three.js and UE5 static checks
         run: npm run check
 
       - name: Lint

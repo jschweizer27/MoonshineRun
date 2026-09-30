@@ -1,6 +1,7 @@
 # Attaches downloadable builds to a GitHub Release:
 #   Shine-offline-<version>.zip  -> unzip, double-click Shine.html, play (no install, no internet)
 #   Shine-web-<version>.zip      -> the website files, for hosting anywhere
+#   Shine-UE5-<version>.zip      -> the Unreal Engine 5 project (open MoonshineRun.uproject)
 #
 # To publish: GitHub -> Releases -> "Draft a new release" -> create a tag like v0.3.0 ->
 # Publish. (Or from a terminal: git tag v0.3.0 && git push origin v0.3.0)
@@ -45,6 +46,8 @@ jobs:
           cp scripts/OFFLINE-README.txt release/Shine/README.txt
           (cd release && zip -r "../Shine-offline-${TAG}.zip" Shine)
           (cd dist && zip -r "../Shine-web-${TAG}.zip" .)
+          cp -r ue5 release/Shine-UE5
+          (cd release && zip -r "../Shine-UE5-${TAG}.zip" Shine-UE5)
 
       - name: Create or update the release
         env:

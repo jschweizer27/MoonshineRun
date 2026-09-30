@@ -7,7 +7,8 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 
 ## Run, test, build
 - `npm start` — local server + opens the browser (plays the unbundled source; no build step).
-- `npm run verify` — everything CI runs: `check` (syntax + vendored Three.js), `lint`,
+- `npm run verify` — everything CI runs: `check` (syntax, vendored Three.js, UE5 static
+  checks), `lint`,
   `build`, `test` (Playwright playtests). Run it before pushing.
 - `npm test -- tests/loop.spec.js -g "full run"` — one test. Screenshots land in
   `artifacts/screenshots/`.
@@ -39,6 +40,12 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - `scripts/` zero-dependency dev server, build (esbuild → `dist/` site + single-file
   `dist/Shine.html`), checks, CI summary.
 - `.github/workflows/` CI (every PR), Pages deploy (main), Release zips (tags).
+- `ue5/` a complete UE5 C++ project (`MoonshineRun.uproject`) mirroring the web rules:
+  `MoonshineDeliveryManager` = `mission.js` + the heat/bust parts of `main.js`,
+  `ProhibitionCopController` = `police.js`, `ShineTuning.h` = `config.js` in centimetres.
+  When web gameplay rules or numbers change, update the UE5 mirror too. No engine exists in
+  CI, so `scripts/check-ue5.mjs` checks UHT rules, includes and Build.cs modules instead;
+  the C++ is otherwise uncompiled. Beginner setup lives in `ue5/CHECKLIST.md`.
 
 ## Rules that keep the game fast and hitch-free
 - **Fixed light count.** Only hemisphere, moon, the player headlight and `world.fxLight`

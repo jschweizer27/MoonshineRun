@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Fast pre-flight checks: every JS file parses, and the vendored Three.js matches the
-// version pinned in package.json.
+// Fast pre-flight checks: every JS file parses, the vendored Three.js matches the
+// version pinned in package.json, and the UE5 scaffold passes its static checks.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -40,5 +40,8 @@ if (!fs.existsSync(vendored)) {
     console.log('vendored Three.js matches package.json');
   }
 }
+
+// The UE5 scaffold can't be compiled without the engine; run its static checks instead.
+if (spawnSync(process.execPath, [path.join(root, 'scripts/check-ue5.mjs')], { stdio: 'inherit' }).status !== 0) failed++;
 
 process.exit(failed ? 1 : 0);

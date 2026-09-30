@@ -7,8 +7,9 @@ Feds and Temperance Alliance zealots run you down.
 This repository has two parts:
 
 - **The playable demo** (repo root): a 3D browser game built with Three.js.
-- **`ue5/`**: a C++ starting point for the full Unreal Engine 5 game, following the
-  *Moonshine Run Dev Guide*. See [`ue5/README.md`](ue5/README.md).
+- **`ue5/`**: an Unreal Engine 5 C++ project for the full game, following the *Moonshine Run
+  Dev Guide*, with the same rules and tuning as the web demo. Start with the step-by-step
+  [`ue5/CHECKLIST.md`](ue5/CHECKLIST.md).
 
 ---
 
@@ -103,7 +104,7 @@ SHINE then opens full-screen from your home screen and keeps working **offline**
 |---|---|---|
 | Every pull request / push to `main` | Syntax check, lint, build, and **automated playtests** in a real browser. Gameplay **screenshots** are attached to every run. | Actions → CI → run → *Summary* (artifact **gameplay-screenshots**) |
 | Merge to `main` | The game is **published to GitHub Pages** | The play link above |
-| Publishing a release (tag `v*`) | **Downloadable zips** are attached: offline single-file game + website files | Releases |
+| Publishing a release (tag `v*`) | **Downloadable zips** are attached: offline single-file game, website files, and the UE5 project | Releases |
 | Weekly | **Dependabot** opens update PRs for tools and Actions (each one is playtested by CI) | Pull requests |
 | New Claude Code cloud session | Dev tools install automatically (`.claude/hooks/session-start.sh`) | — |
 
@@ -168,5 +169,5 @@ sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable 
 vendor/three/   Three.js r160 (bundled; no CDN needed)
 scripts/        dev server, build, checks, CI summary
 tests/          Playwright playtests
-ue5/            Unreal Engine 5 C++ scaffold
+ue5/            Unreal Engine 5 C++ project (open MoonshineRun.uproject; see CHECKLIST.md)
 ```
