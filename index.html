@@ -19,6 +19,7 @@
   <div id="hud" class="hidden">
     <div class="hud-tl">
       <div id="cash" class="hud-stat">$0</div>
+      <div id="clock" aria-label="Time and weather"></div>
     </div>
     <div class="hud-tr">
       <div id="hud-buttons">
@@ -54,6 +55,7 @@
       <button id="hint-close" class="text-btn" aria-label="Dismiss tip">Got it</button>
     </div>
     <div class="hud-bl">
+      <div id="status-pill" class="pill hidden"></div>
       <div id="cargo" class="pill hidden">CARGO: LOADED</div>
       <canvas id="minimap" width="180" height="180" aria-label="Minimap"></canvas>
     </div>
@@ -106,6 +108,7 @@
         deliver to the <span class="blue">&#9670; drop</span>. Hauling shine draws the law &mdash; break their line of sight to lose them.</p>
       <p class="hint" id="intro-best"></p>
       <div class="btn-col">
+        <button id="continue-btn" class="btn hidden">CONTINUE</button>
         <button id="start-btn" class="btn" data-autofocus>START THE RUN</button>
         <div class="btn-row">
           <button id="intro-help" class="btn secondary">HOW TO PLAY</button>
@@ -123,6 +126,10 @@
       <div class="btn-col">
         <button id="pause-resume" class="btn" data-autofocus>RESUME</button>
         <button id="pause-map" class="btn secondary">MAP</button>
+        <div class="btn-row">
+          <button id="pause-garage" class="btn secondary">GARAGE</button>
+          <button id="pause-ledger" class="btn secondary">LEDGER</button>
+        </div>
         <button id="pause-settings" class="btn secondary">SETTINGS</button>
         <button id="pause-help" class="btn secondary">HOW TO PLAY</button>
         <button id="pause-restart" class="btn secondary">RESTART RUN</button>
@@ -178,7 +185,7 @@
     <div class="overlay-card map-card">
       <h1 class="title small" id="map-title">MAP</h1>
       <canvas id="map-canvas" width="640" height="640" aria-label="City map"></canvas>
-      <p class="legend"><span class="me">&#9650; you</span> <span class="amber">&#9679; still</span> <span class="blue">&#9670; drop</span> <span class="red">&#9632; police</span> <span class="gold">&#9473; route</span></p>
+      <p class="legend"><span class="me">&#9650; you</span> <span class="amber">&#9679; still</span> <span class="blue">&#9670; drop</span> <span class="green">&#8962; hideout</span> <span class="red">&#9632; police</span> <span class="gold">&#9473; route</span></p>
       <button id="map-done" class="btn" data-autofocus>CLOSE</button>
     </div>
   </div>
@@ -187,12 +194,61 @@
   <div id="gameover" class="overlay hidden" role="dialog" aria-labelledby="gameover-title">
     <div class="overlay-card">
       <h1 class="title gameover-title" id="gameover-title">BUSTED</h1>
-      <p class="story" id="gameover-msg">They ran you off the road.</p>
-      <p class="story">This run: <strong id="final-cash">$0</strong> &middot; Deliveries: <strong id="final-runs">0</strong></p>
-      <p class="story">Best haul: <strong id="best-cash">$0</strong> <span id="new-best" class="badge hidden">NEW BEST!</span></p>
+      <p class="story" id="gameover-msg">They pinned you down.</p>
+      <p class="hint" id="gameover-detail"></p>
+      <p class="story">This streak: <strong id="final-cash">$0</strong> &middot; Deliveries: <strong id="final-runs">0</strong></p>
+      <p class="story">Best streak: <strong id="best-cash">$0</strong> <span id="new-best" class="badge hidden">NEW BEST!</span></p>
       <div class="btn-col">
-        <button id="restart-btn" class="btn" data-autofocus>RUN AGAIN</button>
+        <button id="restart-btn" class="btn" data-autofocus>CONTINUE</button>
+        <div class="btn-row" id="gameover-extra">
+          <button id="gameover-garage" class="btn secondary">GARAGE</button>
+          <button id="gameover-ledger" class="btn secondary">LEDGER</button>
+        </div>
         <button id="gameover-quit" class="btn secondary">QUIT TO TITLE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order book at the still -->
+  <div id="orders" class="overlay hidden" role="dialog" aria-labelledby="orders-title">
+    <div class="overlay-card wide">
+      <h1 class="title small" id="orders-title">THE ORDER BOOK</h1>
+      <p class="hint">Pick a buyer. Bigger loads pay more but draw more heat. (Keys 1&ndash;3.)</p>
+      <div id="orders-body"></div>
+    </div>
+  </div>
+
+  <!-- Garage -->
+  <div id="garage" class="overlay hidden" role="dialog" aria-labelledby="garage-title">
+    <div class="overlay-card wide">
+      <h1 class="title small" id="garage-title">THE HIDEOUT GARAGE</h1>
+      <p class="story">Cash on hand: <strong id="garage-cash" class="gold">$0</strong></p>
+      <div id="garage-body"></div>
+      <div class="btn-row">
+        <button id="garage-ledger" class="btn secondary">OTTO'S LEDGER</button>
+        <button id="garage-done" class="btn" data-autofocus>BACK ON THE ROAD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ledger -->
+  <div id="ledger" class="overlay hidden" role="dialog" aria-labelledby="ledger-title">
+    <div class="overlay-card wide ledger-card">
+      <h1 class="title small" id="ledger-title">OTTO'S LEDGER</h1>
+      <div id="ledger-totals"></div>
+      <table id="ledger-runs"></table>
+      <button id="ledger-done" class="btn" data-autofocus>CLOSE THE BOOK</button>
+    </div>
+  </div>
+
+  <!-- Story dialogue -->
+  <div id="dialog" class="overlay hidden" role="dialog" aria-labelledby="dialog-name">
+    <div class="overlay-card dialog-card">
+      <div class="dialog-head"><span id="dialog-face"></span><span id="dialog-name"></span></div>
+      <p id="dialog-text" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="dialog-skip" class="btn secondary">SKIP</button>
+        <button id="dialog-next" class="btn" data-autofocus>NEXT</button>
       </div>
     </div>
   </div>

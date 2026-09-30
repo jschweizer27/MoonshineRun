@@ -15,10 +15,18 @@ export function installDebug(game, { overlay }) {
       game.player.place(x, z, heading);
       game.chase.snap(game.player);
     },
+    // Drive onto the still and pick an order (0 = small). Leaves the game playing.
+    loadShine(order = 0) {
+      const m = game.mission;
+      api.teleport(m.pickup.position.x, m.pickup.position.z);
+      game.step(1 / 60, idle);
+      document.querySelectorAll('#orders-body .order')[order]?.click();
+      return api.snapshot();
+    },
     snapshot() {
       const m = game.mission, p = game.player;
       return {
-        state: game.state, cash: m.cash, runs: m.runs, carrying: m.carrying,
+        state: game.state, cash: game.career.cash, streak: m.streakEarned, runs: m.streakRuns, carrying: m.carrying, mode: m.mode,
         heat: +m.heat.toFixed(3), tier: m.tier, evade: +m.evade.toFixed(3),
         pursuers: game.police.pursuing, contact: game.police.contact,
         x: +p.position.x.toFixed(2), z: +p.position.z.toFixed(2), heading: +p.heading.toFixed(3), speed: +p.speed.toFixed(2),

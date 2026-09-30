@@ -20,11 +20,14 @@ export class CollisionWorld {
     return this.addCapsule(x, z, x, z, r, opts);
   }
 
+  // `sightR` (optional) is the radius that blocks line of sight, e.g. a tree's crown is much
+  // wider than the trunk the truck bumps into.
   addCapsule(ax, az, bx, bz, r, opts = {}) {
+    const reach = Math.max(r, opts.sightR ?? 0);
     return this._insert({
-      type: 'capsule', ax, az, bx, bz, r,
-      minX: Math.min(ax, bx) - r, minZ: Math.min(az, bz) - r,
-      maxX: Math.max(ax, bx) + r, maxZ: Math.max(az, bz) + r,
+      type: 'capsule', ax, az, bx, bz, r, sightR: opts.sightR ?? r,
+      minX: Math.min(ax, bx) - reach, minZ: Math.min(az, bz) - reach,
+      maxX: Math.max(ax, bx) + reach, maxZ: Math.max(az, bz) + reach,
       blocksSight: opts.blocksSight ?? false, tag: opts.tag ?? 'capsule',
     });
   }
@@ -103,17 +106,29 @@ export class CollisionWorld {
     return best;
   }
 
-  // True if a sight-blocking collider (building, barn, roadblock) sits between A and B.
+  // True if a sight-blocking collider (building, barn, tree crown) sits between A and B.
+  // Trees are thin, so it takes a stand of them (3+) to hide you.
   segmentBlocked(ax, az, bx, bz) {
-    let blocked = false;
+    let blocked = false, trees = 0;
     this.query(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), (c) => {
-      if (!blocked && c.blocksSight && c.type === 'box' && segmentHitsBox(ax, az, bx, bz, c)) blocked = true;
+      if (blocked || !c.blocksSight) return;
+      if (c.type === 'box') {
+        if (segmentHitsBox(ax, az, bx, bz, c)) blocked = true;
+      } else if (segmentToPoint(ax, az, bx, bz, c.ax, c.az) < c.sightR && ++trees >= 3) {
+        blocked = true;
+      }
     });
     return blocked;
   }
 }
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+function segmentToPoint(ax, az, bx, bz, px, pz) {
+  const ex = bx - ax, ez = bz - az, len2 = ex * ex + ez * ez;
+  const t = len2 ? clamp(((px - ax) * ex + (pz - az) * ez) / len2, 0, 1) : 0;
+  return Math.hypot(px - (ax + ex * t), pz - (az + ez * t));
+}
 
 function pushFromBox(x, z, r, b) {
   const cx = clamp(x, b.minX, b.maxX);

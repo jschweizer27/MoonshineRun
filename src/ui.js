@@ -120,7 +120,7 @@ export class UI {
 }
 
 // ---------- Settings screen ----------
-const el = (tag, attrs = {}, ...kids) => {
+export const el = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') n.className = v;

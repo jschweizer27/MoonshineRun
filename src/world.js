@@ -3,6 +3,21 @@ import { CONFIG } from './config.js';
 import { createRng } from './rng.js';
 import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
+import { buildCounty, COUNTY } from './county.js';
+
+// Named drop sites around the city (intersections), for the order board.
+export const DROPS = [
+  { name: 'Highlandtown Speakeasy', x: 176, z: 44 },
+  { name: 'Fells Point Docks', x: 132, z: 176 },
+  { name: 'Mount Vernon Hotel', x: 0, z: -132 },
+  { name: 'Little Italy Social Club', x: 44, z: 132 },
+  { name: 'Hampden Mill', x: -176, z: -132 },
+  { name: 'Canton Cannery', x: 220, z: 132 },
+  { name: 'Federal Hill Tavern', x: -88, z: 176 },
+  { name: 'Station North Jazz Club', x: 88, z: -176 },
+  { name: 'Charles Village Drugstore', x: -88, z: -88 },
+  { name: 'Lexington Market', x: -132, z: 44 },
+];
 
 // The 1920s city: a street grid with cobbles and streetcar rails, brick blocks with lit
 // windows, and gas lamps. Street lighting is faked with glowing decals instead of
@@ -16,6 +31,7 @@ export class World {
     this.collision = new CollisionWorld(this.cfg.blockSize);
     this.roads = new RoadGraph();
     this.buildings = [];   // footprints { minX, minZ, maxX, maxZ, h }
+    this.extraLights = []; // lantern glows (no pole) added by the county
     this.uniforms = {
       uWindowGlow: { value: 1.1 },
       uWindowLitRatio: { value: 0.45 },
@@ -25,9 +41,16 @@ export class World {
     this._buildGround();
     this._buildRoadGraph();
     this._buildBuildings();
+    const county = buildCounty(this, this.rng);
+    this.barns = county.barns;
+    this.hideout = county.hideout;
+    this.drops = DROPS;
     this._buildLamps();
+    this._buildWater();
     this._buildBounds();
   }
+
+  inCounty(p) { return p.z < -250; }
 
   _buildLights() {
     const s = this.scene;
@@ -152,8 +175,9 @@ export class World {
         else addBuilding(minX, minZ + (maxZ - minZ) * a, maxX, minZ + (maxZ - minZ) * b, h);
       }
     };
-    addWall(-wallOut, -wallOut, wallOut, -wallIn);   // north
-    addWall(-wallOut, wallIn, wallOut, wallOut);     // south
+    addWall(-wallOut, -wallOut, -9, -wallIn);        // north, with a gap for York Road
+    addWall(9, -wallOut, wallOut, -wallIn);
+    addWall(-wallOut, wallIn, wallOut, wallOut);     // south (the docks)
     addWall(-wallOut, -wallIn, -wallIn, wallIn);     // west
     addWall(wallIn, -wallIn, wallOut, wallIn);       // east
     this.edge = Math.min(edge, wallIn);
@@ -188,6 +212,7 @@ export class World {
         if (i < R) { const s2 = (i + j) & 1 ? -1 : 1; spots.push({ x: i * B + B / 2, z: j * B + s2 * off, tx: 0, tz: -s2 }); }
       }
     }
+    spots.push(...this.extraLights);
     this.lampSpots = spots;
     const n = spots.length;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
@@ -207,11 +232,13 @@ export class World {
     const haloPos = new Float32Array(n * 3);
 
     spots.forEach((sp, k) => {
-      poles.setMatrixAt(k, m.compose(p.set(sp.x, 0, sp.z), q, s.set(1, 1, 1)));
-      bulbs.setMatrixAt(k, m.compose(p.set(sp.x, 5.35, sp.z), q, s));
+      const pole = sp.pole !== false;           // barn lanterns hang on the wall: no post
+      const y = pole ? 5.35 : 3.4;
+      poles.setMatrixAt(k, m.compose(p.set(sp.x, 0, sp.z), q, s.set(pole ? 1 : 0, pole ? 1 : 0, pole ? 1 : 0)));
+      bulbs.setMatrixAt(k, m.compose(p.set(sp.x, y, sp.z), q, s.set(1, 1, 1)));
       pools.setMatrixAt(k, m.compose(p.set(sp.x + sp.tx * 2.5, 0.04, sp.z + sp.tz * 2.5), q, s.set(22, 1, 22)));
-      haloPos.set([sp.x, 5.35, sp.z], k * 3);
-      this.collision.addCircle(sp.x, sp.z, 0.25, { tag: 'lamp' });
+      haloPos.set([sp.x, y, sp.z], k * 3);
+      if (pole) this.collision.addCircle(sp.x, sp.z, 0.25, { tag: 'lamp' });
     });
     for (const im of [poles, bulbs, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
     pools.renderOrder = 1;
@@ -227,11 +254,38 @@ export class World {
     this.scene.add(this.halos);
   }
 
+  // The Inner Harbor beyond the docks.
+  _buildWater() {
+    this.waterMaterial = new THREE.MeshStandardMaterial({ color: 0x0f1c26, roughness: 0.25, metalness: 0.4 });
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 700).rotateX(-Math.PI / 2), this.waterMaterial);
+    water.position.set(0, -0.3, 600);
+    this.scene.add(water);
+  }
+
   _buildBounds() {
     const e = this.edge;
     this.collision.addZone(-e, -e, e, e);
-    const m = this.cfg.blockSize * this.cfg.gridRadius + 30;
-    this.mapBounds = { minX: -m, maxX: m, minZ: -m, maxZ: m };
+    this.mapBounds = { minX: COUNTY.minX - 20, maxX: COUNTY.maxX + 20, minZ: COUNTY.minZ - 20, maxZ: 300 };
+    this.mapLabels = [
+      { text: 'HIGHLANDTOWN', x: 175, z: 22 }, { text: 'FELLS POINT', x: 150, z: 198 },
+      { text: 'MOUNT VERNON', x: 0, z: -110 }, { text: 'LITTLE ITALY', x: 60, z: 110 },
+      { text: 'HAMPDEN', x: -175, z: -154 }, { text: 'FEDERAL HILL', x: -110, z: 198 },
+      { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
+      { text: 'GREEN SPRING VALLEY', x: 0, z: -610 }, { text: 'MONKTON', x: 0, z: -1015 },
+    ];
+  }
+
+  // Background of the prerendered map: county fields, woods and the harbor.
+  drawMapGround(g, X, Z, s) {
+    g.fillStyle = '#16211a';
+    g.fillRect(X(COUNTY.minX), Z(COUNTY.minZ), (COUNTY.maxX - COUNTY.minX) * s, (COUNTY.maxZ - COUNTY.minZ) * s);
+    g.fillStyle = '#0f1c26';
+    g.fillRect(X(this.mapBounds.minX), Z(250), (this.mapBounds.maxX - this.mapBounds.minX) * s, 60 * s);
+    g.fillStyle = '#1d2c1e';
+    const { blockSize: B, gridRadius: R } = this.cfg;
+    g.fillRect(X(-R * B - 22), Z(-R * B - 22), (R * B * 2 + 44) * s, (R * B * 2 + 44) * s);
+    g.fillStyle = '#243a22';
+    for (const [x, z, sc] of this.trees || []) { g.beginPath(); g.arc(X(x), Z(z), 2.6 * sc * s, 0, Math.PI * 2); g.fill(); }
   }
 
   // A road node position, optionally at least `minDist` from `avoid`.
@@ -258,9 +312,11 @@ export class World {
     this.groundTexture.needsUpdate = true;
   }
 
-  // Graphics level: low drops the lamp halos (lots of overdraw on weak GPUs).
+  // Graphics level: low drops the lamp halos (lots of overdraw on weak GPUs). The
+  // environment also hides them by day.
   setDetail(level) {
-    this.halos.visible = level !== 'low';
+    this.detailHalos = level !== 'low';
+    this.halos.visible = this.detailHalos;
   }
 }
 

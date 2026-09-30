@@ -201,10 +201,13 @@ body.touch-mode #bust { bottom: 260px; }
   padding: max(16px, env(safe-area-inset-top)) var(--gutter) max(16px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 35%, rgba(40, 30, 15, 0.55), rgba(3, 4, 7, 0.94));
 }
-#pause, #settings, #help, #map, #confirm { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#pause, #settings, #help, #map, #confirm, #orders, #garage, #ledger, #dialog { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#garage, #ledger { z-index: 26; }
 #confirm { z-index: 30; }
 /* Menus stack on top of each other, so their cards are solid (nothing bleeds through). */
-#pause .overlay-card, #settings .overlay-card, #help .overlay-card, #map .overlay-card, #confirm .overlay-card { background: #0c0b09; }
+#pause .overlay-card, #settings .overlay-card, #help .overlay-card, #map .overlay-card, #confirm .overlay-card,
+#orders .overlay-card, #garage .overlay-card, #dialog .overlay-card { background: #0c0b09; }
+#dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.55)); }
 
 .overlay-card {
   margin: auto;
@@ -240,6 +243,7 @@ body.touch-mode #bust { bottom: 260px; }
 .amber { color: var(--amber); font-weight: bold; }
 .blue { color: var(--blue); font-weight: bold; }
 .red { color: var(--red); font-weight: bold; }
+.green { color: #8fd18a; font-weight: bold; }
 .badge { display: inline-block; margin-left: 6px; padding: 2px 8px; font-size: 12px; letter-spacing: 2px; color: var(--ink); background: var(--gold); border-radius: 2px; vertical-align: middle; }
 
 .btn-col { display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 360px; margin: 0 auto; }
@@ -304,6 +308,52 @@ body.touch-mode #bust { bottom: 260px; }
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Clock, status pill */
+#clock { margin-top: 2px; font-size: calc(14px * var(--ts)); letter-spacing: 2px; color: #c9c0aa; text-shadow: 0 1px 4px #000; }
+#status-pill.disguised { color: #9fd89a; border-color: rgba(143, 209, 138, 0.7); }
+#status-pill.speeding { color: #ff8a7a; border-color: rgba(216, 69, 58, 0.7); }
+#status-pill.safe { color: #8cc8f0; border-color: rgba(90, 167, 216, 0.7); }
+
+/* Order book */
+#orders-body { display: flex; flex-direction: column; gap: 10px; }
+.order { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 12px 16px; font: inherit; color: var(--paper); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(216, 178, 90, 0.5); border-radius: 4px; cursor: pointer; }
+.order:hover, .order:focus-visible { background: rgba(216, 178, 90, 0.14); border-color: var(--gold); outline: none; }
+.order.locked { opacity: 0.45; cursor: not-allowed; }
+.order-key { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--gold); border-radius: 50%; color: var(--gold); font-weight: bold; }
+.order-main { display: flex; flex-direction: column; gap: 2px; font-size: calc(15px * var(--ts)); }
+.order-main small { color: var(--muted); font-size: calc(13px * var(--ts)); }
+.order-pay { font-size: calc(22px * var(--ts)); color: var(--gold); font-weight: bold; white-space: nowrap; }
+
+/* Garage */
+#garage-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; }
+.upgrade { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid rgba(216, 178, 90, 0.3); border-radius: 4px; }
+.upgrade b { font-size: calc(16px * var(--ts)); color: var(--paper); }
+.upgrade small { display: block; color: var(--muted); font-size: calc(13px * var(--ts)); margin-top: 2px; }
+.upgrade.bribe { border-color: rgba(90, 167, 216, 0.5); }
+.pips { margin-left: 10px; }
+.pips i { display: inline-block; width: 10px; height: 10px; margin-right: 3px; border-radius: 50%; border: 1px solid var(--gold); }
+.pips i.on { background: var(--gold); }
+.small-btn { font-size: calc(13px * var(--ts)); padding: 8px 14px; min-height: 40px; white-space: nowrap; letter-spacing: 1px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* Ledger: a bookkeeper's page */
+.ledger-card { background: #1b1712 !important; }
+#ledger-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin-bottom: 16px; text-align: left; font-family: "Courier New", Courier, monospace; font-size: calc(14px * var(--ts)); }
+#ledger-totals div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(216, 178, 90, 0.3); padding: 3px 0; }
+#ledger-totals b { color: var(--gold); }
+#ledger-runs { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-family: "Courier New", Courier, monospace; font-size: calc(13px * var(--ts)); text-align: left; }
+#ledger-runs th { color: var(--gold); font-weight: normal; border-bottom: 1px solid rgba(216, 178, 90, 0.5); padding: 4px; }
+#ledger-runs td { padding: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #d8cfb8; }
+#ledger-runs tr.busted td { color: #e89a90; }
+
+/* Dialogue */
+.dialog-card { max-width: 640px; text-align: left; }
+.dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
+#dialog-face { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--gold); border-radius: 50%; font-weight: bold; letter-spacing: 1px; }
+#dialog-name { font-size: calc(15px * var(--ts)); letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+#dialog-text { font-size: calc(clamp(17px, 3.6vw, 20px) * var(--ts)); line-height: 1.55; min-height: 4.8em; margin: 0 0 18px; color: var(--paper); }
+#dialog.narration #dialog-text { font-style: italic; color: #d8cfb8; }
 
 /* Reduced motion: no flashing, pulsing or popping. */
 html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::after { animation: none !important; transition: none !important; }

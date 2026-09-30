@@ -30,8 +30,8 @@ export const CONFIG = {
     maxSpeed: 35,
     accel: 16,
     sightRange: 70,       // how far a pursuer can see you (needs clear line of sight)
+    closeRange: 15,       // patrols see through the horse-box disguise this close
     catchRadius: 3.8,     // touching distance
-    maxUnits: 4,          // pooled cars (no allocations mid-game)
     spawnMin: 150,        // spawn this far from the player, out of view
     spawnMax: 260,
     despawnDistance: 110, // leaving cars vanish once off-screen and this far away
@@ -46,18 +46,27 @@ export const CONFIG = {
     max: 3,
     // Informants (the Temperance Alliance's civilian network) tip off the police while
     // you haul shine. Suspicion fills at this rate; at 1.0 you get your first star.
-    tipOffRate: 0.08,
+    tipOffRate: 0.06,
     // While a pursuer can see you and you're carrying, heat climbs toward 3 stars.
     buildRateSeen: 0.1,
     // Seconds you must stay out of every pursuer's sight to shed one star, per star level.
     evadeTime: [0, 5, 7, 9],
+    // Horse-box disguise (after the Jockey joins): under this speed with shine aboard you
+    // look like a thoroughbred on its way to the races.
+    disguiseSpeed: 13.4,      // m/s (30 mph)
+    disguiseSuspicion: 0.25,  // suspicion builds this much slower while disguised
   },
 
   mission: {
-    reward: 850,
     markerRadius: 7,
     minPickupDistance: 150,   // stills never spawn on top of you
     minDropDistance: 180,
+    // Order book at the still. Pay = jugs x price x (1 + distance / 900).
+    orders: [
+      { id: 'small', label: 'Small batch', jugs: 12, price: 42, heat: 1.0 },
+      { id: 'standard', label: 'Standard run', jugs: 24, price: 46, heat: 1.6 },
+      { id: 'big', label: 'Big order', jugs: 40, price: 52, heat: 2.3, tipOff: true, needsBigOrders: true },
+    ],
   },
 
   camera: {

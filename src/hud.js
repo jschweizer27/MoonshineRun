@@ -61,7 +61,24 @@ export class HUD {
     f.classList.add('hit');
   }
 
-  setCargo(loaded) { this._set('cargo', loaded, () => this.el.cargo.classList.toggle('hidden', !loaded)); }
+  setCargo(loaded, detail = '') {
+    this.el.cargo.classList.toggle('hidden', !loaded);
+    this.el.cargo.textContent = detail ? `CARGO: ${detail}` : 'CARGO: LOADED';
+  }
+
+  setClock(text) { this._set('clock', text, () => { $('clock').textContent = text; }); }
+
+  // pill: null or [kind, text] where kind is disguised | speeding | safe
+  setStatusPill(pill) {
+    const key = pill ? pill.join('|') : '';
+    this._set('pill', key, () => {
+      const p = $('status-pill');
+      p.classList.toggle('hidden', !pill);
+      if (!pill) return;
+      p.className = `pill ${pill[0]}`;
+      p.textContent = pill[1];
+    });
+  }
   setSpeed(mph) { this._set('speed', mph, () => { this.el.speed.textContent = mph; }); }
   setMuted(m) { this.el.mute.classList.toggle('muted', m); this.el.mute.setAttribute('aria-label', m ? 'Unmute' : 'Mute'); }
 

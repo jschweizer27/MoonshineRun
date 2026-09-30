@@ -32,8 +32,11 @@ export class RoadGraph {
     return pool[Math.floor(rng() * pool.length)];
   }
 
+  static edgeKey(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
+
   // Shortest path (Dijkstra; the graph is small) as a list of node ids, start..goal.
-  path(fromId, toId) {
+  // `blocked` is an optional Set of edge keys (roadblocks) to route around.
+  path(fromId, toId, blocked = null) {
     if (fromId === toId) return [fromId];
     const n = this.nodes.length;
     const dist = new Float64Array(n).fill(Infinity);
@@ -47,6 +50,7 @@ export class RoadGraph {
       done[u] = 1;
       const a = this.nodes[u];
       for (const v of a.links) {
+        if (blocked && blocked.has(RoadGraph.edgeKey(u, v))) continue;
         const b = this.nodes[v];
         const nd = best + Math.hypot(a.x - b.x, a.z - b.z);
         if (nd < dist[v]) { dist[v] = nd; prev[v] = u; }

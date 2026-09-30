@@ -58,6 +58,8 @@ export class Tutorial {
         gamepad: 'Tip: press Start to pause, and View/Back for the map.',
         touch: 'Tip: tap the pause button (top right) for the map and settings.',
       },
+      disguise: 'Horse-box disguise: with shine aboard, stay under 30 mph and patrols see a thoroughbred, not a bootlegger.',
+      hideout: 'Tip: roll slowly into the green HIDEOUT to lie low and spend your cash at the garage.',
     }[id];
     return typeof t === 'string' ? t : t[dev] || t.keyboard;
   }
@@ -71,6 +73,8 @@ export class Tutorial {
     heat: { when: (c) => c.tier > 0, done: (c) => c.tier === 0, timeout: 12 },
     pinned: { when: (c) => c.bust > 0.12, done: (c) => c.bust === 0, timeout: 8 },
     handbrake: { when: (c) => c.deliveries >= 1 && !c.carrying && c.tier === 0, done: () => false, timeout: 8 },
+    disguise: { when: (c) => c.disguiseUnlocked && c.carrying && c.tier === 0, done: () => false, timeout: 10 },
+    hideout: { when: (c) => c.deliveries >= 2 && !c.carrying && c.tier === 0, done: () => false, timeout: 9 },
     menu: { when: (c) => c.deliveries >= 1 && c.time > 60 && c.tier === 0, done: () => false, timeout: 8 },
   };
 

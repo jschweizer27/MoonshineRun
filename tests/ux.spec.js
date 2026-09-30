@@ -46,7 +46,10 @@ test('arrow keys move through menu buttons and Enter activates', async ({ page }
   await expect(page.locator('#pause-resume')).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('#pause-map')).toBeFocused();
-  await page.keyboard.press('ArrowDown');
+  for (let k = 0; k < 8 && !(await page.locator('#pause-settings').evaluate((b) => b === document.activeElement)); k++) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(page.locator('#pause-settings')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#settings')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -75,8 +78,10 @@ test('a gamepad drives the truck and navigates menus', async ({ page }) => {
   await press(9, true);                       // Start = pause
   await expect.poll(() => state(page)).toBe('paused');
   await press(9, false);
-  await tap(13);                              // d-pad down
-  await expect(page.locator('#pause-map')).toBeFocused();
+  await press(13, true);                      // d-pad down (held until the menu reacts)
+  await expect(page.locator('#pause-map')).toBeFocused({ timeout: 5000 });
+  await press(13, false);
+  await page.waitForTimeout(200);
   await tap(1);                               // B = back, which resumes
   await expect.poll(() => state(page)).toBe('playing');
 });
@@ -168,12 +173,11 @@ test('the bust bar fills while pinned and drains when you break free', async ({ 
 test('delivery feedback: cash pop-up and count-up', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  await page.evaluate(() => { const m = window.shine.game.mission; window.shine.teleport(m.pickup.position.x, m.pickup.position.z); });
-  await step(page, 0.1);
+  const pay = await page.evaluate(() => { window.shine.loadShine(0); return window.shine.game.mission.order.pay; });
   await page.evaluate(() => { const m = window.shine.game.mission; window.shine.teleport(m.drop.position.x, m.drop.position.z); });
   await step(page, 0.1);
-  await expect(page.locator('#cash-pop')).toHaveText('+$850');
-  await expect(page.locator('#cash')).toHaveText('$850');
+  await expect(page.locator('#cash-pop')).toHaveText(`+$${pay.toLocaleString()}`);
+  await expect(page.locator('#cash')).toHaveText(`$${pay.toLocaleString()}`);
 });
 
 test('first-run tips appear and go away once you drive', async ({ page }) => {

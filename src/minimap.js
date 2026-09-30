@@ -1,8 +1,8 @@
 // Corner radar (heading-up or north-up) and the full-screen map. The static map (roads,
 // buildings) is drawn once into an offscreen canvas; each frame only draws the visible
 // slice plus the route and icons. Markers use distinct shapes, not just colours.
-const LAYER_SCALE = 1.5;                 // pixels per metre in the prerendered layer
-const COLORS = { still: '#e0a83a', drop: '#5aa7d8', gold: '#f2c55c', me: '#ece3cf', fed: ['#ff3b30', '#3b82ff'], zealot: '#ff8a2a' };
+const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
+const COLORS = { still: '#e0a83a', drop: '#5aa7d8', hideout: '#8fd18a', goal: '#f2c55c', gold: '#f2c55c', me: '#ece3cf', fed: ['#ff3b30', '#3b82ff'], zealot: '#ff8a2a' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -49,16 +49,18 @@ export class MiniMap {
     return cv;
   }
 
-  // Recompute the GPS route along the streets (cheap; throttled).
-  updateRoute(dt, from, to) {
+  // Recompute the GPS route along the roads, around any roadblocks (cheap; throttled).
+  updateRoute(dt, from, to, blocked = null) {
     this._routeTimer -= dt;
     const moved = !this._routeTarget || this._routeTarget.x !== to.x || this._routeTarget.z !== to.z;
-    if (this._routeTimer > 0 && !moved) return;
+    const blocks = blocked ? blocked.size : 0;
+    if (this._routeTimer > 0 && !moved && blocks === this._blocks) return;
     this._routeTimer = 0.5;
+    this._blocks = blocks;
     this._routeTarget = { x: to.x, z: to.z };
     const roads = this.world.roads;
     const a = roads.nearest(from.x, from.z), b = roads.nearest(to.x, to.z);
-    const ids = roads.path(a.id, b.id) || [];
+    const ids = roads.path(a.id, b.id, blocked) || roads.path(a.id, b.id) || [];
     this.route = [...ids.map((i) => roads.nodes[i]), { x: to.x, z: to.z }];
   }
 
@@ -161,13 +163,17 @@ export class MiniMap {
   }
 }
 
-// still = circle, drop = diamond, hideout = house (shape + colour for colour-blind players)
+// still = circle, drop = diamond, hideout = house, goal = flag (shape + colour for
+// colour-blind players)
 function drawMarker(g, kind, x, y, r) {
   g.lineWidth = Math.max(1.5, r * 0.3);
   g.strokeStyle = '#0b0d14';
   g.fillStyle = COLORS[kind] || '#fff';
   g.beginPath();
-  if (kind === 'drop') {
+  if (kind === 'goal') {
+    g.rect(x - r * 0.9, y - r * 1.3, r * 0.35, r * 2.6);
+    g.moveTo(x - r * 0.55, y - r * 1.3); g.lineTo(x + r * 1.2, y - r * 0.75); g.lineTo(x - r * 0.55, y - r * 0.2); g.closePath();
+  } else if (kind === 'drop') {
     g.moveTo(x, y - r * 1.25); g.lineTo(x + r * 1.25, y); g.lineTo(x, y + r * 1.25); g.lineTo(x - r * 1.25, y); g.closePath();
   } else if (kind === 'hideout') {
     g.moveTo(x, y - r * 1.3); g.lineTo(x + r * 1.2, y - r * 0.2); g.lineTo(x + r, y + r); g.lineTo(x - r, y + r); g.lineTo(x - r * 1.2, y - r * 0.2); g.closePath();

@@ -27,6 +27,14 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   it. Preferences live in `settings.js` (localStorage).
 - States: `intro` → `playing` ⇄ `paused` → `gameover`. Pausing stops simulation and
   rendering and suspends audio.
+- Career (`career.js`, localStorage) holds cash, upgrades, story flags, stats, ledger.
+  Mission modes: `escape` (Act I) and `loop`. Stills are county barns, drops are named city
+  intersections (`world.drops`). Mission emits events (`orders`, `pickup`, `deliver`,
+  `hideout`, `escaped`, `spotted`, ...); `main.js` turns them into screens and saves.
+- Test flags: `?test` disables story, tips and the day/night clock; add `&story`, `&hints`,
+  `&time` to turn them back on. `window.shine.loadShine(i)` loads order `i` at the still.
+- North is −Z. The county spans z −247…−1040; York Road leaves the city through a gap in
+  the north wall at x = 0.
 - `vendor/three/` Three.js r160, vendored (no CDN). Upgrade via `npm run vendor`.
 - `scripts/` zero-dependency dev server, build (esbuild → `dist/` site + single-file
   `dist/Shine.html`), checks, CI summary.

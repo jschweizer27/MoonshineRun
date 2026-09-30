@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CONFIG, MS_TO_MPH } from './config.js';
 import { createRng } from './rng.js';
 import { World } from './world.js';
 import { Vehicle } from './vehicle.js';
@@ -12,31 +12,42 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { MiniMap } from './minimap.js';
 import { Tutorial } from './tutorial.js';
-import { UI, buildSettings, buildHelpKeys } from './ui.js';
+import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
-import { loadRecords, recordRun } from './save.js';
+import { Career } from './career.js';
+import { Environment } from './environment.js';
+import { BEATS, nextBeat } from './story.js';
+import { showOrders, showGarage, showLedger, playDialog, money } from './screens.js';
+import { Fire } from './effects.js';
+import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused', GAMEOVER: 'gameover' };
 const $ = (id) => document.getElementById(id);
 
-// URL options: ?debug (dev overlay + test API), ?test (test API, deterministic, no tips),
-// ?seed=123 (city layout and mission randomness), ?sw (offline mode on localhost).
+// URL options: ?debug (dev overlay + test API), ?test (test API, deterministic, no tips or
+// story), ?seed=123 (city layout), ?sw (offline mode on localhost), ?story / ?hints / ?time
+// (turn those back on under ?test).
 const params = new URLSearchParams(location.search);
 export const OPTIONS = {
   debug: params.has('debug'),
   test: params.has('test'),
   seed: params.has('seed') ? Number(params.get('seed')) >>> 0 : null,
   sw: params.has('sw'),
-  hints: !params.has('test') || params.has('hints'),   // tips are off in tests unless asked for
+  hints: !params.has('test') || params.has('hints'),
+  story: !params.has('test') || params.has('story'),
+  time: !params.has('test') || params.has('time'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
+const HIDEOUT_SPAWN = { heading: Math.PI / 2 };   // facing east, back toward York Road
+const WAREHOUSE_SPAWN = { x: 176, z: 44, heading: -Math.PI / 2 };
 
 class Game {
   constructor() {
     this.buildId = BUILD_ID;
     this.settings = loadSettings();
+    this.career = new Career();
     this.canvas = $('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -44,19 +55,25 @@ class Game {
     this.renderer.toneMappingExposure = 1.15;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 1200);
+    this.camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 1400);
 
-    // The city is built once; restarting only resets state (no rebuild, no leaks).
-    this.world = new World(this.scene, { seed: OPTIONS.seed ?? CONFIG.seed });
+    // The world is built once; restarting only resets state (no rebuild, no leaks).
+    this.citySeed = OPTIONS.seed ?? this.settings.citySeed ?? CONFIG.seed;
+    this.world = new World(this.scene, { seed: this.citySeed });
+    this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
     // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
     const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
     this.rng = createRng(missionSeed);
-    this.mission = new Mission(this.scene, this.world, this.rng);
+    this.mission = new Mission(this.scene, this.world, this.rng, this.career);
     this.waypoint = new Waypoint(this.scene);
     this.chase = new ChaseCamera(this.camera, this.world.collision);
+    this.fire = new Fire(this.scene, this.world.fxLight);
+    this.warehouse = this.world.buildings
+      .filter((b) => !b.barn && b.minX > 150 && b.maxX < 226 && b.minZ > 50 && b.maxZ < 90)
+      .sort((a, b) => b.h - a.h)[0] || this.world.buildings[0];
 
     this.hud = new HUD();
     this.input = new Input(this.settings.bindings);
@@ -72,9 +89,9 @@ class Game {
     this.clock = new THREE.Clock();
     this._probe = { frames: 0, total: 0, done: this.settings.quality !== 'auto' || OPTIONS.test };
 
-    this.resetRun();
+    this.resetRun('loop');
     this.applySettings();
-    // Compile every shader now so nothing hitches when cops or markers first appear.
+    // Compile every shader now so nothing hitches when cops, roadblocks or fire appear.
     this.renderer.compile(this.scene, this.camera);
     this.world.setAnisotropy(Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
 
@@ -129,6 +146,7 @@ class Game {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
     this.world.setDetail(q);
+    this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
 
   // "Auto" graphics: time the title screen and pick a level that keeps it smooth.
@@ -162,20 +180,36 @@ class Game {
       : d === 'touch' ? '' : 'Press Enter to start · Esc for the menu in-game';
   }
 
+  // Upgrades from the garage change how the truck drives and how hard it is to pin.
+  _applyPerks() {
+    const p = this.career.perks, base = CONFIG.player;
+    Object.assign(this.player.t, { maxSpeed: base.maxSpeed * p.speed, accel: base.accel * p.accel, turnRate: base.turnRate * p.turn });
+    this.gripBase = base.grip * p.grip;
+    this.bustTime = CONFIG.police.bustTime + p.bustTime;
+    this.ramResist = p.ramResist;
+  }
+
   // ---------- Screens ----------
   _bindUI() {
     const on = (id, fn) => $(id).addEventListener('click', fn);
-    on('start-btn', () => this.startRun());
+    on('start-btn', () => this.newGame());
+    on('continue-btn', () => this.continueGame());
     on('restart-btn', () => this.restart());
     on('intro-help', () => this.ui.open('help'));
     on('intro-settings', () => this.openSettings());
     on('pause-resume', () => this.resume());
     on('pause-map', () => this.openMap());
+    on('pause-garage', () => this.openGarage());
+    on('pause-ledger', () => this.openLedger());
     on('pause-settings', () => this.openSettings());
     on('pause-help', () => this.ui.open('help'));
-    on('pause-restart', async () => { if (await this.ui.confirm('RESTART?', 'Start this run over from scratch?', 'RESTART')) this.restart(); });
-    on('pause-quit', async () => { if (await this.ui.confirm('QUIT?', 'Quit to the title screen? This run will end.', 'QUIT')) this.quitToTitle(); });
+    on('pause-restart', async () => { if (await this.ui.confirm('BACK TO THE HIDEOUT?', 'Abandon this run and restart from the hideout? Any shine aboard is lost.', 'RESTART')) this.restart(); });
+    on('pause-quit', async () => { if (await this.ui.confirm('QUIT?', 'Quit to the title screen? Your cash and upgrades are saved.', 'QUIT')) this.quitToTitle(); });
     on('gameover-quit', () => this.quitToTitle());
+    on('gameover-garage', () => this.openGarage());
+    on('gameover-ledger', () => this.openLedger());
+    on('garage-done', () => this.ui.back());
+    on('ledger-done', () => this.ui.back());
     on('settings-done', () => this.ui.back());
     on('help-done', () => this.ui.back());
     on('map-done', () => this.ui.back());
@@ -187,44 +221,101 @@ class Game {
   }
 
   showTitle() {
+    const started = this.career.started;
+    $('continue-btn').classList.toggle('hidden', !started);
+    $('start-btn').textContent = started ? 'NEW GAME' : 'START THE RUN';
+    $('start-btn').classList.toggle('secondary', started);
+    $('continue-btn').toggleAttribute('data-autofocus', started);
+    $('start-btn').toggleAttribute('data-autofocus', !started);
+    const best = this.career.data.stats.bestStreak;
+    $('intro-best').textContent = started
+      ? `Cash on hand: ${money(this.career.cash)} · Best streak: ${money(best)}` : '';
     this.ui.open('intro', { onBack: () => {} });
-    const best = loadRecords().bestHaul;
-    $('intro-best').textContent = best > 0 ? `Best haul so far: $${best.toLocaleString()}` : '';
   }
 
   openSettings() {
-    const extra = [];
-    const replay = document.createElement('button');
-    replay.type = 'button';
-    replay.className = 'text-btn';
-    replay.textContent = 'Show all tips again';
+    const replay = el('button', { type: 'button', class: 'text-btn' }, 'Show all tips again');
     replay.addEventListener('click', () => { this.tutorial.reset(); replay.textContent = 'Tips reset ✓'; });
-    extra.push(replay);
-    buildSettings($('settings-body'), this.settings, { onChange: (s, k) => this._onSettingsChanged(s, k), input: this.input, extra });
+    // Seeded city (#49): same layout every visit; share or roll a new one.
+    const seedLabel = el('span', {}, `City layout #${this.citySeed}`);
+    const roll = el('button', { type: 'button', class: 'text-btn' }, 'New random city');
+    roll.addEventListener('click', async () => {
+      const seed = Math.floor(Math.random() * 100000);
+      if (await this.ui.confirm('NEW CITY?', `Rebuild Baltimore with layout #${seed}? The page reloads; your progress is kept.`, 'REBUILD')) {
+        this.settings.citySeed = seed;
+        saveSettings(this.settings);
+        location.search = '';
+      }
+    });
+    const share = el('button', { type: 'button', class: 'text-btn' }, 'Copy share link');
+    share.addEventListener('click', () => {
+      const url = `${location.origin}${location.pathname}?seed=${this.citySeed}`;
+      navigator.clipboard?.writeText(url).then(() => { share.textContent = 'Link copied ✓'; }, () => { share.textContent = url; });
+    });
+    const reset = el('button', { type: 'button', class: 'text-btn' }, 'Erase saved progress');
+    reset.addEventListener('click', async () => {
+      if (await this.ui.confirm('ERASE PROGRESS?', 'Delete your cash, upgrades, story progress and ledger? This can’t be undone.', 'ERASE')) {
+        this.career.reset();
+        reset.textContent = 'Progress erased ✓';
+      }
+    });
+    const cityRow = el('div', { class: 'set-row' }, seedLabel, el('span', {}, roll, ' ', share));
+    buildSettings($('settings-body'), this.settings, {
+      onChange: (s, k) => this._onSettingsChanged(s, k), input: this.input,
+      extra: [replay, cityRow, reset],
+    });
     this.ui.open('settings');
   }
 
   openMap() {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
-    this.ui.open('map', {
-      onBack: () => { this.ui.close('map'); if (!this.ui.anyOpen) this.resume(); },
-    });
+    this.ui.open('map', { onBack: () => { this.ui.close('map'); if (!this.ui.anyOpen) this.resume(); } });
     this._drawBigMap();
   }
 
+  openGarage() {
+    showGarage(this.ui, this.career, {
+      onChange: () => { this._applyPerks(); this.hud.setCash(this.career.cash); this.audio.cash?.(); },
+      onLedger: () => this.openLedger(),
+      bribeUnlocked: () => this.career.seen('sheriff'),
+    });
+  }
+
+  openLedger() {
+    showLedger(this.ui, this.career, { earned: this.mission.streakEarned, runs: this.mission.streakRuns });
+  }
+
   _drawBigMap() {
-    this.minimap.updateRoute(1, this.player.position, this.mission.target);
+    this.minimap.updateRoute(1, this.player.position, this.mission.target, this.police.blocked);
     this.minimap.drawBig(this.player, this._mapMarkers(), this._mapPolice(), this.time);
   }
 
+  // Pause the world while a story card plays, then carry on.
+  async _story(beatId) {
+    const wasPlaying = this.state === STATE.PLAYING;
+    if (wasPlaying) this.pause({ showMenu: false });
+    this.career.markSeen(beatId);
+    await playDialog(this.ui, BEATS[beatId].lines, { reducedMotion: !!this.settings.reducedMotion });
+    if (BEATS[beatId].unlocks === 'disguise') this.hud.toast('Unlocked: the horse-box disguise (stay under 30 mph when loaded)', 'gold', 4000);
+    if (BEATS[beatId].unlocks === 'bribe') this.hud.toast('Unlocked: bribe the county sheriff at the garage', 'gold', 4000);
+    if (wasPlaying && !this.ui.anyOpen) this.resume();
+  }
+
   // ---------- Run flow ----------
-  resetRun() {
-    this.player.place(0, 0, 0);
+  resetRun(mode = 'loop') {
+    if (mode === 'escape') {
+      this.player.place(WAREHOUSE_SPAWN.x, WAREHOUSE_SPAWN.z, WAREHOUSE_SPAWN.heading);
+    } else {
+      const h = this.world.hideout;
+      this.player.place(h.laneX + 22, h.laneZ, HIDEOUT_SPAWN.heading);
+    }
     this.police.reset();
-    this.mission.reset(this.player.position);
+    this.mission.reset(this.player.position, mode);
+    this.fire.out();
     this.chase.snap(this.player);
-    this.hud.setCash(0);
+    this._applyPerks();
+    this.hud.setCash(this.career.cash);
     this.hud.setCargo(false);
     this.hud.setHeat(0, '', 0, '');
     this.hud.setBust(0);
@@ -232,7 +323,23 @@ class Game {
     this.bustMeter = 0;
     this.runTime = 0;
     this._lastRam = -1;
+    this._surfaceTimer = 0;
+    this.surface = 1;
+    this.bestAtStreakStart = this.career.data.stats.bestStreak;
     this.tutorial?.clearActive();
+    if (mode === 'escape') {
+      // Act I: the Temperance Alliance torched the warehouse and they're right behind you.
+      this.fire.ignite(this.warehouse);
+      this.mission.heat = 2;
+      this.police.setTarget(2, this.player, this.camera, ['zealot']);
+      this.police.contact = true;
+      this.prevTier = 2;
+      // They're right on your tail, coming out of the smoke behind you.
+      this.police.active.forEach((u, k) => {
+        u.car.place(WAREHOUSE_SPAWN.x + 30 + k * 14, WAREHOUSE_SPAWN.z + (k ? 3 : -3), WAREHOUSE_SPAWN.heading);
+        u.lastKnown.copy(this.player.position);
+      });
+    }
   }
 
   _enterPlaying() {
@@ -247,10 +354,35 @@ class Game {
     this.clock.getDelta();
   }
 
-  startRun() { this._enterPlaying(); }
+  async newGame() {
+    if (this.career.started && !(await this.ui.confirm('NEW GAME?', 'Start over? Your cash, upgrades, story progress and ledger will be erased.', 'START OVER'))) return;
+    this.career.reset();
+    this.career.data.started = true;
+    this.career.save();
+    if (OPTIONS.story) {
+      this.ui.closeAll();
+      this.resetRun('escape');
+      this.career.markSeen('prologue');
+      await playDialog(this.ui, BEATS.prologue.lines, { reducedMotion: !!this.settings.reducedMotion });
+      this._enterPlaying();
+      this.hud.toast('Get out up York Road — the zealots are on you!', 'red', 3500);
+    } else {
+      this.career.markSeen('prologue');
+      this.career.markSeen('valley');
+      this.resetRun('loop');
+      this._enterPlaying();
+    }
+  }
+
+  continueGame() {
+    this.resetRun(this.career.seen('valley') || !OPTIONS.story ? 'loop' : 'escape');
+    this._enterPlaying();
+  }
+
+  startRun() { return this.career.started ? this.continueGame() : this.newGame(); }
 
   restart() {
-    this.resetRun();
+    this.resetRun(this.mission.mode === 'escape' ? 'escape' : 'loop');
     this._enterPlaying();
   }
 
@@ -271,7 +403,7 @@ class Game {
 
   quitToTitle() {
     this.ui.closeAll();
-    this.resetRun();
+    this.resetRun('loop');
     this.state = STATE.INTRO;
     this.input.playing = false;
     this.hud.hide();
@@ -290,12 +422,31 @@ class Game {
     this.hud.hide();
     this.hud.hideHint();
     this._applyTouch();
-    const { cash, runs, carrying } = this.mission;
-    const { records, isBest } = recordRun(cash, runs);
+    const m = this.mission;
+    const escape = m.mode === 'escape';
+    let detail = '';
+    if (!escape) {
+      const o = m.carrying ? m.order : null;
+      const value = o ? o.pay : 0;
+      const { fine } = this.career.bust({
+        jugs: o ? o.jugs : 0, value, seconds: o ? this.time - m.runStart : 0, maxHeat: m.maxHeat,
+        route: o ? `${m.still.name} → ${o.drop.name}` : 'Caught on the road',
+        streak: m.streakEarned, streakRuns: m.streakRuns,
+      });
+      detail = o ? `They seized ${o.jugs} jugs (worth ${money(value)}) and fined you ${money(fine)}.` : `They fined you ${money(fine)}.`;
+    }
+    const s = this.career.data.stats;
+    const isBest = !escape && m.streakEarned > 0 && m.streakEarned > this.bestAtStreakStart;
+    $('gameover-title').textContent = escape ? 'CAUGHT' : 'BUSTED';
+    $('restart-btn').textContent = escape ? 'TRY AGAIN' : 'CONTINUE FROM THE HIDEOUT';
+    $('gameover-extra').classList.toggle('hidden', escape);
     this.hud.fillGameOver({
-      cash, runs, best: records.bestHaul, isBest: isBest && cash > 0,
-      msg: carrying ? 'They pinned you down with the shine still aboard.' : 'They pinned you down and hauled you in.',
+      cash: m.streakEarned, runs: m.streakRuns, best: s.bestStreak, isBest,
+      msg: escape ? 'The zealots dragged you from the cab in front of the burning warehouse.'
+        : m.carrying ? 'They pinned you down with the shine still aboard.' : 'They pinned you down and hauled you in.',
     });
+    $('gameover-detail').textContent = detail;
+    this.hud.setCash(this.career.cash);
     this.ui.open('gameover', { onBack: () => {} });
   }
 
@@ -334,25 +485,53 @@ class Game {
   }
 
   // ---------- Simulation ----------
+  get disguiseUnlocked() { return this.career.seen('jockey'); }
+  get safeZone() { return this.career.data.bribes.county && this.world.inCounty(this.player.position); }
+
+  // Off the dirt roads in the county the truck bogs down in the fields.
+  _updateSurface(dt) {
+    this._surfaceTimer -= dt;
+    if (this._surfaceTimer > 0) return;
+    this._surfaceTimer = 0.2;
+    const p = this.player.position;
+    if (!this.world.inCounty(p) || p.z > -262) { this.surface = 1; return; }
+    let on = false;
+    for (const [a, b, w] of this.world.countyEdges) if (distToSegment(p.x, p.z, a, b) < w / 2 + 1.5) { on = true; break; }
+    this.surface = on ? 1 : 0.7;
+  }
+
   // One simulation step (also used by tests to fast-forward deterministically).
   step(dt, input) {
     this.time += dt;
     this.runTime += dt;
+    this.career.data.stats.playSeconds += dt;
+    const m = this.mission;
+    const fx = this.env.effects;
+    this._updateSurface(dt);
+    this.player.speedFactor = this.surface;
+    this.player.t.grip = this.gripBase * fx.grip * (this.surface < 1 ? 0.85 : 1);
     this.player.update(dt, input);
-    const status = this.police.update(dt, this.player, this.camera, this.time);
-    const events = this.mission.update(dt, this.player.position, status, this.time);
-    this._onEvents(events);
 
-    const tier = this.mission.tier;
+    const disguised = this.disguiseUnlocked && m.carrying && Math.abs(this.player.speed) < CONFIG.heat.disguiseSpeed;
+    const safeZone = this.safeZone;
+    this.minimap.updateRoute(dt, this.player.position, m.target, this.police.blocked);
+    const status = this.police.update(dt, this.player, this.camera, this.time, {
+      carrying: m.carrying, disguised, sight: fx.sight, safeZone, bribed: this.career.data.bribes.county,
+      tier: m.tier, route: this.minimap.route, ramResist: this.ramResist,
+    });
+    const events = m.update(dt, this.player.position, status, this.time, { speed: this.player.speed, disguised, safeZone, env: fx, camera: this.camera.position });
+    this._onEvents(events, status);
+
+    const tier = m.tier;
     if (tier !== this.prevTier) {
-      this.police.setTarget(tier, this.player, this.camera);
+      this.police.setTarget(tier, this.player, this.camera, m.mode === 'escape' ? ['zealot'] : null);
       this.prevTier = tier;
     }
 
     // Bust meter: pinned = a pursuer right on you while you're nearly stopped.
     const P = CONFIG.police;
     const pinned = status.nearest < P.pinRadius && Math.abs(this.player.speed) < P.pinSpeed;
-    this.bustMeter = Math.max(0, Math.min(1, this.bustMeter + (pinned ? dt / P.bustTime : -dt * P.bustRecover)));
+    this.bustMeter = Math.max(0, Math.min(1, this.bustMeter + (pinned ? dt / this.bustTime : -dt * P.bustRecover)));
     this.hud.setBust(this.bustMeter);
 
     // Collisions: a thud and a red flash when rammed.
@@ -365,38 +544,81 @@ class Game {
       this.audio.crash(Math.min(0.6, this.player.impact / 25));
     }
 
+    this.env.update(dt, this.camera.position);
+    this.fire.update(this.time);
+    if (this.fire.active && m.mode !== 'escape' && this.player.position.distanceTo(this.fire.light.position) > 260) this.fire.out();
     this.chase.update(dt, this.player, !!input.lookBack);
-    this.waypoint.update(this.player, this.mission.target, this.time);
-    this._updateHud(status);
+    this.waypoint.update(this.player, m.target, this.time);
+    this._updateHud(status, disguised, safeZone);
     this.audio.update(Math.min(1, Math.abs(this.player.speed) / this.player.t.maxSpeed),
       this.police.pursuing ? Math.max(0.25, 1 - status.nearest / 160) : 0);
 
-    const m = this.mission;
     this.tutorial.update(dt, {
       time: this.runTime, speed: Math.abs(this.player.speed), carrying: m.carrying, tier,
-      bust: this.bustMeter, deliveries: m.runs,
+      bust: this.bustMeter, deliveries: this.career.data.stats.deliveries, disguiseUnlocked: this.disguiseUnlocked,
       distToTarget: Math.hypot(m.target.x - this.player.position.x, m.target.z - this.player.position.z),
     });
 
     if (this.bustMeter >= 1) this.bust();
   }
 
-  _onEvents(events) {
+  _onEvents(events, status) {
     for (const e of events) {
-      if (e.type === 'pickup') { this.hud.setCargo(true); this.hud.toast('Shine loaded — get it to the drop', 'amber'); }
-      if (e.type === 'deliver') {
-        this.hud.setCargo(false);
-        this.hud.setCash(this.mission.cash, true);
-        this.hud.cashPop(`+$${e.amount.toLocaleString()}`);
-        this.hud.toast('Shine delivered', 'gold');
+      if (e.type === 'orders') {
+        this.pause({ showMenu: false });
+        showOrders(this.ui, e, (i) => {
+          if (i >= 0) this._onEvents(this.mission.acceptOrder(i, this.time), status);
+          else this.mission.declineOrders();
+          if (!this.ui.anyOpen) this.resume();
+        });
       }
-      if (e.type === 'spotted') this.hud.toast('Tipped off! The law is on its way', 'red');
+      if (e.type === 'pickup') {
+        this.hud.setCargo(true, `${e.order.jugs} JUGS · ${money(e.order.pay)}`);
+        this.hud.toast(`Loaded ${e.order.jugs} jugs — deliver to ${e.order.drop.name}`, 'amber', 3000);
+      }
+      if (e.type === 'deliver') {
+        const m = this.mission;
+        this.career.deliver({ pay: e.amount, jugs: e.jugs, route: e.route, seconds: e.seconds, maxHeat: e.maxHeat, streak: m.streakEarned, streakRuns: m.streakRuns });
+        this.hud.setCargo(false);
+        this.hud.setCash(this.career.cash, true);
+        this.hud.cashPop(`+${money(e.amount)}`);
+        this.hud.toast('Shine delivered', 'gold');
+        this.audio.cash?.();
+        const beat = OPTIONS.story ? nextBeat(this.career) : null;
+        if (beat) setTimeout(() => this._story(beat), 900);
+      }
+      if (e.type === 'spotted') {
+        const msg = { patrol: 'Spotted by a patrol!', tipoff: 'Word of a big order got out — the law is coming', tip: 'Tipped off! The law is on its way' }[e.reason];
+        this.hud.toast(msg || 'Spotted!', 'red');
+      }
       if (e.type === 'lostTier') this.hud.toast('Shook one off — keep out of sight', 'blue');
       if (e.type === 'clear') this.hud.toast('You lost them', 'blue');
+      if (e.type === 'hideout') {
+        if (this.mission.heat > 0 && !status.seen) {
+          this.mission.clearHeat();
+          this.police.setTarget(0, this.player, this.camera);
+          this.prevTier = 0;
+          this.hud.toast('You laid low in the barn. The heat is off.', 'blue', 3000);
+        }
+        this.pause({ showMenu: false });
+        this.openGarage();
+        this.ui.top.onBack = () => { this.ui.close('garage'); if (!this.ui.anyOpen) this.resume(); };
+      }
+      if (e.type === 'escaped') this._escaped();
     }
   }
 
-  _updateHud(status) {
+  async _escaped() {
+    this.mission.clearHeat();
+    this.police.setTarget(0, this.player, this.camera);
+    this.prevTier = 0;
+    this.mission.reset(this.player.position, 'loop');
+    this.hud.toast('You made it out of the city', 'gold', 3000);
+    if (OPTIONS.story && !this.career.seen('valley')) await this._story('valley');
+    else this.career.markSeen('valley');
+  }
+
+  _updateHud(status, disguised, safeZone) {
     const m = this.mission;
     const tier = m.tier;
     let label = '', mode = '', meter = 0;
@@ -415,18 +637,29 @@ class Game {
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
     this.hud.setObjective(m.objective, Math.round(Math.hypot(dx, dz) / 10) * 10, m.targetKind, Math.atan2(Math.sin(bearing), Math.cos(bearing)));
     this.hud.setSpeed(this.player.speedMph);
+    const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
+    this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
+    let pill = null;
+    if (safeZone) pill = ['safe', 'SAFE COUNTY — the sheriff looks away'];
+    else if (m.carrying && this.disguiseUnlocked) {
+      pill = disguised ? ['disguised', 'DISGUISED — just a horse box'] : ['speeding', `OVER ${Math.round(CONFIG.heat.disguiseSpeed * MS_TO_MPH)} MPH — LOOKS SUSPICIOUS`];
+    }
+    this.hud.setStatusPill(pill);
   }
 
   _mapMarkers() {
     const out = [];
     const m = this.mission;
-    if (m.pickup.visible) out.push({ kind: 'still', x: m.pickup.position.x, z: m.pickup.position.z });
-    if (m.drop.visible) out.push({ kind: 'drop', x: m.drop.position.x, z: m.drop.position.z });
+    for (const [marker, kind] of [[m.pickup, 'still'], [m.drop, 'drop'], [m.hideoutMarker, 'hideout'], [m.goal, 'goal']]) {
+      if (marker.visible) out.push({ kind, x: marker.position.x, z: marker.position.z });
+    }
     return out;
   }
 
   _mapPolice() {
-    return this.police.active.filter((u) => u.mode !== 'leave').map((u) => ({ kind: u.kind, x: u.car.position.x, z: u.car.position.z }));
+    const units = this.police.active.filter((u) => u.mode !== 'leave').map((u) => ({ kind: u.kind, x: u.car.position.x, z: u.car.position.z }));
+    for (const r of this.police.roadblocks.active) units.push({ kind: 'fed', x: r.x, z: r.z });
+    return units;
   }
 
   _loop() {
@@ -434,7 +667,6 @@ class Game {
     this.input.poll();
     if (this.state === STATE.PLAYING) {
       this.step(dt, this.input.read());
-      this.minimap.updateRoute(dt, this.player.position, this.mission.target);
       this.minimap.draw(this.player, this._mapMarkers(), this._mapPolice(), this.time);
       this.renderer.render(this.scene, this.camera);
     } else if (this.state === STATE.INTRO) {
@@ -472,7 +704,7 @@ function registerServiceWorker() {
 }
 
 async function boot() {
-  // Let the loading screen paint before the city is generated.
+  // Let the loading screen paint before the world is generated.
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
   if (!webglAvailable()) {
     window.__shineFail('Your browser can’t show 3D graphics (WebGL is off or unsupported).',
