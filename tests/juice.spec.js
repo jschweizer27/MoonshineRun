@@ -95,11 +95,24 @@ test('impacts: a hard crash holds a beat, rattles the body and throws debris; pr
   expect(crash.debris).toBeGreaterThan(10);
   expect(crash.rattle).toBeGreaterThan(0.03);
   expect(crash.dent).toBeLessThan(-0.01);              // squashed, springing back
-  // The real-time loop holds the action for the hit-stop, then carries on.
-  // (Headless frames are slow, so poll rather than sleep a fixed time.)
-  await page.evaluate(() => { const g = window.shine.game; g._impact(1, g.player.position.x, g.player.position.z); window.__t0 = g.time; });
-  expect(await page.evaluate(() => window.shine.game.hitStop)).toBeGreaterThan(0.03);
-  await expect.poll(() => page.evaluate(() => window.shine.game.hitStop <= 0 && window.shine.game.time > window.__t0), { timeout: 10_000 }).toBe(true);
+  // The real-time loop holds the action for the hit-stop, then carries on. Software-rendered
+  // CI frames can take a second each, so drive the loop's frames here instead of waiting.
+  const held = await page.evaluate(() => {
+    const g = window.shine.game;
+    g.renderer.setAnimationLoop(null);
+    g._impact(1, g.player.position.x, g.player.position.z);
+    const t0 = g.time, stop = g.hitStop;
+    g.clock.getDelta();
+    g._loop();                                   // a frame inside the hold: time stands still
+    const frozen = g.time === t0;
+    for (let k = 0; k < 60 && !(g.hitStop <= 0 && g.time > t0); k++) g._loop();
+    const out = { stop, frozen, done: g.hitStop <= 0 && g.time > t0 };
+    g.renderer.setAnimationLoop(() => g._loop());
+    return out;
+  });
+  expect(held.stop).toBeGreaterThan(0.03);
+  expect(held.frozen).toBe(true);
+  expect(held.done).toBe(true);
 
   const prop = await hitProp(page);
   expect(prop.moved).toBeGreaterThan(1.5);

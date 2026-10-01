@@ -122,7 +122,11 @@ test('keys can be remapped', async ({ page }) => {
   await page.click('#settings-done');
   await startRun(page);
   await page.keyboard.down('KeyI');
-  await expect.poll(() => page.evaluate(() => window.shine.game.player.speed)).toBeGreaterThan(3);
+  // The new key reads as throttle, and that throttle drives the truck. (Stepped here rather
+  // than waiting on real frames, which crawl on software-rendered CI machines.)
+  await expect.poll(() => page.evaluate(() => window.shine.game.input.read().throttle)).toBeGreaterThan(0.5);
+  const speed = await page.evaluate(() => { const g = window.shine.game; for (let k = 0; k < 60; k++) window.shine.step(1 / 60, g.input.read()); return g.player.speed; });
+  expect(speed).toBeGreaterThan(3);
   await page.keyboard.up('KeyI');
 });
 
