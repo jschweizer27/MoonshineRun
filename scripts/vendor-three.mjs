@@ -10,7 +10,7 @@ export const ADDONS = [
   'postprocessing/ShaderPass.js', 'postprocessing/MaskPass.js', 'postprocessing/UnrealBloomPass.js',
   'postprocessing/OutputPass.js', 'shaders/CopyShader.js', 'shaders/LuminosityHighPassShader.js',
   'shaders/OutputShader.js',
-  // Only fetched when CONFIG.look.truckModel names a glTF model.
+  // Loads the 3D models in assets/ (src/assets.js).
   'loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js',
 ];
 

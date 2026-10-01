@@ -24,7 +24,8 @@ import { JUICE, juice, VehicleFeel } from './juice.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
-import { MATERIALS, WHEELS, attachTruckModel } from './models.js';
+import { MATERIALS, WHEELS } from './models.js';
+import { MODELS, loadModels } from './assets.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused', GAMEOVER: 'gameover' };
 const $ = (id) => document.getElementById(id);
@@ -41,6 +42,7 @@ export const OPTIONS = {
   hints: !params.has('test') || params.has('hints'),
   story: !params.has('test') || params.has('story'),
   time: !params.has('test') || params.has('time'),
+  models: params.get('models') !== '0',   // ?models=0: the built-in procedural models only
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -77,7 +79,9 @@ class Game {
     this.world = new World(this.scene, { seed: this.citySeed });
     this.post = new PostFX(this.renderer, this.scene, this.camera);
     this.world.buildReflections(this.renderer);
-    MATERIALS.body.envMap = this.world.reflections;   // glossy paint and chrome catch the street
+    // Glossy paint and chrome catch the street (the shared vehicle material, and any model's own).
+    MATERIALS.body.envMap = this.world.reflections;
+    for (const { material: m } of Object.values(MODELS)) if (m) { m.envMap = this.world.reflections; m.envMapIntensity = CONFIG.look.modelReflections; }
     mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
@@ -133,11 +137,6 @@ class Game {
     const wake = () => { this.audio.start(); if (this.state !== STATE.PLAYING) this.audio.setActive(false); };
     window.addEventListener('pointerdown', wake, { once: true });
     window.addEventListener('keydown', wake, { once: true });
-    // A truck model you supplied (CONFIG.look.truckModel); the built-in truck if it fails.
-    if (CONFIG.look.truckModel) {
-      this.truckModel = attachTruckModel(this.player.model, CONFIG.look.truckModel)
-        .catch((e) => console.warn('Truck model not loaded; using the built-in truck.', e));
-    }
     this._onResize({ render: false });   // the first frame is drawn by the loop, not during loading
     this.renderer.setAnimationLoop(() => this._loop());
   }
@@ -146,7 +145,8 @@ class Game {
     // The only moving real light; it always exists so the light count never changes. It
     // rides on the sprung body, so the beam dips when the nose dives under braking.
     const lamp = new THREE.SpotLight(0xfff0cc, 90, 75, Math.PI / 5.5, 0.55, 1.2);
-    lamp.position.set(0, 1.6, -2.6);
+    const [z, y] = this.player.model.lamp;
+    lamp.position.set(0, y, z - 0.4);
     const target = new THREE.Object3D();
     target.position.set(0, 0, -22);
     this.player.model.body.add(lamp, target);
@@ -847,6 +847,9 @@ async function boot() {
       'Try the latest Chrome, Edge, Firefox or Safari, and make sure hardware acceleration is turned on in your browser settings.');
     return;
   }
+  // 3D models from assets/ (the built-in ones stand in for any that fail).
+  if (OPTIONS.models) await loadModels();
+  mark('models');
   const game = new Game();
   mark('ready');
   window.__shineReady = true;

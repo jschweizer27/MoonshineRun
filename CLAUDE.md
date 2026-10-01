@@ -29,8 +29,13 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - Vehicles (`models.js`) share one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
   parts need no new material. The player's headlight beams are additive cones
-  (`CONFIG.look.beamOpacity`, set in `renderFrame`). An optional glTF truck
-  (`CONFIG.look.truckModel`, files in `assets/`, see `assets/README.md`) loads only when set.
+  (`CONFIG.look.beamOpacity`, set in `renderFrame`). Every wheel is an invisible Object3D
+  drawn through `WHEELS` (one InstancedMesh per wheel shape, updated in `renderFrame`).
+- 3D models (`assets/*.glb`, credits in `assets/README.md`) load in `src/assets.js` before
+  `new Game()` so nothing compiles mid-game; `buildVehicle` / the lamps use them when
+  present, else the procedural ones (`?models=0` forces those). Make new ones with
+  `scripts/optimize-models.mjs` (orients, scales, splits out a wheel, bakes cars into the
+  shared vehicle material).
 - `src/world.js` city generation (seeded), `collision.js` (2D grid colliders + line of
   sight), `roadgraph.js` (pathfinding), `vehicle.js` (physics), `models.js` (procedural
   vehicles), `police.js` (pursuer AI), `mission.js` (loop + heat), `hud.js` (DOM).

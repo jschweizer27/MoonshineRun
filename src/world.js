@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { MODELS } from './assets.js';
 import { createRng } from './rng.js';
 import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
@@ -463,13 +464,22 @@ export class World {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
 
     const L = CONFIG.look;
-    const poles = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.09, 0.15, 5.0, 6).translate(0, 2.5, 0),
-      new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.55, metalness: 0.6 }), n);
-    // 1920s lantern heads: a glowing glass box under a dark iron cap.
+    // The arc-lamp model (assets/) if it loaded: an iron post whose arm reaches out over the
+    // road with a glowing globe; else a plain post with a 1920s lantern box under an iron cap.
+    const arc = MODELS.lamp && MODELS.lamp.glow ? MODELS.lamp : null;
+    const iron = arc
+      ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.7 })
+      : new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.55, metalness: 0.6 });
+    const poles = new THREE.InstancedMesh(arc ? arc.body : new THREE.CylinderGeometry(0.09, 0.15, 5.0, 6).translate(0, 2.5, 0), iron, n);
     this.lampColor = new THREE.Color(L.lampColor);
     this.bulbMaterial = new THREE.MeshBasicMaterial({ color: this.lampColor.clone() });
-    const bulbs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.58, 0.42), this.bulbMaterial, n);
+    const bulbs = new THREE.InstancedMesh(arc ? arc.glow : new THREE.BoxGeometry(0.42, 0.58, 0.42), this.bulbMaterial, n);
+    // The model is scaled so its globe hangs where the lantern was (5.3 m), arm toward the road.
+    const head = arc ? new THREE.Vector3(...arc.extras.head) : null;
+    const scale = arc ? 5.3 / head.y : 1;
+    if (arc) arc.body.computeBoundingBox();
+    const postX = arc ? arc.body.boundingBox.max.x - 0.06 : 0;   // the post is the far end from the arm
+    const turn = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), shift = new THREE.Vector3();
     const caps = new THREE.InstancedMesh(
       new THREE.ConeGeometry(0.46, 0.34, 4).rotateY(Math.PI / 4).translate(0, 0.46, 0),
       poles.material, n);
@@ -504,14 +514,28 @@ export class World {
       const pole = sp.pole !== false;           // barn lanterns hang on the wall: no post
       const y = pole ? 5.3 : 3.4;
       sp.y = y;
-      poles.setMatrixAt(k, m.compose(p.set(sp.x, 0, sp.z), q, s.set(pole ? 1 : 0, pole ? 1 : 0, pole ? 1 : 0)));
-      bulbs.setMatrixAt(k, m.compose(p.set(sp.x, y, sp.z), q, s.set(1, 1, 1)));
-      caps.setMatrixAt(k, m);
+      if (arc) {
+        // The model's arm points along -X: turn it toward the road, then shift the lamp so
+        // the globe lands on the light spot.
+        turn.setFromAxisAngle(up, Math.atan2(sp.tz, -sp.tx));
+        shift.copy(head).multiplyScalar(scale).applyQuaternion(turn);
+        const base = p.set(sp.x - shift.x, y - shift.y, sp.z - shift.z);
+        poles.setMatrixAt(k, m.compose(base, turn, s.setScalar(pole ? scale : 0)));
+        bulbs.setMatrixAt(k, m.compose(base, turn, s.setScalar(scale)));
+        caps.setMatrixAt(k, m.compose(base, turn, s.setScalar(0)));
+        shift.set(postX * scale, 0, 0).applyQuaternion(turn);
+        sp.postX = base.x + shift.x;
+        sp.postZ = base.z + shift.z;
+      } else {
+        poles.setMatrixAt(k, m.compose(p.set(sp.x, 0, sp.z), q, s.set(pole ? 1 : 0, pole ? 1 : 0, pole ? 1 : 0)));
+        bulbs.setMatrixAt(k, m.compose(p.set(sp.x, y, sp.z), q, s.set(1, 1, 1)));
+        caps.setMatrixAt(k, m);
+      }
       cones.setMatrixAt(k, m.compose(p.set(sp.x, y - 0.3, sp.z), q, s.set(1, (y - 0.3) / 5, 1)));
       pools.setMatrixAt(k, m.compose(p.set(sp.x + sp.tx * 2, 0.04, sp.z + sp.tz * 2), q, s.set(20, 1, 20)));
       pools.setColorAt(k, white);
       haloPos.set([sp.x, y, sp.z], k * 3);
-      if (pole) this.collision.addCircle(sp.x, sp.z, 0.25, { tag: 'lamp' });
+      if (pole) this.collision.addCircle(sp.postX ?? sp.x, sp.postZ ?? sp.z, 0.25, { tag: 'lamp' });
     });
     for (const im of [poles, bulbs, caps, cones, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
     pools.renderOrder = 1;

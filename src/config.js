@@ -101,10 +101,14 @@ export const CONFIG = {
     baseWet: 0.4,                    // how damp the streets look on a clear night (rain = 1)
     streakOpacity: 0.8,              // lamp reflections on the wet road
     beamOpacity: 0.17,               // the truck's headlight beams in the night air
-    // Your own truck model instead of the built-in one, e.g.
-    // { url: 'assets/truck.glb', yaw: Math.PI, length: 4.9, hideWheels: true }
-    // (yaw turns it to face forward; hideWheels if the model has its own). See assets/README.md.
-    truckModel: null,
+    // 3D models from assets/ (made by scripts/optimize-models.mjs, see assets/README.md).
+    // null, or a file that won't load, uses the built-in procedural model instead.
+    models: {
+      truck: 'assets/runner.glb',          // Otto's truck
+      fed: 'assets/bureau-sedan.glb',      // Prohibition Bureau sedans
+      lamp: 'assets/arc-lamp.glb',         // street lamps
+    },
+    modelReflections: 0.35,          // how much a textured model (the truck) mirrors the street
     // Post-processing (High: full-res bloom, Medium: half-res bloom, Low: off).
     post: {
       bloomStrength: 0.85,           // how much bright things glow

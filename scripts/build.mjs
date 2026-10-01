@@ -54,7 +54,9 @@ for (const f of ['favicon.svg', 'manifest.webmanifest', 'icons', 'assets']) {
 }
 // Service worker: stamp the build id so each deploy refreshes the offline cache.
 if (fs.existsSync(path.join(root, 'sw.js'))) {
-  const assets = ['./', './index.html', `./${jsName}`, `./${cssName}`, './manifest.webmanifest', './favicon.svg'];
+  // The 3D models too, so the installed game keeps them offline.
+  const models = fs.existsSync(path.join(root, 'assets')) ? fs.readdirSync(path.join(root, 'assets')).filter((f) => f.endsWith('.glb')).map((f) => `./assets/${f}`) : [];
+  const assets = ['./', './index.html', `./${jsName}`, `./${cssName}`, './manifest.webmanifest', './favicon.svg', ...models];
   fs.writeFileSync(path.join(dist, 'sw.js'), read('sw.js')
     .replace('__SHINE_BUILD__', buildId)
     .replace("['./']", JSON.stringify(assets)));

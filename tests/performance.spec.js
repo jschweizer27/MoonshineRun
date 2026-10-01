@@ -45,7 +45,7 @@ test('the whole city draws in a small number of draw calls', async ({ page }) =>
   expect(info.postCalls).toBeLessThan(20);          // bloom mips, tone mapping, grade
 });
 
-test('every wheel in the city draws through two instanced meshes, spinning and steering', async ({ page }) => {
+test('every wheel in the city draws through one instanced mesh per wheel shape, spinning and steering', async ({ page }) => {
   const r = await page.evaluate(() => {
     const g = window.shine.game, out = { batches: 0 };
     const meshes = [];
@@ -72,7 +72,7 @@ test('every wheel in the city draws through two instanced meshes, spinning and s
     out.added = window.shine.renderInfo().calls - calls0;
     return out;
   });
-  expect(r.batches).toBe(2);
+  expect(r.batches).toBeLessThanOrEqual(4);           // truck, horse box, sedan, pickup wheels
   expect(r.spun).toBe(true);
   expect(r.cops).toBeGreaterThan(1);
   expect(r.found).toBe(true);

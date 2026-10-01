@@ -18,7 +18,7 @@ This repository has two parts:
 | Option | Setup | How |
 |---|---|---|
 | **In your browser** | Nothing | Open **https://jschweizer27.github.io/Shine-Demo/** *(live once GitHub Pages is on; see below)* |
-| **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** |
+| **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** (uses the simpler built-in car and lamp models) |
 | **From this folder** | [Node.js](https://nodejs.org) (free) | Double-click **`Play (Mac).command`** or **`Play (Windows).bat`**, or run `npm start` |
 
 ### Controls
@@ -178,9 +178,15 @@ src/
   settings.js   saved preferences and key bindings
   hud.js, waypoint.js, audio.js, save.js, debug.js, rng.js
 sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
-assets/         optional: your own truck model (see assets/README.md for free sources)
+assets/         3D models (truck, Bureau sedans, street lamps) and their credits
 vendor/three/   Three.js r160 (bundled; no CDN needed)
 scripts/        dev server, build, checks, CI summary
 tests/          Playwright playtests
 ue5/            Unreal Engine 5 C++ project (open MoonshineRun.uproject; see CHECKLIST.md)
 ```
+
+## Credits
+3D models from Sketchfab, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+(reduced and re-oriented for the game; details in [assets/README.md](assets/README.md)):
+"Moonshine Runner" by car-go, "Volvo PV4 V2" by Libau Media, "Arc Lamp - Victorian Street
+Lamp" by i-m-a-kitty-cat.

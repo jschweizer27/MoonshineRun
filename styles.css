@@ -375,3 +375,6 @@ html.reduced-motion #flash { display: none; }
   #toast { top: 150px; }
   #hud-buttons .icon-btn { width: 36px; height: 36px; padding: 7px; }
 }
+
+/* Model credits on the How to play screen. */
+.credits { font-size: 0.72rem; opacity: 0.6; margin: 0.8rem 0 0.4rem; line-height: 1.4; }

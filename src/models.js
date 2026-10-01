@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MODELS } from './assets.js';
 
 // Procedural 1920s vehicles built from primitives. Static parts are merged into one
 // vertex-coloured mesh per vehicle (1 draw call); wheels stay separate so they can spin
@@ -127,14 +128,14 @@ export function mergeParts(parts) {
   return out;
 }
 
-// Every wheel in the city is drawn by one InstancedMesh per wheel shape (2 draw calls for
-// all of them). Vehicles keep an invisible Object3D per wheel that spins and steers as
+// Every wheel in the city is drawn by one InstancedMesh per wheel shape (a draw call or
+// two for all of them). Vehicles keep an invisible Object3D per wheel that spins and steers as
 // usual; WHEELS.update() copies their world matrices into the instances each frame.
 export const WHEELS = {
-  batches: new Map(),       // geometry -> { slots: Object3D[], mesh }
-  slot(geo) {
+  batches: new Map(),       // geometry -> { slots: Object3D[], material, mesh }
+  slot(geo, material = MATERIALS.body) {
     let b = this.batches.get(geo);
-    if (!b) this.batches.set(geo, (b = { slots: [], mesh: null }));
+    if (!b) this.batches.set(geo, (b = { slots: [], material, mesh: null }));
     if (b.mesh) throw new Error('WHEELS: every vehicle must be built before WHEELS.attach()');
     const o = new THREE.Object3D();
     b.slots.push(o);
@@ -144,7 +145,7 @@ export const WHEELS = {
   attach(scene) {
     for (const [geo, b] of this.batches) {
       if (b.mesh) continue;
-      b.mesh = new THREE.InstancedMesh(geo, MATERIALS.body, b.slots.length);
+      b.mesh = new THREE.InstancedMesh(geo, b.material, b.slots.length);
       b.mesh.frustumCulled = false;     // instances spread over the whole city
       b.mesh.castShadow = b.mesh.receiveShadow = true;
       b.mesh.userData.wheels = true;
@@ -200,10 +201,10 @@ function surfaceFor(color) {
 }
 
 // Glowing headlamp lenses (the emissive part, in the glow mesh).
-function headlamps(z, y, x = 0.62) {
+function headlamps(z, y, x = 0.62, radius = 0.19) {
   return [
-    part(cyl(0.19, 0.04, 16), 0xfff2c8, -x, y, z - 0.02, Math.PI / 2, 0, 0),
-    part(cyl(0.19, 0.04, 16), 0xfff2c8, x, y, z - 0.02, Math.PI / 2, 0, 0),
+    part(cyl(radius, 0.04, 16), 0xfff2c8, -x, y, z - 0.02, Math.PI / 2, 0, 0),
+    part(cyl(radius, 0.04, 16), 0xfff2c8, x, y, z - 0.02, Math.PI / 2, 0, 0),
   ];
 }
 // Round chrome bowls behind the lenses, a brass rim, and the stalks down to the fenders.
@@ -368,56 +369,64 @@ export function buildVehicle(style = 'player') {
   sprung.position.y = -PIVOT;
   body.add(sprung);
   for (const child of [...group.children]) sprung.add(child);   // sirens, torches, banners
+  // A model from assets/ replaces the built-in body, lamps and wheels (all cars of a kind
+  // share its geometry). Sirens move up to its roof.
+  const custom = MODELS[MODEL_FOR[style]];
+  let shell, wheelGeo, wheelMat = MATERIALS.body, wheelY = r;
+  let lens = DEFAULT_LENS[style] || DEFAULT_LENS.player;
+  if (custom) {
+    for (const p of parts) p.geo.dispose();
+    const x = custom.extras, [w, , len] = x.size;
+    shell = new THREE.Mesh(custom.body, custom.material || MATERIALS.body);
+    shell.userData.model = MODEL_FOR[style];
+    // Headlamp lenses at the model's lamps (or near the front corners), tail lights at the back.
+    const hl = x.headlights?.length ? x.headlights : [[-w * 0.25, x.roof * 0.5, -len / 2 + 0.3], [w * 0.25, x.roof * 0.5, -len / 2 + 0.3]];
+    lens = [hl[0][2] - 0.04, hl[0][1], Math.abs(hl[0][0])];
+    lamps.length = 0;
+    lamps.push(...headlamps(lens[0], lens[1], lens[2], 0.13),
+      part(box(0.2, 0.14, 0.05), 0xff2a1a, -w * 0.36, 0.95, len / 2 + 0.01), part(box(0.2, 0.14, 0.05), 0xff2a1a, w * 0.36, 0.95, len / 2 + 0.01));
+    for (const siren of sirens) siren.position.y = x.roof + 0.12;
+    if (custom.wheel && x.wheels) {
+      wheelGeo = custom.wheel;
+      wheelMat = custom.material || MATERIALS.body;
+      r = x.wheelRadius;
+      wheelY = x.wheels[0][1];
+      wheelSpots = x.wheels.map(([wx, , wz]) => (wz < 0 ? [wx, wz, true] : [wx, wz]));
+    }
+  } else {
+    shell = new THREE.Mesh(mergeParts(parts), MATERIALS.body);
+  }
   const lampMesh = new THREE.Mesh(mergeParts(lamps), MATERIALS.glow);
-  const shell = new THREE.Mesh(mergeParts(parts), MATERIALS.body);
   sprung.add(shell, lampMesh);
   group.add(body);
 
   // Wheels: a pivot (steer) holding the wheel (spin).
-  const wheelGeo = buildWheel(r);
+  wheelGeo = wheelGeo || buildWheel(r);
   const wheels = [];
   const front = [];
   for (const [x, z, isFront] of wheelSpots) {
     const pivot = new THREE.Group();
-    pivot.position.set(x, r, z);
-    const w = WHEELS.slot(wheelGeo);
+    pivot.position.set(x, wheelY, z);
+    const w = WHEELS.slot(wheelGeo, wheelMat);
     pivot.add(w);
     group.add(pivot);
     wheels.push(w);
     if (isFront) front.push(pivot);
   }
-  const out = { group, body: sprung, bodyPivot: body, shell, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots };
+  // lamp: where the headlights are [z, y, x], for the real headlight and its beams.
+  const out = { group, body: sprung, bodyPivot: body, shell, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots, lamp: lens };
   if (style === 'player') {
-    out.trailer = buildHorseTrailer(wheelGeo, r);
-    out.beam = headlightBeams(-2.2, 1.6, 0.62);
+    out.trailer = buildHorseTrailer(buildWheel(0.5), 0.5);
+    out.beam = headlightBeams(lens[0], lens[1], lens[2]);
     sprung.add(out.beam);
   }
   return out;
 }
 
-// Optional: swap the built-in truck body for a glTF model (CONFIG.look.truckModel). The
-// loader is only fetched when a model is configured. The model is turned by `yaw` so it
-// faces -Z, scaled to `length` metres nose to tail and set on the ground; it rides the
-// springs like the built-in body. The lamp lenses, beams and hitch stay where they are.
-export async function attachTruckModel(model, spec) {
-  const { GLTFLoader } = await import('../vendor/three/addons/loaders/GLTFLoader.js');
-  const gltf = await new GLTFLoader().loadAsync(spec.url);
-  const root = gltf.scene;
-  root.rotation.y = spec.yaw || 0;
-  root.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(root), size = bounds.getSize(new THREE.Vector3()), mid = bounds.getCenter(new THREE.Vector3());
-  const k = (spec.length || 4.9) / Math.max(size.z, 1e-3);
-  const holder = new THREE.Group();
-  holder.scale.setScalar(k);
-  holder.position.set(-mid.x * k, -bounds.min.y * k, -mid.z * k);
-  holder.add(root);
-  root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  model.body.add(holder);
-  model.shell.visible = false;
-  if (spec.hideWheels) for (const w of model.wheels) w.visible = false;
-  model.custom = holder;
-  return holder;
-}
+// Which assets/ model stands in for each kind of vehicle.
+const MODEL_FOR = { player: 'truck', fed: 'fed' };
+// The built-in vehicles' headlamps: [z, y, x].
+const DEFAULT_LENS = { player: [-2.2, 1.6, 0.62], fed: [-2.15, 1.55, 0.6], zealot: [-2.05, 1.5, 0.58] };
 
 // Otto's retrofitted steeplechase horse box: planked sides, curved roof, a ramp door, and
 // a thoroughbred looking out of the window (the best disguise in the county).
