@@ -59,6 +59,9 @@ export const CONFIG = {
 
   mission: {
     markerRadius: 7,
+    // Act I: the zealots come out of the smoke this far behind you, and hold back this many
+    // seconds so you can get moving.
+    escape: { gap: 50, headStart: 2.5 },
     minPickupDistance: 150,   // stills never spawn on top of you
     minDropDistance: 180,
     // Order book at the still. Pay = jugs x price x (1 + distance / 900).
@@ -100,6 +103,7 @@ export const CONFIG = {
     ambient: 1.7,
     moon: 0x9db6ff,                  // cool moonlight, the shadow-casting key light
     moonIntensity: 1.9, 
+    countyNight: { ambient: 0.6, moon: 0.5 },  // extra fill and moonlight out in the county at night
     windowGlow: 0.62,                // lit windows (warm amber)
     windowsLit: 0.3,                 // share of windows lit at night
     shadowRange: 70,                 // metres of shadow around the view (high: 2048 map)

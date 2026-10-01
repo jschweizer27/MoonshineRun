@@ -81,6 +81,9 @@ export class Environment {
     const k = Math.min(1, dt * 0.25);
     this.wet += ((this.weather === 'rain' ? 1 : 0) - this.wet) * (dt ? k : 1);
     this.fog += ((this.weather === 'fog' ? 1 : 0) - this.fog) * (dt ? k : 1);
+    // Out in the county (no street lamps) the night is lifted a little so the roads read.
+    const county = smooth(-230, -310, cameraPos.z);
+    this.county = (this.county ?? county) + (county - (this.county ?? county)) * (dt ? Math.min(1, dt * 1.5) : 1);
     this._apply();
     this._updateRain(dt, cameraPos);
   }
@@ -94,9 +97,10 @@ export class Environment {
     s.fog.color.copy(this._col);
     s.fog.density = THREE.MathUtils.lerp(THREE.MathUtils.lerp(L.fogDensity, L.dayFogDensity, d), L.fogWeatherDensity, this.fog);
 
-    w.hemi.intensity = L.ambient + 2.6 * d;
+    const lift = (this.county || 0) * (1 - d);
+    w.hemi.intensity = (L.ambient + 2.6 * d) * (1 + L.countyNight.ambient * lift);
     w.hemi.color.setHex(L.ambientSky).lerp(HEMI_DAY, d);
-    w.moon.intensity = L.moonIntensity + 2.4 * d;
+    w.moon.intensity = (L.moonIntensity + 2.4 * d) * (1 + L.countyNight.moon * lift);
     w.moon.color.setHex(L.moon).lerp(SUN, d);
     const sunAngle = ((this.hour - 6) / 12) * Math.PI;   // sun by day, moon by night
     w.lightDir.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90).normalize();

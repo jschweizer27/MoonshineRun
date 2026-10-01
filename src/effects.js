@@ -4,7 +4,7 @@ import { radialTexture } from './world.js';
 // The burning warehouse from Act I: flickering flames plus the shared effects light (which
 // always exists, so lighting the fire doesn't recompile any shaders). The flames are one
 // Points object (one draw call): each point is a soft additive glow that swells and fades.
-const N = 14;
+const N = 26, ROOF = 18;   // flames: along both long rooflines, then in the windows
 const VERT = `
   attribute float size;
   attribute float alpha;
@@ -54,13 +54,13 @@ export class Fire {
     const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     const w = b.maxX - b.minX, d = b.maxZ - b.minZ;
     for (let i = 0; i < N; i++) {
-      const onRoof = i < 9;
-      const t = (i % 9) / 8;
-      const x = onRoof ? b.minX + t * w : cx + (Math.random() - 0.5) * w * 0.8;
+      const onRoof = i < ROOF;
+      const t = (Math.floor(i / 2) + 0.5) / (ROOF / 2) + (Math.random() - 0.5) * 0.04;
+      const x = onRoof ? b.minX + t * w : cx + (Math.random() - 0.5) * w * 0.85;
       const z = onRoof ? (i % 2 ? b.minZ : b.maxZ) : b.maxZ + 0.3;
-      const y = onRoof ? b.h + 1.5 : 2 + Math.random() * (b.h - 3);
-      this.pos.set([x, y, onRoof ? cz + (z - cz) * 0.6 : z], i * 3);
-      this.base[i] = onRoof ? 7 + Math.random() * 4 : 4 + Math.random() * 2;
+      const y = onRoof ? b.h + 1.2 + Math.random() * 0.8 : 2 + Math.random() * (b.h - 3);
+      this.pos.set([x, y, onRoof ? cz + (z - cz) * 0.7 : z], i * 3);
+      this.base[i] = onRoof ? 3.5 + Math.random() * 2 : 2.5 + Math.random() * 1.5;
     }
     this.group.geometry.attributes.position.needsUpdate = true;
     this.light.position.set(cx, b.h + 4, cz + d * 0.3);
@@ -81,7 +81,7 @@ export class Fire {
       const p = this.phase[i];
       const k = 0.75 + 0.35 * Math.abs(Math.sin(time * 9 + p)) + 0.1 * Math.sin(time * 23 + p);
       this.size[i] = this.base[i] * k;
-      this.alpha[i] = 0.75 + 0.25 * Math.sin(time * 13 + p);
+      this.alpha[i] = 0.6 + 0.25 * Math.sin(time * 13 + p);
     }
     const a = this.group.geometry.attributes;
     a.size.needsUpdate = a.alpha.needsUpdate = true;

@@ -448,9 +448,11 @@ class Game {
       this.police.contact = true;
       this.prevTier = 2;
       // They're right on your tail, coming out of the smoke behind you.
+      const E = CONFIG.mission.escape;
       this.police.active.forEach((u, k) => {
-        u.car.place(WAREHOUSE_SPAWN.x + 30 + k * 14, WAREHOUSE_SPAWN.z + (k ? 3 : -3), WAREHOUSE_SPAWN.heading);
+        u.car.place(WAREHOUSE_SPAWN.x + E.gap + k * 14, WAREHOUSE_SPAWN.z + (k ? 3 : -3), WAREHOUSE_SPAWN.heading);
         u.lastKnown.copy(this.player.position);
+        u.hold = E.headStart;
       });
     }
   }

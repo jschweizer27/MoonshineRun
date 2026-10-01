@@ -85,6 +85,7 @@ export class Police {
 
   _deactivate(u) {
     u.active = false;
+    u.hold = 0;
     u.mode = 'idle';
     u.car.setVisible(false);
     u.car.place(-5000 - u.id * 50, -5000, 0);
@@ -212,6 +213,8 @@ export class Police {
           input = this._drive(u, goal.x, goal.z, dt, boost);
         }
       }
+      // Held back (the Act I head start): engine running, going nowhere yet.
+      if (u.hold > 0) { u.hold -= dt; input = { throttle: 0, steer: 0, handbrake: true }; }
       this._unstick(u, input, dt);
       car.update(dt, input);
       this._animate(u, time);

@@ -299,6 +299,16 @@ test('story: a new game plays the prologue, the Act I escape, then the valley', 
   const s = await snapshot(page);
   expect(s.mode).toBe('escape');
   expect(s.pursuers).toBe(2);
+  // A head start: the zealots come out of the smoke well back and hold for a moment.
+  const start = await page.evaluate(() => {
+    const g = window.shine.game, gap = () => Math.min(...g.police.active.map((u) => u.car.position.distanceTo(g.player.position)));
+    const first = gap();
+    window.shine.step(2);
+    return { first, after: gap(), bust: g.bustMeter };
+  });
+  expect(start.first).toBeGreaterThan(40);
+  expect(start.after).toBeGreaterThan(30);
+  expect(start.bust).toBe(0);
   expect(await page.evaluate(() => window.shine.game.fire.active)).toBe(true);
   await screenshot(page, '17-escape');
   await page.evaluate(() => { window.shine.teleport(0, -285, 0); window.shine.step(0.2); });
@@ -308,6 +318,22 @@ test('story: a new game plays the prologue, the Act I escape, then the valley', 
   const after = await snapshot(page);
   expect(after.mode).toBe('loop');
   expect(after.tier).toBe(0);
+});
+
+test('county nights are lifted a little so the roads read; city nights are unchanged', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world;
+    const at = (z) => { g.camera.position.set(0, 8, z); for (let k = 0; k < 20; k++) g.env.update(0.1, g.camera.position); return { hemi: w.hemi.intensity, moon: w.moon.intensity }; };
+    const city = at(100), county = at(-600);
+    g.env.hour = 12;
+    const dayCounty = at(-600), dayCity = at(100);
+    return { city, county, dayCounty, dayCity };
+  });
+  expect(r.county.hemi).toBeGreaterThan(r.city.hemi * 1.3);
+  expect(r.county.moon).toBeGreaterThan(r.city.moon * 1.2);
+  expect(r.dayCounty.hemi).toBeCloseTo(r.dayCity.hemi, 3);
 });
 
 test('day follows night, and rain makes the roads slick', async ({ page }) => {

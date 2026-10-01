@@ -45,4 +45,8 @@ namespace ShineTuning
 	constexpr float MinPickupDistance = 15000.f; // stills never appear on top of you
 	constexpr float MinDropDistance = 18000.f;   // buyers are across town
 	constexpr float PayDistance = 90000.f;       // pay = jugs x price x (1 + distance / 900 m)
+	// Act I escape (config.mission.escape; the escape itself isn't built in UE5 yet): the
+	// zealots start this far behind and hold back this long so the player can get moving.
+	constexpr float EscapeGap = 5000.f;
+	constexpr float EscapeHeadStart = 2.5f;
 }
