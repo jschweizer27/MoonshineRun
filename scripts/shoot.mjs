@@ -65,6 +65,29 @@ try {
   });
   await shoot('truck');
 
+  // The skyline: from the street, looking up toward the moon over the rooftops.
+  await page.evaluate(() => {
+    const g = window.shine.game, v = g.player, d = g.world.sky.uniforms.uMoonDir.value;
+    g.camera.position.set(v.position.x, 2.5, v.position.z);
+    g.camera.lookAt(v.position.x + d.x * 100, 2.5 + 45, v.position.z + d.z * 100);
+  });
+  await shoot('sky');
+
+  // Steam from a street grate, after a few seconds of it rising (camera fixed at the corner).
+  await page.evaluate(() => {
+    const g = window.shine.game, v = g.player, B = g.world.cfg.blockSize;
+    let best = g.world.grates[0];
+    for (const p of g.world.grates) if (Math.hypot(p[0] - v.position.x, p[1] - v.position.z) < Math.hypot(best[0] - v.position.x, best[1] - v.position.z)) best = p;
+    g.camera.position.set(best[0] - 7, 1.8, best[1] + 9);
+    g.camera.lookAt(best[0], 1.6, best[1]);
+    for (let i = 0; i < 200; i++) {
+      g.particles.atmosphere(1 / 60, g.world, g.camera.position, { night: 1 - g.env.daylight, wet: g.env.wet });
+      g.particles.update(1 / 60);
+    }
+    return B;
+  });
+  await shoot('steam');
+
   // Render cost at the chase view, with each expensive effect switched off in turn. Reading
   // a pixel back makes the (software) GPU finish the frame before the clock stops.
   const costs = await page.evaluate(() => {
@@ -72,7 +95,7 @@ try {
     g.chase.snap(g.player);
     const draw = () => { g.renderFrame(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); };
     const time = () => { draw(); draw(); const t0 = performance.now(); for (let i = 0; i < 8; i++) draw(); return (performance.now() - t0) / 8; };
-    const out = { all: time(), calls: g.renderer.info.render.calls };
+    const out = { all: time(), calls: window.shine.renderInfo().calls };
     const size = g.world.moon.shadow.mapSize.x;
     g.world.setShadows(0); out.noShadows = time(); g.world.setShadows(size);
     for (const [name, fx] of Object.entries(g.effectToggles?.() || {})) { fx(false); out[`no ${name}`] = time(); fx(true); }

@@ -36,6 +36,11 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   present, else the procedural ones (`?models=0` forces those). Make new ones with
   `scripts/optimize-models.mjs` (orients, scales, splits out a wheel, bakes cars into the
   shared vehicle material).
+- Atmosphere: `src/sky.js` is the sky dome (one draw call; horizon = fog colour, stars,
+  moon, clouds; `Environment` sets it, `renderFrame` keeps it on the camera). Steam from
+  `world.grates` and smoke from `world.chimneys` come from the nearest few to the camera
+  through the shared smoke pool (`particles.atmosphere`). Tuning: `CONFIG.look.skyDome`,
+  `CONFIG.look.atmosphere`.
 - `src/world.js` city generation (seeded), `collision.js` (2D grid colliders + line of
   sight), `roadgraph.js` (pathfinding), `vehicle.js` (physics), `models.js` (procedural
   vehicles), `police.js` (pursuer AI), `mission.js` (loop + heat), `hud.js` (DOM).

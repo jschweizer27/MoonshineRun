@@ -214,3 +214,58 @@ test('with ?models=0 (or a model that won\'t load) the built-in truck, sedans an
   });
   expect(beams.day).toBeLessThan(beams.night * 0.3);
 });
+
+test('the sky dome: stars and moon by night, blue by day, thicker cloud in rain; steam rises from the grates', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const sky = await page.evaluate(() => {
+    const g = window.shine.game, sk = g.world.sky, u = sk.uniforms;
+    window.shine.step(0.1);
+    g.renderFrame();
+    const night = { stars: u.uNight.value, cover: u.uCover.value };
+    const seamless = u.uHorizon.value.equals(g.scene.fog.color);
+    const follows = sk.mesh.position.distanceTo(g.camera.position) < 0.01;
+    g.env.setWeather('rain');
+    for (let k = 0; k < 40; k++) g.env.update(0.5, g.camera.position);
+    const rain = { cover: u.uCover.value, rain: u.uRain.value };
+    g.env.setWeather('clear'); g.env.wet = 0;
+    g.env.hour = 12; g.env.update(0, g.camera.position);
+    return { night, rain, day: u.uNight.value, seamless, follows, fog: sk.material.fog, onTop: sk.mesh.renderOrder < 0 };
+  });
+  expect(sky.seamless).toBe(true);              // the horizon is the fog colour
+  expect(sky.follows).toBe(true);
+  expect(sky.fog).toBe(false);
+  expect(sky.night.stars).toBeGreaterThan(0.9);
+  expect(sky.day).toBeLessThan(0.05);           // no stars at noon
+  expect(sky.rain.cover).toBeGreaterThan(sky.night.cover + 0.2);
+  expect(sky.rain.rain).toBeGreaterThan(0.5);   // and the stars and moon go behind it
+
+  // Steam: only the grates near the camera, and nothing compiles or allocates for it.
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world, pool = g.particles.smoke;
+    g.env.hour = 22; g.env.update(0, g.camera.position);
+    const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
+    const [gx, gz] = w.grates.find(([x, z]) => Math.abs(x) < 1 && z > 100 && z < 160) || w.grates[0];
+    window.shine.teleport(gx - 6, gz + 8, 0);
+    window.shine.step(2.5);
+    g.renderFrame();
+    const near = (x, z) => { let n = 0; for (let i = 0; i < pool.n; i++) if (pool.life[i] > 0 && Math.hypot(pool.pos[i * 3] - x, pool.pos[i * 3 + 2] - z) < 3 && pool.pos[i * 3 + 1] < 6) n++; return n; };
+    const cam = g.camera.position;
+    const far = w.grates.filter(([x, z]) => Math.hypot(x - cam.x, z - cam.z) > 100).reduce((n, [x, z]) => n + near(x, z), 0);
+    let lights = 0;
+    g.scene.traverse((o) => { if (o.isLight) lights++; });
+    return {
+      here: near(gx, gz), far, lights, calls: window.shine.renderInfo().calls,
+      programs: g.renderer.info.programs.length - programs, geometries: g.renderer.info.memory.geometries - geometries,
+      chimneys: w.chimneys.length,
+    };
+  });
+  expect(r.here).toBeGreaterThan(8);
+  expect(r.far).toBe(0);
+  expect(r.chimneys).toBeGreaterThan(20);
+  expect(r.programs).toBe(0);
+  expect(r.geometries).toBe(0);
+  expect(r.lights).toBe(13);
+  expect(r.calls).toBeLessThan(60);
+  await screenshot(page, '25-steam');
+});

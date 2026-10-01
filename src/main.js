@@ -635,6 +635,7 @@ class Game {
       ground: county ? (this.surface < 1 ? 'grass' : 'dirt') : 'cobble',
     });
     this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust') });
+    this.particles.atmosphere(dt, this.world, this.camera.position, { night: 1 - this.env.daylight, wet: this.env.wet });
     this.particles.setLight(0.5 + 0.5 * this.env.daylight);
     this.particles.update(dt);
     this.chase.update(dt, this.player, !!input.lookBack, this.feel.accel01);
@@ -781,6 +782,7 @@ class Game {
   renderFrame() {
     this.world.updateShadow(this.camera);
     this.world.updateLamps(this.camera);
+    this.world.sky.follow(this.camera);
     WHEELS.update();
     this.post.setDaylight(this.env.daylight);
     // Headlight beams show in the dark (and more in fog or rain), dim by day, stutter after a hit.
@@ -801,6 +803,7 @@ class Game {
       streaks: (on) => { w.lampStreaks.visible = on; },
       grade: (on) => { this.post.grade.enabled = on; },
       beams: (on) => { if (this.player.model.beam) this.player.model.beam.visible = on; },
+      sky: (on) => { w.sky.mesh.visible = on; },
     };
   }
 

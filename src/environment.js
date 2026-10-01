@@ -100,6 +100,7 @@ export class Environment {
     w.moon.color.setHex(L.moon).lerp(SUN, d);
     const sunAngle = ((this.hour - 6) / 12) * Math.PI;   // sun by day, moon by night
     w.lightDir.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90).normalize();
+    w.sky?.set({ horizon: this._col, daylight: d, dusk, fog: this.fog, wet: this.wet, lightDir: w.lightDir });
 
     const night = 1 - d;
     w.poolMaterial.opacity = L.poolOpacity * night;

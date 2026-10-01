@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { MODELS } from './assets.js';
+import { Sky } from './sky.js';
 import { createRng } from './rng.js';
 import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
@@ -184,6 +185,7 @@ export class World {
     });
     const chim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 2.4, 0.9).translate(0, 1.2, 0), new THREE.MeshStandardMaterial({ color: 0x5a2e24, roughness: 0.95 }), chimneys.length);
     chimneys.forEach(([x, y, z], i) => chim.setMatrixAt(i, m.compose(p.set(x, y, z), q, s)));
+    this.chimneys = chimneys.map(([x, y, z]) => [x, y + 2.4, z]);   // chimney tops (smoke rises from them)
     const bulk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0x3e3834, roughness: 0.9 }), bulkheads.length);
     bulkheads.forEach(([x, y, z, bw, bh, bd], i) => bulk.setMatrixAt(i, m.compose(p.set(x, y, z), q, s.set(bw, bh, bd))));
     s.set(1, 1, 1);
@@ -228,6 +230,7 @@ export class World {
     const s = this.scene, L = CONFIG.look;
     s.background = new THREE.Color(L.sky);
     s.fog = new THREE.FogExp2(L.sky, L.fogDensity);
+    this.sky = new Sky(s);          // stars, moon and clouds; the horizon is the fog colour
 
     // A dim teal fill so nothing is pure black; the lamps do the real lighting.
     this.hemi = new THREE.HemisphereLight(L.ambientSky, L.ambientGround, L.ambient);
@@ -273,6 +276,10 @@ export class World {
     const normal = normalMapFrom(heightCv);
     for (const t of [tex, rough, normal]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(tiles, tiles); }
     this.groundTexture = tex;
+    // The street grates painted into the tile (one per intersection, see makeCityTile): steam
+    // rises from them (particles.atmosphere).
+    this.grates = [];
+    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) this.grates.push([i * B + GRATE[0] * this.cfg.roadWidth / 2, j * B + this.cfg.roadWidth / 2 + GRATE[1]]);
     this.groundMaps = [rough, normal];
     this.roadMaterial = new THREE.MeshStandardMaterial({
       map: tex, roughnessMap: rough, normalMap: normal, normalScale: new THREE.Vector2(1, 1),
@@ -930,6 +937,10 @@ function makeFacadeAtlas(rng) {
 // layout: colour, height (for the normal map) and roughness. Cobbled roads with worn tyre
 // tracks, streetcar rails, crosswalk paint and a manhole; darker sidewalk slabs with joints
 // and stains; granite curbs; puddles that are low, dark and glossy.
+// Where each intersection's manhole sits: across the road (share of its half-width) and
+// metres past the corner, down the approach toward +Z.
+const GRATE = [0.35, 3];
+
 function makeCityTile(rng, cfg) {
   const px = 1024;
   const m = px / cfg.blockSize;
@@ -1022,8 +1033,8 @@ function makeCityTile(rng, cfg) {
     }
   }
 
-  // A manhole cover on one approach.
-  const mx = mid + roadHalf * 0.35, my = mid + roadHalf + 3 * m;
+  // A manhole cover on one approach (World.grates puts the steam on it).
+  const mx = mid + roadHalf * GRATE[0], my = mid + roadHalf + GRATE[1] * m;
   cg.fillStyle = '#1e1c1a'; cg.beginPath(); cg.arc(mx, my, 0.4 * m, 0, Math.PI * 2); cg.fill();
   rg.fillStyle = grey(90); rg.beginPath(); rg.arc(mx, my, 0.4 * m, 0, Math.PI * 2); rg.fill();
 

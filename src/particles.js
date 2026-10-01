@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { radialTexture } from './world.js';
+import { CONFIG } from './config.js';
 
 // Two pooled particle systems: soft smoke/dust (normal blending) and glowing sparks/embers
 // (additive). Fixed-size buffers, updated on the CPU, one draw call each.
@@ -93,10 +94,56 @@ class Pool {
 
 export class Particles {
   constructor(scene) {
-    this.smoke = new Pool(scene, 420, false);
+    this.smoke = new Pool(scene, 720, false);
     this.glow = new Pool(scene, 220, true);
     this.detail = 1;             // 0 off, 0.5 fewer, 1 full (graphics quality)
-    this._acc = { exhaust: 0, dust: 0, fire: 0 };
+    this._acc = { exhaust: 0, dust: 0, fire: 0, steam: 0, chimney: 0 };
+    this.steamOn = this.smokeOn = true;          // switches for the shots script's cost report
+    // Scratch lists for the nearest grates/chimneys (no allocation per frame).
+    this._near = { grates: new Int32Array(16), chimneys: new Int32Array(16), d: new Float32Array(16) };
+    this._turn = 0;
+  }
+
+  // Steam curling up from the street grates and smoke drifting off rooftop chimneys: only
+  // the few nearest the camera emit (CONFIG.look.atmosphere). Steam is thicker at night and
+  // in the rain. Both go in the smoke pool.
+  atmosphere(dt, world, cam, { night = 1, wet = 0 } = {}) {
+    if (!this.detail || !dt) return;
+    const A = CONFIG.look.atmosphere, [wx, wz] = A.wind;
+    if (this.steamOn && world.grates) {
+      const n = this._nearest(world.grates, cam, A.grates, A.grateRange, this._near.grates);
+      for (let k = this._rate('steam', A.steamRate * n * (0.5 + 0.5 * night) * (1 + wet), dt); k > 0; k--) {
+        const [x, z] = world.grates[this._near.grates[this._turn++ % n]];
+        // Wisps, not a column: small puffs that wander as they rise and thin out.
+        this.smoke.emit(x + (Math.random() - 0.5) * 0.9, 0.1, z + (Math.random() - 0.5) * 0.9,
+          wx * 0.5 + (Math.random() - 0.5) * 1.1, 0.7 + Math.random() * 1.0, wz * 0.5 + (Math.random() - 0.5) * 1.1,
+          { life: 1.8 + Math.random() * 1.6, size: 0.45 + Math.random() * 0.4, grow: 1.2 + Math.random() * 0.8, color: [0.82, 0.8, 0.77], alpha: 0.09 + 0.05 * wet });
+      }
+    }
+    if (this.smokeOn && world.chimneys) {
+      const n = this._nearest(world.chimneys, cam, A.chimneys, A.chimneyRange, this._near.chimneys, true);
+      for (let k = this._rate('chimney', A.smokeRate * n, dt); k > 0; k--) {
+        const [x, y, z] = world.chimneys[this._near.chimneys[this._turn++ % n]];
+        this.smoke.emit(x + (Math.random() - 0.5) * 0.4, y, z + (Math.random() - 0.5) * 0.4,
+          wx + (Math.random() - 0.5) * 0.3, 0.7 + Math.random() * 0.4, wz + (Math.random() - 0.5) * 0.3,
+          { life: 5 + Math.random() * 2, size: 1.3, grow: 2.2, color: [0.32, 0.3, 0.29], alpha: 0.24 });
+      }
+    }
+  }
+
+  // Indices of up to `max` points nearest `cam` within `range` (written into `out`).
+  _nearest(list, cam, max, range, out, xyz = false) {
+    const d = this._near.d;
+    let n = 0;
+    max = Math.min(max, out.length);
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i], dx = p[0] - cam.x, dz = (xyz ? p[2] : p[1]) - cam.z, dd = dx * dx + dz * dz;
+      if (dd > range * range || (n === max && dd >= d[n - 1])) continue;
+      let k = n < max ? n++ : n - 1;
+      while (k > 0 && d[k - 1] > dd) { d[k] = d[k - 1]; out[k] = out[k - 1]; k--; }
+      d[k] = dd; out[k] = i;
+    }
+    return n;
   }
 
   setScale(px) { this.smoke.material.uniforms.uScale.value = px; this.glow.material.uniforms.uScale.value = px; }

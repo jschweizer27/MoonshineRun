@@ -122,6 +122,28 @@ export const CONFIG = {
       rolls: 'assets/rolls-royce.glb',     // the garage's Rolls-Royce
     },
     modelReflections: 0.35,          // how much a textured model (the truck) mirrors the street
+    // The sky dome (src/sky.js): its horizon is always the fog colour, so the city melts in.
+    skyDome: {
+      zenith: 0x02060e,                // night sky overhead: deep blue-black
+      dayZenith: 0x3c6eb0,
+      cityGlow: 0x3a2412,              // amber haze the city lamps throw up at the horizon
+      stars: 0.05,                     // share of sky cells holding a star
+      starBrightness: 0.9,
+      clouds: 0.45,                    // cloud cover on a clear night, 0-1 (rain/fog thicken it)
+      cloudSpeed: 0.006,               // drift
+      moonSize: 0.03,                  // radians
+      moonElevation: 0.36,             // the moon disc sits this high (radians), in the moonlight's direction
+    },
+    // Steam from the street grates and smoke from rooftop chimneys near the view (particles.js).
+    atmosphere: {
+      grates: 6,                       // nearest grates that steam
+      grateRange: 70,                  // metres from the camera
+      steamRate: 9,                    // puffs per second per grate
+      chimneys: 8,
+      chimneyRange: 140,
+      smokeRate: 3,
+      wind: [1.1, -0.35],              // m/s drift (x, z)
+    },
     // Post-processing (High: full-res bloom, Medium: half-res bloom, Low: off).
     post: {
       bloomStrength: 0.85,           // how much bright things glow
