@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Check, build and playtest
+  check:
+    name: Check, lint and build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -43,11 +43,44 @@ jobs:
         env:
           SHINE_BUILD_ID: ${{ github.sha }}
 
+      - name: Upload playable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: shine-offline
+          path: dist/Shine.html
+          retention-days: 14
+
+  # The playtests render in software and take ~25 min in one go, so they run in four
+  # parallel shards.
+  playtest:
+    name: Playtest (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (the dist tests play the built game)
+        run: npm run build
+        env:
+          SHINE_BUILD_ID: ${{ github.sha }}
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Playtests
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}/4
 
       - name: Job summary
         if: always()
@@ -57,7 +90,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gameplay-screenshots
+          name: gameplay-screenshots-${{ matrix.shard }}
           path: artifacts/screenshots/
           if-no-files-found: ignore
           retention-days: 30
@@ -66,16 +99,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
-          retention-days: 14
-
-      - name: Upload playable build
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: shine-offline
-          path: dist/Shine.html
           retention-days: 14

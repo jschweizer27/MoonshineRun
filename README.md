@@ -110,7 +110,7 @@ SHINE then opens full-screen from your home screen and keeps working **offline**
 
 | When | What | Where |
 |---|---|---|
-| Every pull request / push to `main` | Syntax check, lint, build, and **automated playtests** in a real browser. Gameplay **screenshots** are attached to every run. | Actions → CI → run → *Summary* (artifact **gameplay-screenshots**) |
+| Every pull request / push to `main` | Syntax check, lint, build, and **automated playtests** in a real browser. Gameplay **screenshots** are attached to every run. | Actions → CI → run → *Summary* (artifacts **gameplay-screenshots-1** … **-4**) |
 | Merge to `main` | The game is **published to GitHub Pages** | The play link above |
 | Publishing a release (tag `v*`) | **Downloadable zips** are attached: offline single-file game, website files, and the UE5 project | Releases |
 | Weekly | **Dependabot** opens update PRs for tools and Actions (each one is playtested by CI) | Pull requests |

@@ -33,4 +33,4 @@ console.log(`## 🎮 SHINE playtest results
 |---|---|---|
 ${rows.join('\n')}
 
-📸 Gameplay screenshots from this run are attached as the **gameplay-screenshots** artifact (see the run's Summary page).`);
+📸 Gameplay screenshots from this run are attached as the **gameplay-screenshots-N** artifacts, one per test shard (see the run's Summary page).`);
