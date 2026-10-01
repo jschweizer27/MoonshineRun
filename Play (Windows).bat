@@ -1,7 +1,7 @@
 @echo off
 rem Double-click to play SHINE on Windows. Opens the game in your browser.
 cd /d "%~dp0"
-set ONLINE=https://jschweizer27.github.io/Shine-Demo/
+set ONLINE=https://jschweizer27.github.io/MoonshineRun/
 
 where node >nul 2>nul
 if %errorlevel%==0 (

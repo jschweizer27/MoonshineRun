@@ -17,7 +17,7 @@ This repository has two parts:
 
 | Option | Setup | How |
 |---|---|---|
-| **In your browser** | Nothing | Open **https://jschweizer27.github.io/Shine-Demo/** *(live once GitHub Pages is on; see below)* |
+| **In your browser** | Nothing | Open **https://jschweizer27.github.io/MoonshineRun/** *(live once GitHub Pages is on; see below)* |
 | **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** (uses the simpler built-in car and lamp models) |
 | **From this folder** | [Node.js](https://nodejs.org) (free) | Double-click **`Play (Mac).command`** or **`Play (Windows).bat`**, or run `npm start` |
 

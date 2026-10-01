@@ -2,7 +2,7 @@
 # Double-click to play SHINE on a Mac. Opens the game in your browser.
 # (First time only: if macOS blocks it, right-click this file -> Open -> Open.)
 cd "$(dirname "$0")" || exit 1
-ONLINE="https://jschweizer27.github.io/Shine-Demo/"
+ONLINE="https://jschweizer27.github.io/MoonshineRun/"
 
 if command -v node >/dev/null 2>&1; then
   exec node scripts/serve.mjs --open
