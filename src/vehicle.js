@@ -106,7 +106,7 @@ export class Vehicle {
 
     // Steering authority grows with speed, then eases off near top speed.
     const sp = Math.abs(vF);
-    const steerScale = Math.min(1, sp / 4) * (1 - 0.4 * Math.min(1, sp / t.maxSpeed));
+    const steerScale = Math.min(1, sp / (t.steerRamp ?? 4)) * (1 - (t.steerFalloff ?? 0.4) * Math.min(1, sp / t.maxSpeed));
     h += steer * t.turnRate * steerScale * (hb ? 1.45 : 1) * (vF >= 0 ? 1 : -1) * dt;
 
     // Re-express velocity in the new heading, then let the tyres kill sideways slide.
@@ -146,9 +146,10 @@ export class Vehicle {
     const nx = px / len, nz = pz / len;
     const vn = this.vx * nx + this.vz * nz;
     if (vn < 0) {
-      this.vx -= 1.25 * vn * nx;
-      this.vz -= 1.25 * vn * nz;
-      this.vx *= 0.96; this.vz *= 0.96;
+      const bounce = this.t.bounce ?? 1.25, keep = this.t.wallKeep ?? 0.96;
+      this.vx -= bounce * vn * nx;
+      this.vz -= bounce * vn * nz;
+      this.vx *= keep; this.vz *= keep;
       this.speed = this.vx * this.forwardX + this.vz * this.forwardZ;
       this.impact = -vn;
     }

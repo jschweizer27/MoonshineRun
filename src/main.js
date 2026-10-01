@@ -299,9 +299,9 @@ class Game {
     this.ramResist = p.ramResist;
   }
 
-  // Dredge run: the truck without its horse box, on base tuning (upgrades come later).
+  // Dredge run: the truck without its horse box, on arcade tuning (upgrades come later).
   _applyDredgePerks() {
-    const base = CONFIG.player;
+    const car = CONFIG.dredge.car;
     if (this.player.ride !== 'runner') {
       this.player.setRide('runner');
       this._mountHeadlight();
@@ -309,8 +309,8 @@ class Game {
     }
     this.carSuspicion = 1;
     this.chase.rideScale = CONFIG.camera.noTrailer;
-    Object.assign(this.player.t, { maxSpeed: base.maxSpeed, accel: base.accel, turnRate: base.turnRate });
-    this.gripBase = base.grip;
+    Object.assign(this.player.t, car);
+    this.gripBase = car.grip;
     this.bustTime = CONFIG.police.bustTime;
     this.ramResist = 0;
   }

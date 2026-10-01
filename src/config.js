@@ -167,6 +167,21 @@ export const CONFIG = {
   // into the trunk and selling it. Built beside the bootlegging loop until it replaces it.
   dredge: {
     spawn: { x: 0, z: 100, heading: 0 },   // York Road, just inside the city
+    // Arcade handling: sticks to the road, turns sharply even when slow, keeps turning at
+    // speed, and glances off walls instead of bouncing back. (Fields not listed here keep
+    // their CONFIG.player values.)
+    car: {
+      maxSpeed: 38,
+      accel: 24,            // quicker off the line
+      brake: 50,
+      turnRate: 2.4,
+      steerRamp: 1.5,       // full steering from 1.5 m/s (the bootleg truck needs 4)
+      steerFalloff: 0.15,   // barely loses steering at top speed (0.4 in the truck)
+      grip: 20,             // sideways slide dies fast: no spinning out
+      handbrakeGrip: 3.5,   // a short, controllable handbrake slide
+      bounce: 1.05,         // walls deflect rather than throw you back
+      wallKeep: 0.99,       // and cost little speed
+    },
   },
 };
 
