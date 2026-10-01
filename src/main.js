@@ -22,6 +22,7 @@ import { Fire } from './effects.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
+import { Loot } from './loot.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -99,6 +100,8 @@ class Game {
     this.world.enableShadows();   // the vehicles too
     // Crates, barrels and signs that cars knock flying, and debris from heavy crashes (juice).
     this.props = new Props(this.scene, this.world, this.citySeed);
+    this.loot = new Loot(this.scene, this.world, this.citySeed);   // the dredge run's pickups
+    this.hold = [];                                                 // loot aboard (dredge run)
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
     this.slowMo = 0;
@@ -442,6 +445,7 @@ class Game {
       this.player.place(h.laneX + 22, h.laneZ, HIDEOUT_SPAWN.heading);
     }
     this.police.reset();
+    this.loot.reset(false);
     this.mission.reset(this.player.position, mode);
     this.fire.out();
     this.particles.clear();
@@ -494,6 +498,8 @@ class Game {
     this.fire.out();
     this.particles.clear();
     this.props.reset();
+    this.loot.reset(true, this.player.position);
+    this.hold = [];
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -788,6 +794,7 @@ class Game {
       this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     }
     this.props.update(dt, this._cars);
+    for (const e of this.loot.update(dt, this.time, this.player)) this._onLoot(e);
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -804,6 +811,16 @@ class Game {
     const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
     this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
     this._updateAudio(IDLE_STATUS);
+  }
+
+  // Picked up a piece of loot (dredge run). For now it simply goes aboard; the trunk grid
+  // comes next.
+  _onLoot(e) {
+    this.hold.push(e.kind.id);
+    this.hud.toast(`Picked up: ${e.kind.name}`, 'gold', 1600);
+    this.hud.setCargo(true, `${this.hold.length} PIECE${this.hold.length === 1 ? '' : 'S'}`);
+    this.audio.pickup?.();
+    this.particles.sparks(e.x, e.z, 0.25);
   }
 
   // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.
@@ -979,7 +996,7 @@ class Game {
   }
 
   _mapMarkers() {
-    if (this.mode === 'dredge') return [];
+    if (this.mode === 'dredge') return this.loot.near(this.player.position, CONFIG.dredge.loot.mapRange);
     const out = [];
     const m = this.mission;
     for (const [marker, kind] of [[m.pickup, 'still'], [m.drop, 'drop'], [m.hideoutMarker, 'hideout'], [m.goal, 'goal']]) {

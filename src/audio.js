@@ -239,6 +239,33 @@ export class Audio {
     o.stop(t + 0.3);
   }
 
+  // A piece of loot thrown aboard: a quick wooden knock and a bright two-note ping.
+  pickup() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [freq, delay, vol] of [[1568, 0, 0.1], [2349, 0.07, 0.08]]) {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(vol, t + delay);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + delay + 0.35);
+      o.connect(g).connect(this.sfx);
+      o.start(t + delay);
+      o.stop(t + delay + 0.4);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 700;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random(), 0.15);
+  }
+
   // Cash register: a bell and the drawer.
   cash() {
     if (!this._ok()) return;

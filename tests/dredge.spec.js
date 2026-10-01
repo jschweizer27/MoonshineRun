@@ -104,3 +104,55 @@ test('dredge handling is arcade: turns sharply when slow, holds a fast corner wi
   expect(wall.arcade.before).toBeGreaterThan(10);
   expect(wall.arcade.after / wall.arcade.before).toBeGreaterThan(wall.truck.after / wall.truck.before);
 });
+
+test('loot lies along the roads: drive over a piece to pick it up, and it turns up again elsewhere', async ({ page }) => {
+  const problems = await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const before = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot, c = g.world.collision;
+    const active = [...L.active].filter(Boolean).length;
+    // Every piece lies somewhere drivable, clear of buildings.
+    let blocked = 0;
+    for (let i = 0; i < L.n; i++) if (c.resolveCircle(L.x[i], L.z[i], 0.9).hit) blocked++;
+    const kinds = new Set(L.kind);
+    // The radar shows the pieces near the truck.
+    const radar = g._mapMarkers().filter((m) => m.kind === 'loot').length;
+    // Drive onto the nearest piece.
+    let i = 0, best = Infinity;
+    for (let k = 0; k < L.n; k++) { const d = Math.hypot(L.x[k] - g.player.position.x, L.z[k] - g.player.position.z); if (d < best) { best = d; i = k; } }
+    const where = { x: L.x[i], z: L.z[i] };
+    window.shine.teleport(where.x, where.z + 6, 0);
+    const s = window.shine.step(1, { throttle: 0.4 });
+    const taken = !L.active[i];
+    // After the respawn time it's back, somewhere else and away from the truck.
+    window.shine.teleport(where.x, where.z + 6, 0);
+    window.shine.step(26);
+    return { active, blocked, kinds: kinds.size, radar, held: s.loot, hold: [...g.hold], taken, back: !!L.active[i],
+      moved: Math.hypot(L.x[i] - where.x, L.z[i] - where.z), fromTruck: Math.hypot(L.x[i] - g.player.position.x, L.z[i] - g.player.position.z),
+      pill: document.getElementById('cargo').textContent };
+  });
+  expect(r.active).toBe(36);
+  expect(r.blocked).toBe(0);
+  expect(r.kinds).toBeGreaterThanOrEqual(4);
+  expect(r.radar).toBeGreaterThan(0);
+  expect(r.held).toBe(1);
+  expect(r.taken).toBe(true);
+  expect(r.pill).toBe('CARGO: 1 PIECE');
+  expect(r.back).toBe(true);
+  expect(r.moved).toBeGreaterThan(10);
+  expect(r.fromTruck).toBeGreaterThan(85);
+  await screenshot(page, 'dredge-03-loot');
+  const after = await page.evaluate(() => window.shine.renderInfo());
+  expect(after.programs).toBe(before.programs);
+  expect(after.geometries).toBe(before.geometries);
+  expect(after.calls).toBeLessThan(60);
+  expect(after.lights).toBe(13);
+  expect(problems).toEqual([]);
+});
+
+test('no loot in the bootlegging game', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  expect(await page.evaluate(() => window.shine.game.loot.mesh.visible)).toBe(false);
+});

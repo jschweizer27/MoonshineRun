@@ -182,6 +182,22 @@ export const CONFIG = {
       bounce: 1.05,         // walls deflect rather than throw you back
       wallKeep: 0.99,       // and cost little speed
     },
+    // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]
+    // per cell, before rotation); `value` is its base price in dollars.
+    loot: {
+      count: 36,            // pieces lying out at once (a fixed pool)
+      pickupRadius: 3.4,    // metres from the truck's centre
+      respawn: 25,          // seconds before a picked-up piece turns up somewhere else
+      respawnMin: 90,       // ... at least this far from the truck
+      mapRange: 160,        // the radar shows pieces this close
+      kinds: [
+        { id: 'case', name: 'Case of rye', value: 25, weight: 0.3, cells: [[0, 0]] },
+        { id: 'barrel', name: 'Cask', value: 40, weight: 0.22, cells: [[0, 0], [0, 1]] },
+        { id: 'crate', name: 'Crate of oysters', value: 70, weight: 0.18, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'sack', name: 'Sack of coffee', value: 45, weight: 0.18, cells: [[0, 0], [0, 1], [1, 1]] },
+        { id: 'radio', name: 'Cathedral radio', value: 90, weight: 0.12, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+      ],
+    },
   },
 };
 
