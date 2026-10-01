@@ -17,6 +17,7 @@ export const ACTIONS = [
   ['mute', 'Mute'],
   ['fullscreen', 'Fullscreen'],
   ['juice', 'Effects on/off (compare)'],
+  ['trunk', 'Open the trunk (dredge run)'],
 ];
 
 export const DEFAULT_BINDINGS = {
@@ -33,6 +34,7 @@ export const DEFAULT_BINDINGS = {
   mute: ['KeyM'],
   fullscreen: ['KeyF'],
   juice: ['KeyJ'],
+  trunk: ['KeyT'],
 };
 
 const prefersReducedMotion = () => {

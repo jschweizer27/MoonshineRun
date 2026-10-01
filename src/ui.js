@@ -13,11 +13,14 @@ export class UI {
   isOpen(id) { return this.stack.some((s) => s.id === id); }
   get anyOpen() { return this.stack.length > 0; }
 
-  open(id, { onBack = null, focus = true } = {}) {
+  // A screen with its own controls (the trunk grid) passes handlers: onNav(dir) for the
+  // arrows / d-pad, onConfirm() for Enter / A, onKey(e) for other keys (return true when
+  // handled) and onAction(action, device) for game actions such as 'rotate'.
+  open(id, { onBack = null, focus = true, onNav = null, onConfirm = null, onKey = null, onAction = null } = {}) {
     const el = document.getElementById(id);
     if (this.isOpen(id)) this.close(id);
     el.classList.remove('hidden');
-    this.stack.push({ id, el, onBack, returnFocus: document.activeElement });
+    this.stack.push({ id, el, onBack, onNav, onConfirm, onKey, onAction, returnFocus: document.activeElement });
     if (focus) this.focusFirst();
     return el;
   }
@@ -59,6 +62,7 @@ export class UI {
 
   // dir: 'up' | 'down' | 'left' | 'right'
   nav(dir) {
+    if (this.top?.onNav) { this.top.onNav(dir); return; }
     const list = this._focusables();
     if (!list.length) return;
     const cur = document.activeElement;
@@ -80,12 +84,14 @@ export class UI {
   }
 
   activate() {
+    if (this.top?.onConfirm) { this.top.onConfirm(); return; }
     const el = document.activeElement;
     if (el && this.top && this.top.el.contains(el)) el.click();
   }
 
   _key(e) {
     if (!this.top || this.input._capture) return;
+    if (this.top.onKey && this.top.onKey(e)) { e.preventDefault(); e.stopPropagation(); return; }
     const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
     if (map[e.code]) {
       e.preventDefault();

@@ -182,6 +182,8 @@ export const CONFIG = {
       bounce: 1.05,         // walls deflect rather than throw you back
       wallKeep: 0.99,       // and cost little speed
     },
+    // The trunk: a grid to pack loot into (upgrades will grow it).
+    trunk: { cols: 5, rows: 3 },
     // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]
     // per cell, before rotation); `value` is its base price in dollars.
     loot: {

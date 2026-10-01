@@ -213,6 +213,19 @@
     </div>
   </div>
 
+  <!-- The trunk (dredge run): pack loot into the grid -->
+  <div id="trunk" class="overlay hidden" role="dialog" aria-labelledby="trunk-title">
+    <div class="overlay-card">
+      <h1 class="title small" id="trunk-title">THE TRUNK</h1>
+      <p id="trunk-hand" class="hint"></p>
+      <div id="trunk-grid" tabindex="0" data-autofocus aria-label="Trunk grid"></div>
+      <p id="trunk-msg" class="hint" role="status" aria-live="polite"></p>
+      <p id="trunk-fill" class="hint"></p>
+      <p class="hint small">Arrows move · R / Q turn · Enter put down, lift or swap · X leave it · Esc close<br>
+        Gamepad: d-pad move · LB / RB turn · A put down · X leave it · B close</p>
+    </div>
+  </div>
+
   <!-- Order book at the still -->
   <div id="orders" class="overlay hidden" role="dialog" aria-labelledby="orders-title">
     <div class="overlay-card wide">

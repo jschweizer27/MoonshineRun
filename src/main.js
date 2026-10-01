@@ -23,6 +23,8 @@ import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
 import { Loot } from './loot.js';
+import { Trunk } from './trunk.js';
+import { TrunkScreen } from './trunkscreen.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -101,7 +103,7 @@ class Game {
     // Crates, barrels and signs that cars knock flying, and debris from heavy crashes (juice).
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // the dredge run's pickups
-    this.hold = [];                                                 // loot aboard (dredge run)
+    this.trunk = new Trunk();                                       // loot aboard (dredge run)
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
     this.slowMo = 0;
@@ -123,6 +125,11 @@ class Game {
     this.hud = new HUD();
     this.input = new Input(this.settings.bindings);
     this.ui = new UI(this.input);
+    this.trunkScreen = new TrunkScreen(this.ui, {
+      onDiscard: (k) => this.hud.toast(`Left behind: ${k.name}`, '', 1400),
+      onChange: () => this._updateTrunkPill(),
+      onClose: () => { if (!this.ui.anyOpen) this.resume(); },
+    });
     this.audio = new Audio();
     this.minimap = new MiniMap(this.world, $('minimap'), $('map-canvas'));
     this.tutorial = new Tutorial(this.hud, this.input);
@@ -499,7 +506,7 @@ class Game {
     this.particles.clear();
     this.props.reset();
     this.loot.reset(true, this.player.position);
-    this.hold = [];
+    this.trunk.clear();
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -508,7 +515,7 @@ class Game {
     this._applyPerks();
     this.hud.setMode('dredge');
     this.hud.setCash(this.career.cash);
-    this.hud.setCargo(false);
+    this._updateTrunkPill();
     this.hud.setBust(0);
     this.hud.setStatusPill(null);
     this.hud.setObjective('Free roam', null, 'roam');
@@ -648,6 +655,7 @@ class Game {
 
   _onAction(a, dev) {
     if (this.ui.anyOpen) {
+      if (this.ui.top.onAction?.(a, dev)) return;
       if (['up', 'down', 'left', 'right'].includes(a)) this.ui.nav(a);
       else if (a === 'confirm') this.ui.activate();
       else if (a === 'back') this.ui.back();
@@ -662,6 +670,7 @@ class Game {
     else if (a === 'map') this.openMap();
     else if (a === 'horn') this.audio.horn();
     else if (a === 'juice') this.toggleJuice();
+    else if (a === 'trunk') this.openTrunk();
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
     else if (a === 'mute') this.toggleMute();
     else if (a === 'fullscreen') this.toggleFullscreen();
@@ -794,7 +803,10 @@ class Game {
       this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     }
     this.props.update(dt, this._cars);
-    for (const e of this.loot.update(dt, this.time, this.player)) this._onLoot(e);
+    // One piece at a time: picking one up opens the trunk, which pauses the drive.
+    let taken = 0;
+    const [got] = this.loot.update(dt, this.time, this.player, { canTake: () => taken++ === 0 });
+    if (got) this._onLoot(got);
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -813,14 +825,25 @@ class Game {
     this._updateAudio(IDLE_STATUS);
   }
 
-  // Picked up a piece of loot (dredge run). For now it simply goes aboard; the trunk grid
-  // comes next.
+  // Picked up a piece of loot (dredge run): the trunk opens with it in hand to pack it.
   _onLoot(e) {
-    this.hold.push(e.kind.id);
     this.hud.toast(`Picked up: ${e.kind.name}`, 'gold', 1600);
-    this.hud.setCargo(true, `${this.hold.length} PIECE${this.hold.length === 1 ? '' : 'S'}`);
     this.audio.pickup?.();
     this.particles.sparks(e.x, e.z, 0.25);
+    this.openTrunk(e.kind.id);
+  }
+
+  // The trunk screen (dredge run), with a new piece in hand or empty-handed to rearrange.
+  openTrunk(newKind = null) {
+    if (this.mode !== 'dredge') return;
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    if (this.state !== STATE.PAUSED) return;
+    this.trunkScreen.open(this.trunk, newKind);
+  }
+
+  _updateTrunkPill() {
+    const t = this.trunk;
+    this.hud.setCargo(true, `TRUNK ${t.used}/${t.size}`);
   }
 
   // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.

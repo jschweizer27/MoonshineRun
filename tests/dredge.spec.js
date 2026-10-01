@@ -123,12 +123,17 @@ test('loot lies along the roads: drive over a piece to pick it up, and it turns 
     for (let k = 0; k < L.n; k++) { const d = Math.hypot(L.x[k] - g.player.position.x, L.z[k] - g.player.position.z); if (d < best) { best = d; i = k; } }
     const where = { x: L.x[i], z: L.z[i] };
     window.shine.teleport(where.x, where.z + 6, 0);
-    const s = window.shine.step(1, { throttle: 0.4 });
+    window.shine.step(1, { throttle: 0.4 });
     const taken = !L.active[i];
+    const opened = g.trunkScreen.isOpen && g.state === 'paused';
+    // Stow it and drive on.
+    g.trunkScreen.confirm();
+    g.trunkScreen.close();
+    const held = g.trunk.count;
     // After the respawn time it's back, somewhere else and away from the truck.
-    window.shine.teleport(where.x, where.z + 6, 0);
-    window.shine.step(26);
-    return { active, blocked, kinds: kinds.size, radar, held: s.loot, hold: [...g.hold], taken, back: !!L.active[i],
+    L.timer[i] = 0;
+    window.shine.step(0.05);
+    return { active, blocked, kinds: kinds.size, radar, held, opened, taken, back: !!L.active[i],
       moved: Math.hypot(L.x[i] - where.x, L.z[i] - where.z), fromTruck: Math.hypot(L.x[i] - g.player.position.x, L.z[i] - g.player.position.z),
       pill: document.getElementById('cargo').textContent };
   });
@@ -136,9 +141,10 @@ test('loot lies along the roads: drive over a piece to pick it up, and it turns 
   expect(r.blocked).toBe(0);
   expect(r.kinds).toBeGreaterThanOrEqual(4);
   expect(r.radar).toBeGreaterThan(0);
-  expect(r.held).toBe(1);
   expect(r.taken).toBe(true);
-  expect(r.pill).toBe('CARGO: 1 PIECE');
+  expect(r.opened).toBe(true);
+  expect(r.held).toBe(1);
+  expect(r.pill).toMatch(/^CARGO: TRUNK [1-4]\/15$/);
   expect(r.back).toBe(true);
   expect(r.moved).toBeGreaterThan(10);
   expect(r.fromTruck).toBeGreaterThan(85);
@@ -155,4 +161,137 @@ test('no loot in the bootlegging game', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   expect(await page.evaluate(() => window.shine.game.loot.mesh.visible)).toBe(false);
+});
+
+test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and saves', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  const r = await page.evaluate(async () => {
+    const { Trunk, shape, shapeSize } = await import('/src/trunk.js');
+    const out = {};
+    // The radio is a T: four different orientations, 3x2 then 2x3.
+    const turns = [0, 1, 2, 3].map((k) => JSON.stringify(shape('radio', k).sort()));
+    out.radioTurns = new Set(turns).size;
+    out.radioSizes = [0, 1].map((k) => shapeSize(shape('radio', k)));
+    out.fullCircle = JSON.stringify(shape('sack', 4).sort()) === JSON.stringify(shape('sack', 0).sort());
+    const t = new Trunk(5, 3);
+    out.crate = !!t.place('crate', 0, 0);            // 2x2 in the corner
+    out.overlap = t.canPlace('case', 1, 1);           // on top of the crate
+    out.edge = t.canPlace('barrel', 4, 2);            // a cask on end sticks out the bottom
+    out.edgeTurned = t.canPlace('barrel', 3, 2, 1);   // laid flat it fits
+    out.used = t.used;
+    // Fill it with cases: 15 - 4 = 11 more.
+    let n = 0;
+    for (;;) { const s = t.findSpot('case'); if (!s) break; t.place('case', s.x, s.y, s.rot); n++; }
+    out.cases = n;
+    out.full = t.used === t.size && t.findSpot('case') === null;
+    out.value = t.value;
+    const copy = Trunk.fromJSON(JSON.parse(JSON.stringify(t.toJSON())));
+    out.roundTrip = copy.used === t.used && copy.count === t.count && copy.value === t.value;
+    // Lift a piece out and the space is free again.
+    t.remove(t.pieceAt(4, 2).id);
+    out.afterRemove = t.used;
+    return out;
+  });
+  expect(r.radioTurns).toBe(4);
+  expect(r.radioSizes.map((s) => s.w * s.h)).toEqual([6, 6]);
+  expect(r.radioSizes[0].w).not.toBe(r.radioSizes[1].w);
+  expect(r.fullCircle).toBe(true);
+  expect(r.crate).toBe(true);
+  expect(r.overlap).toBe(false);
+  expect(r.edge).toBe(false);
+  expect(r.edgeTurned).toBe(true);
+  expect(r.used).toBe(4);
+  expect(r.cases).toBe(11);
+  expect(r.full).toBe(true);
+  expect(r.value).toBe(70 + 11 * 25);
+  expect(r.roundTrip).toBe(true);
+  expect(r.afterRemove).toBe(14);
+});
+
+test('picking up loot opens the trunk: turn it, move it, put it down with the keyboard', async ({ page }) => {
+  const problems = await openGame(page, '&mode=dredge');
+  await startRun(page);
+  // Drive onto a radio (the awkward T shape).
+  await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot;
+    L.kind[0] = 4; L.kindAttr.setX(0, 4); L.x[0] = 0; L.z[0] = 70; L.active[0] = 1;
+    window.shine.teleport(0, 76, 0);
+    window.shine.step(1, { throttle: 0.4 });
+  });
+  await expect(page.locator('#trunk')).toBeVisible();
+  await expect(page.locator('#trunk-hand')).toContainText('Cathedral radio');
+  expect(await page.evaluate(() => window.shine.game.state)).toBe('paused');
+  const rot0 = await page.evaluate(() => window.shine.game.trunkScreen.hand.rot);
+  await page.keyboard.press('KeyR');
+  const rot1 = await page.evaluate(() => window.shine.game.trunkScreen.hand.rot);
+  expect(rot1).toBe((rot0 + 1) % 4);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  const ghost = await page.locator('#trunk-grid .ghost').count();
+  expect(ghost).toBe(4);
+  await screenshot(page, 'dredge-04-trunk');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#trunk')).toBeVisible();            // still open: hands free now
+  await expect(page.locator('#trunk-hand')).toContainText('Hands free');
+  expect(await page.locator('#trunk-grid .filled').count()).toBe(4);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#trunk')).toBeHidden();
+  const s = await page.evaluate(() => ({ state: window.shine.game.state, count: window.shine.game.trunk.count, pill: document.getElementById('cargo').textContent }));
+  expect(s).toEqual({ state: 'playing', count: 1, pill: 'CARGO: TRUNK 4/15' });
+  expect(problems).toEqual([]);
+});
+
+test('rearranging the trunk: lift, swap, leave a piece behind; T opens it, the gamepad and mouse work too', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  await page.evaluate(() => {
+    const t = window.shine.game.trunk;
+    t.place('case', 0, 0);
+    t.place('crate', 3, 0);
+  });
+  // T opens it empty-handed; lift the case, Esc puts it back where it was.
+  await page.keyboard.press('KeyT');
+  await expect(page.locator('#trunk')).toBeVisible();
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => window.shine.game.trunkScreen.hand?.kind)).toBe('case');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#trunk')).toBeHidden();
+  expect(await page.evaluate(() => { const p = window.shine.game.trunk.pieceAt(0, 0); return p && p.kind; })).toBe('case');
+
+  // A new cask in hand over the case: Enter swaps them (the cask goes in, the case comes out).
+  await page.evaluate(() => window.shine.game.openTrunk('barrel'));
+  await page.evaluate(() => { const s = window.shine.game.trunkScreen; s.hand.rot = 0; s.cursor = { x: 0, y: 0 }; s._render(); });
+  await page.keyboard.press('Enter');
+  const swapped = await page.evaluate(() => ({ at: window.shine.game.trunk.pieceAt(0, 0)?.kind, hand: window.shine.game.trunkScreen.hand?.kind }));
+  expect(swapped).toEqual({ at: 'barrel', hand: 'case' });
+  // X leaves the case on the road.
+  await page.keyboard.press('KeyX');
+  await expect(page.locator('#trunk-msg')).toContainText('Left the case of rye behind');
+  expect(await page.evaluate(() => window.shine.game.trunk.count)).toBe(2);
+
+  // Gamepad: d-pad moves, RB turns, A puts down, X leaves a piece behind, B closes.
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.trunkScreen.close();
+    g.openTrunk('sack');
+    const s = g.trunkScreen;
+    s.cursor = { x: 0, y: 0 };
+    g._onAction('right', 'gamepad');
+    g._onAction('rotate', 'gamepad');
+  });
+  const pad = await page.evaluate(() => ({ x: window.shine.game.trunkScreen.cursor.x, rot: window.shine.game.trunkScreen.hand.rot }));
+  expect(pad.x).toBeGreaterThanOrEqual(1);
+  expect(pad.rot).toBe(1);
+  await page.evaluate(() => window.shine.game._onAction('trunk', 'gamepad'));
+  expect(await page.evaluate(() => window.shine.game.trunkScreen.hand)).toBe(null);
+
+  // Mouse: click a free cell to lift nothing, then click the crate to lift it and click again
+  // on free space to put it down there.
+  await page.locator('#trunk-grid .cell[data-x="3"][data-y="0"]').click();
+  expect(await page.evaluate(() => window.shine.game.trunkScreen.hand?.kind)).toBe('crate');
+  await page.locator('#trunk-grid .cell[data-x="1"][data-y="1"]').click();
+  expect(await page.evaluate(() => window.shine.game.trunk.pieceAt(2, 2)?.kind)).toBe('crate');
+  await page.evaluate(() => window.shine.game._onAction('back', 'gamepad'));
+  await expect(page.locator('#trunk')).toBeHidden();
+  expect(await page.evaluate(() => window.shine.game.state)).toBe('playing');
 });
