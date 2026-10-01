@@ -10,6 +10,8 @@ export const ADDONS = [
   'postprocessing/ShaderPass.js', 'postprocessing/MaskPass.js', 'postprocessing/UnrealBloomPass.js',
   'postprocessing/OutputPass.js', 'shaders/CopyShader.js', 'shaders/LuminosityHighPassShader.js',
   'shaders/OutputShader.js',
+  // Only fetched when CONFIG.look.truckModel names a glTF model.
+  'loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js',
 ];
 
 // Runs when invoked (npm run vendor); scripts/check.mjs only imports the list above.
@@ -24,7 +26,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   fs.mkdirSync(dest, { recursive: true });
   fs.copyFileSync(path.join(src, 'build/three.module.min.js'), path.join(dest, 'three.module.min.js'));
   fs.copyFileSync(path.join(src, 'LICENSE'), path.join(dest, 'LICENSE'));
-  // The post-processing addons the game uses (bloom, output, custom grade pass).
+  // The addons the game uses (post-processing; the glTF loader for a custom truck).
   for (const f of ADDONS) {
     fs.mkdirSync(path.dirname(path.join(dest, 'addons', f)), { recursive: true });
     fs.copyFileSync(path.join(src, 'examples/jsm', f), path.join(dest, 'addons', f));

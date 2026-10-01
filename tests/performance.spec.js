@@ -45,6 +45,40 @@ test('the whole city draws in a small number of draw calls', async ({ page }) =>
   expect(info.postCalls).toBeLessThan(20);          // bloom mips, tone mapping, grade
 });
 
+test('every wheel in the city draws through two instanced meshes, spinning and steering', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, out = { batches: 0 };
+    const meshes = [];
+    g.scene.traverse((o) => { if (o.isInstancedMesh && o.userData.wheels) meshes.push(o); });
+    out.batches = meshes.length;
+    const front = g.player.model.wheels[0], m = front.matrixWorld.clone();
+    window.shine.teleport(0, 205, 0);
+    window.shine.step(0.3, { throttle: 1 });
+    g.renderFrame();
+    const before = front.matrixWorld.clone();
+    window.shine.step(0.2, { throttle: 1, steer: 1 });
+    g.renderFrame();
+    out.spun = !front.matrixWorld.equals(before);
+    // The instance for that wheel carries its current world matrix.
+    let found = false;
+    for (const b of meshes) for (let i = 0; i < b.count; i++) { b.getMatrixAt(i, m); if (m.elements.every((e, k) => Math.abs(e - front.matrixWorld.elements[k]) < 1e-3)) found = true; }
+    out.found = found;
+    // A full chase: each pursuer costs its body, lamps and sirens; its wheels cost nothing.
+    const calls0 = window.shine.renderInfo().calls;
+    g.mission.heat = 3;
+    g.police.setTarget(3, g.player, g.camera);
+    window.shine.step(1);
+    out.cops = g.police.units.filter((u) => u.active).length;
+    out.added = window.shine.renderInfo().calls - calls0;
+    return out;
+  });
+  expect(r.batches).toBe(2);
+  expect(r.spun).toBe(true);
+  expect(r.cops).toBeGreaterThan(1);
+  expect(r.found).toBe(true);
+  expect(r.added).toBeLessThanOrEqual(r.cops * 4);
+});
+
 test('post-processing: bloom and grade on High, skipped on Low, no new shaders mid-game', async ({ page }) => {
   const r = await page.evaluate(() => {
     const g = window.shine.game;

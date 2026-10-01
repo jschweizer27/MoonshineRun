@@ -79,7 +79,7 @@ try {
     g.camera.position.set(x + 6, 11, z + 9);
     g.camera.lookAt(x, 0, z);
   }, driftAt);
-  await page.evaluate(() => window.shine.game.renderer.render(window.shine.game.scene, window.shine.game.camera));
+  await page.evaluate(() => window.shine.game.renderFrame());
   frames.push({ name: 'skid marks', png: await page.screenshot(), stats: await page.evaluate(() => window.__stats()) });
 
   // Crash: flat out down an east-west street into the warehouses at the city edge.

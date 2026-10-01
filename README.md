@@ -178,6 +178,7 @@ src/
   settings.js   saved preferences and key bindings
   hud.js, waypoint.js, audio.js, save.js, debug.js, rng.js
 sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
+assets/         optional: your own truck model (see assets/README.md for free sources)
 vendor/three/   Three.js r160 (bundled; no CDN needed)
 scripts/        dev server, build, checks, CI summary
 tests/          Playwright playtests

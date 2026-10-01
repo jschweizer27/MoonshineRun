@@ -148,3 +148,69 @@ test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflect
   expect(r.calls).toBeLessThan(60);
   await screenshot(page, '22-wet-street');
 });
+
+// A one-triangle glTF (embedded buffer) standing in for a model the player supplies.
+function tinyGltf() {
+  const pos = Buffer.from(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 2]).buffer);
+  return 'data:model/gltf+json;base64,' + Buffer.from(JSON.stringify({
+    asset: { version: '2.0' },
+    scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    buffers: [{ byteLength: pos.length, uri: 'data:application/octet-stream;base64,' + pos.toString('base64') }],
+    bufferViews: [{ buffer: 0, byteLength: pos.length }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 2] }],
+  })).toString('base64');
+}
+
+test('the truck: glossy clearcoat paint and chrome, headlight beams, and an optional glTF model', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, m = g.player.model;
+    window.shine.step(0.2);
+    g.renderFrame();
+    const surf = m.shell.geometry.attributes.surf.array;
+    let metal = 0, gloss = 0;
+    for (let i = 0; i < surf.length; i += 3) { if (surf[i + 1] > 0.9) metal++; if (surf[i + 2] > 0.9) gloss++; }
+    return {
+      clearcoat: m.shell.material.isMeshPhysicalMaterial && m.shell.material.clearcoat > 0,
+      env: !!m.shell.material.envMap, metal, gloss,
+      beam: m.beam.visible && m.beam.material.opacity, beamOnBody: m.beam.parent === m.body,
+    };
+  });
+  expect(r.clearcoat).toBe(true);
+  expect(r.env).toBe(true);                    // the paint reflects the street
+  expect(r.metal).toBeGreaterThan(100);        // chrome and brass trim
+  expect(r.gloss).toBeGreaterThan(100);        // painted panels and glass
+  expect(r.beam).toBeGreaterThan(0.05);        // beams show at night
+  expect(r.beamOnBody).toBe(true);             // they dip with the nose
+  // By day the beams all but vanish.
+  const day = await page.evaluate(() => {
+    const g = window.shine.game;
+    g.env.hour = 12; g.env.update(0, g.camera.position); g.renderFrame();
+    return g.player.model.beam.material.opacity;
+  });
+  expect(day).toBeLessThan(r.beam * 0.3);
+  // A supplied model replaces the built-in body, set on the ground and scaled to length.
+  const url = tinyGltf();
+  const custom = await page.evaluate(async (u) => {
+    const g = window.shine.game, m = g.player.model;
+    const { attachTruckModel } = await import('/src/models.js');
+    const holder = await attachTruckModel(m, { url: u, length: 4.9 });
+    holder.updateMatrixWorld(true);
+    const b = { min: Infinity, max: -Infinity, y: Infinity };
+    holder.traverse((o) => {
+      if (!o.isMesh) return;
+      const p = o.geometry.attributes.position, v = o.position.clone();
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        const lv = m.body.worldToLocal(v.clone());
+        b.min = Math.min(b.min, lv.z); b.max = Math.max(b.max, lv.z); b.y = Math.min(b.y, lv.y);
+      }
+    });
+    return { shell: m.shell.visible, length: b.max - b.min, y: b.y };
+  }, url);
+  expect(custom.shell).toBe(false);
+  expect(custom.length).toBeCloseTo(4.9, 1);
+  expect(custom.y).toBeCloseTo(0, 1);
+});

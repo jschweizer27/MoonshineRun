@@ -26,6 +26,11 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - Visual review loop: `npm run shots -- <label>` and `npm run reel -- <label>` write
   screenshots / contact sheets to `artifacts/shots/` (they stop the game loop and step it
   themselves). Headless timings are a software GPU: compare them, don't read them as fps.
+- Vehicles (`models.js`) share one `MeshPhysicalMaterial` (clearcoat, street env map); each
+  vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
+  parts need no new material. The player's headlight beams are additive cones
+  (`CONFIG.look.beamOpacity`, set in `renderFrame`). An optional glTF truck
+  (`CONFIG.look.truckModel`, files in `assets/`, see `assets/README.md`) loads only when set.
 - `src/world.js` city generation (seeded), `collision.js` (2D grid colliders + line of
   sight), `roadgraph.js` (pathfinding), `vehicle.js` (physics), `models.js` (procedural
   vehicles), `police.js` (pursuer AI), `mission.js` (loop + heat), `hud.js` (DOM).

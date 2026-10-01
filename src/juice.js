@@ -94,6 +94,7 @@ export class VehicleFeel {
     this.trailerRoll.reset(); this.trailerHeave.reset();
     this.accel01 = 0;
     this.flicker = 0;
+    this.lightLevel = 1;
     this.roll.reset(); this.pitch.reset(); this.heave.reset();
     this.skids.clear();
     this._apply();
@@ -219,6 +220,7 @@ export class VehicleFeel {
       this.flicker -= dt;
       level = Math.random() < 0.45 ? 0.08 + Math.random() * 0.2 : 1;
     }
+    this.lightLevel = level;
     if (this.headlight) this.headlight.intensity = this.headlightBase * level;
     if (this.lens) this.lens.material.color.copy(this.lensBase).multiplyScalar(0.25 + 0.75 * level);
   }

@@ -48,7 +48,7 @@ const web = source
 fs.writeFileSync(path.join(dist, 'index.html'), web);
 
 // Static files the website needs (added over time; copied if present).
-for (const f of ['favicon.svg', 'manifest.webmanifest', 'icons']) {
+for (const f of ['favicon.svg', 'manifest.webmanifest', 'icons', 'assets']) {
   const from = path.join(root, f);
   if (fs.existsSync(from)) fs.cpSync(from, path.join(dist, f), { recursive: true });
 }

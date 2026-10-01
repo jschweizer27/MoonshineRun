@@ -24,6 +24,7 @@ import { JUICE, juice, VehicleFeel } from './juice.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
+import { MATERIALS, WHEELS, attachTruckModel } from './models.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused', GAMEOVER: 'gameover' };
 const $ = (id) => document.getElementById(id);
@@ -76,11 +77,13 @@ class Game {
     this.world = new World(this.scene, { seed: this.citySeed });
     this.post = new PostFX(this.renderer, this.scene, this.camera);
     this.world.buildReflections(this.renderer);
+    MATERIALS.body.envMap = this.world.reflections;   // glossy paint and chrome catch the street
     mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
+    WHEELS.attach(this.scene);    // every vehicle exists now: one instanced mesh per wheel shape
     this.world.enableShadows();   // the vehicles too
     // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
     const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
@@ -130,6 +133,11 @@ class Game {
     const wake = () => { this.audio.start(); if (this.state !== STATE.PLAYING) this.audio.setActive(false); };
     window.addEventListener('pointerdown', wake, { once: true });
     window.addEventListener('keydown', wake, { once: true });
+    // A truck model you supplied (CONFIG.look.truckModel); the built-in truck if it fails.
+    if (CONFIG.look.truckModel) {
+      this.truckModel = attachTruckModel(this.player.model, CONFIG.look.truckModel)
+        .catch((e) => console.warn('Truck model not loaded; using the built-in truck.', e));
+    }
     this._onResize({ render: false });   // the first frame is drawn by the loop, not during loading
     this.renderer.setAnimationLoop(() => this._loop());
   }
@@ -757,7 +765,11 @@ class Game {
   renderFrame() {
     this.world.updateShadow(this.camera);
     this.world.updateLamps(this.camera);
+    WHEELS.update();
     this.post.setDaylight(this.env.daylight);
+    // Headlight beams show in the dark (and more in fog or rain), dim by day, stutter after a hit.
+    const beam = this.player.model.beam;
+    if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
     this.post.render();
   }
 
@@ -772,6 +784,7 @@ class Game {
       roadMaps: (on) => { const m = w.roadMaterial; m.normalScale.setScalar(on ? 1 : 0); },
       streaks: (on) => { w.lampStreaks.visible = on; },
       grade: (on) => { this.post.grade.enabled = on; },
+      beams: (on) => { if (this.player.model.beam) this.player.model.beam.visible = on; },
     };
   }
 
