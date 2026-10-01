@@ -162,6 +162,12 @@ export const CONFIG = {
       grain: 0.045,                  // film grain
     },
   },
+
+  // Dredge run (?mode=dredge): free-roam driving between towns, picking up loot, packing it
+  // into the trunk and selling it. Built beside the bootlegging loop until it replaces it.
+  dredge: {
+    spawn: { x: 0, z: 100, heading: 0 },   // York Road, just inside the city
+  },
 };
 
 export const MS_TO_MPH = 2.237;

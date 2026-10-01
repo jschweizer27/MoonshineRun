@@ -28,12 +28,14 @@ import { PostFX } from './post.js';
 import { MATERIALS, WHEELS } from './models.js';
 import { MODELS, loadModels } from './assets.js';
 
+// What the police report when there are none (the dredge run).
+const IDLE_STATUS = { nearest: Infinity, touching: 0, seen: false, contact: false };
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused', GAMEOVER: 'gameover' };
 const $ = (id) => document.getElementById(id);
 
 // URL options: ?debug (dev overlay + test API), ?test (test API, deterministic, no tips or
 // story), ?seed=123 (city layout), ?sw (offline mode on localhost), ?story / ?hints / ?time
-// (turn those back on under ?test).
+// (turn those back on under ?test), ?mode=dredge (the free-roam loot-and-sell loop).
 const params = new URLSearchParams(location.search);
 export const OPTIONS = {
   debug: params.has('debug'),
@@ -44,6 +46,7 @@ export const OPTIONS = {
   story: !params.has('test') || params.has('story'),
   time: !params.has('test') || params.has('time'),
   models: params.get('models') !== '0',   // ?models=0: the built-in procedural models only
+  mode: params.get('mode') === 'dredge' ? 'dredge' : 'bootleg',
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -59,6 +62,7 @@ const mark = (name) => { BOOT.phases[name] = Math.round(performance.now() - BOOT
 class Game {
   constructor() {
     this.buildId = BUILD_ID;
+    this.mode = OPTIONS.mode;
     this.settings = loadSettings();
     this.career = new Career();
     this.canvas = $('game');
@@ -87,6 +91,8 @@ class Game {
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this.player.addRide('rolls', 'rolls');   // the garage's Rolls-Royce, built up front
+    // Dredge run: the same truck without the horse box (shares the truck's model).
+    this.player.rides.runner = { model: this.player.rides.truck.model, trailer: null };
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
     WHEELS.attach(this.scene);    // every vehicle exists now: one instanced mesh per wheel shape
@@ -277,6 +283,7 @@ class Game {
 
   // Upgrades from the garage change how the truck drives and how hard it is to pin.
   _applyPerks() {
+    if (this.mode === 'dredge') return this._applyDredgePerks();
     const p = this.career.perks, base = CONFIG.player;
     // The truck (with the horse box) or the Rolls-Royce.
     if (this.player.ride !== p.ride) {
@@ -290,6 +297,22 @@ class Game {
     this.gripBase = base.grip * p.grip;
     this.bustTime = CONFIG.police.bustTime + p.bustTime;
     this.ramResist = p.ramResist;
+  }
+
+  // Dredge run: the truck without its horse box, on base tuning (upgrades come later).
+  _applyDredgePerks() {
+    const base = CONFIG.player;
+    if (this.player.ride !== 'runner') {
+      this.player.setRide('runner');
+      this._mountHeadlight();
+      this.feel?.reset();
+    }
+    this.carSuspicion = 1;
+    this.chase.rideScale = CONFIG.camera.noTrailer;
+    Object.assign(this.player.t, { maxSpeed: base.maxSpeed, accel: base.accel, turnRate: base.turnRate });
+    this.gripBase = base.grip;
+    this.bustTime = CONFIG.police.bustTime;
+    this.ramResist = 0;
   }
 
   // ---------- Screens ----------
@@ -324,12 +347,13 @@ class Game {
   }
 
   showTitle() {
-    const started = this.career.started;
+    const started = this.mode === 'bootleg' && this.career.started;
     $('continue-btn').classList.toggle('hidden', !started);
     $('start-btn').textContent = started ? 'NEW GAME' : 'START THE RUN';
     $('start-btn').classList.toggle('secondary', started);
     $('continue-btn').toggleAttribute('data-autofocus', started);
     $('start-btn').toggleAttribute('data-autofocus', !started);
+    if (this.mode === 'dredge') $('start-btn').textContent = 'START DRIVING';
     const best = this.career.data.stats.bestStreak;
     $('intro-best').textContent = started
       ? `Cash on hand: ${money(this.career.cash)} · Best streak: ${money(best)}` : '';
@@ -390,7 +414,7 @@ class Game {
   }
 
   _drawBigMap() {
-    this.minimap.updateRoute(1, this.player.position, this.mission.target, this.police.blocked);
+    if (this.mode === 'bootleg') this.minimap.updateRoute(1, this.player.position, this.mission.target, this.police.blocked);
     this.minimap.drawBig(this.player, this._mapMarkers(), this._mapPolice(), this.time);
   }
 
@@ -410,6 +434,7 @@ class Game {
 
   // ---------- Run flow ----------
   resetRun(mode = 'loop') {
+    if (this.mode === 'dredge') return this._resetDredge();
     if (mode === 'escape') {
       this.player.place(WAREHOUSE_SPAWN.x, WAREHOUSE_SPAWN.z, WAREHOUSE_SPAWN.heading);
     } else {
@@ -456,6 +481,40 @@ class Game {
     }
   }
 
+  // Dredge run: free roam from York Road. The bootlegging systems stay idle: no mission
+  // markers, no police, no heat.
+  _resetDredge() {
+    const s = CONFIG.dredge.spawn;
+    this.player.place(s.x, s.z, s.heading);
+    this.police.reset();
+    this.mission.reset(this.player.position, 'loop');
+    for (const m of [this.mission.pickup, this.mission.drop, this.mission.hideoutMarker, this.mission.goal]) m.visible = false;
+    this.waypoint.update(this.player, null, 0);
+    this.minimap.route = [];
+    this.fire.out();
+    this.particles.clear();
+    this.props.reset();
+    this.debris.clear();
+    this.hitStop = 0;
+    this.slowMo = 0;
+    this.feel.reset();
+    this.chase.snap(this.player);
+    this._applyPerks();
+    this.hud.setMode('dredge');
+    this.hud.setCash(this.career.cash);
+    this.hud.setCargo(false);
+    this.hud.setBust(0);
+    this.hud.setStatusPill(null);
+    this.hud.setObjective('Free roam', null, 'roam');
+    this.prevTier = 0;
+    this.bustMeter = 0;
+    this.runTime = 0;
+    this._lastRam = -1;
+    this._surfaceTimer = 0;
+    this.surface = 1;
+    this.tutorial?.clearActive();
+  }
+
   _enterPlaying() {
     this.ui.closeAll();
     this.hud.show();
@@ -469,6 +528,7 @@ class Game {
   }
 
   async newGame() {
+    if (this.mode === 'dredge') { this.resetRun(); this._enterPlaying(); return; }
     if (this.career.started && !(await this.ui.confirm('NEW GAME?', 'Start over? Your cash, upgrades, story progress and ledger will be erased.', 'START OVER'))) return;
     this.career.reset();
     this.career.data.started = true;
@@ -489,6 +549,7 @@ class Game {
   }
 
   continueGame() {
+    if (this.mode === 'dredge') { this.newGame(); return; }
     this.resetRun(this.career.seen('valley') || !OPTIONS.story ? 'loop' : 'escape');
     this._enterPlaying();
   }
@@ -618,6 +679,7 @@ class Game {
 
   // One simulation step (also used by tests to fast-forward deterministically).
   step(dt, input) {
+    if (this.mode === 'dredge') { this._stepDredge(dt, input); return; }
     this.time += dt;
     this.runTime += dt;
     this.career.data.stats.playSeconds += dt;
@@ -704,6 +766,44 @@ class Game {
     });
 
     if (this.bustMeter >= 1) this.bust();
+  }
+
+  // Dredge run: drive, crash, weather and feel; no mission, police, heat or tips.
+  _stepDredge(dt, input) {
+    this.time += dt;
+    this.runTime += dt;
+    const fx = this.env.effects;
+    this._updateSurface(dt);
+    this.player.speedFactor = this.surface;
+    this.player.t.grip = this.gripBase * fx.grip * (this.surface < 1 ? 0.85 : 1);
+    this.player.update(dt, input);
+    this._throttle = input.throttle || 0;
+    const p = this.player.position;
+    if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
+      this._lastRam = this.time;
+      this.audio.crash(Math.min(0.6, this.player.impact / 25));
+      this.chase.shake(Math.min(0.5, this.player.impact / 30));
+      this.feel.hit(this.player.impact / 20);
+      this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
+      this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
+    }
+    this.props.update(dt, this._cars);
+    this.debris.update(dt);
+    this.env.update(dt, this.camera.position);
+    const county = this.world.inCounty(p);
+    this.feel.update(dt, {
+      brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: this.env.wet,
+      ground: county ? (this.surface < 1 ? 'grass' : 'dirt') : 'cobble',
+    });
+    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust') });
+    this.particles.atmosphere(dt, this.world, this.camera.position, { night: 1 - this.env.daylight, wet: this.env.wet });
+    this.particles.setLight(0.5 + 0.5 * this.env.daylight);
+    this.particles.update(dt);
+    this.chase.update(dt, this.player, !!input.lookBack, this.feel.accel01);
+    this.hud.setSpeed(this.player.speedMph, dt);
+    const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
+    this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
+    this._updateAudio(IDLE_STATUS);
   }
 
   // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.
@@ -879,6 +979,7 @@ class Game {
   }
 
   _mapMarkers() {
+    if (this.mode === 'dredge') return [];
     const out = [];
     const m = this.mission;
     for (const [marker, kind] of [[m.pickup, 'still'], [m.drop, 'drop'], [m.hideoutMarker, 'hideout'], [m.goal, 'goal']]) {

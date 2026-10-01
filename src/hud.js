@@ -30,6 +30,8 @@ export class HUD {
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
+  // 'bootleg' or 'dredge' (no heat, no bust bar).
+  setMode(mode) { this.el.hud.classList.toggle('dredge', mode === 'dredge'); }
   hide() { this.el.hud.classList.add('hidden'); }
 
   _set(key, value, fn) {
