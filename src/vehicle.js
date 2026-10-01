@@ -221,3 +221,31 @@ export function collideVehicles(a, b, massRatio = 0.5) {
   }
   return touched;
 }
+
+// A car against the towed horse box: the box is kinematic (it follows the hitch), so only
+// the car is pushed out and bounced. Two circles cover the box. Returns the closing speed.
+export function collideTrailer(v, b) {
+  const t = v.trailer;
+  if (!t) return 0;
+  const fx = Math.sin(t.heading), fz = -Math.cos(t.heading), r = 1.15, rb = b.t.radius, ob = b.t.circleOffset;
+  let touched = 0;
+  for (const s of [1.35, -0.65]) {             // the box sits just ahead of its axle
+    const ax = t.x + fx * s, az = t.z + fz * s;
+    for (const sb of [1, -1]) {
+      const bx = b.position.x + b.forwardX * ob * sb, bz = b.position.z + b.forwardZ * ob * sb;
+      const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz), min = r + rb;
+      if (d >= min || d < 1e-5) continue;
+      const nx = dx / d, nz = dz / d, pen = min - d;
+      b.position.x += nx * pen; b.position.z += nz * pen;
+      const rel = b.vx * nx + b.vz * nz;
+      if (rel < 0) {
+        b.vx -= nx * rel * 1.3; b.vz -= nz * rel * 1.3;
+        touched = Math.max(touched, -rel);
+      } else {
+        touched = Math.max(touched, 0.01);
+      }
+    }
+  }
+  if (touched) b.speed = b.vx * b.forwardX + b.vz * b.forwardZ;
+  return touched;
+}

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { Vehicle, collideVehicles } from './vehicle.js';
-import { buildVehicle } from './models.js';
+import { Vehicle, collideVehicles, collideTrailer } from './vehicle.js';
+import { buildVehicle, mergeParts, MATERIALS } from './models.js';
 import { RoadGraph } from './roadgraph.js';
 
 const TUNING = { ...CONFIG.player, maxSpeed: CONFIG.police.maxSpeed, accel: CONFIG.police.accel };
@@ -147,7 +147,10 @@ export class Police {
       const chasing = u.mode === 'chase' || u.mode === 'search';
       car.t.maxSpeed = cfg.maxSpeed * (chasing ? boost : 1);
       car.t.accel = cfg.accel * (chasing ? boost : 1) * (u.kind === 'zealot' ? 1.1 : 1);
-      if (chasing) nearest = Math.min(nearest, d);
+      // Pressed against the horse box counts as close too (cars can't drive through it).
+      const t = player.trailer;
+      const near = t ? Math.min(d, Math.hypot(t.x + Math.sin(t.heading) * 0.35 - car.position.x, t.z - Math.cos(t.heading) * 0.35 - car.position.z)) : d;
+      if (chasing) nearest = Math.min(nearest, near);
 
       const los = d < sight && this.world.lineOfSight(car.position, p);
       u.sees = los && !ctx.safeZone && u.mode !== 'leave';
@@ -224,7 +227,8 @@ export class Police {
     const resist = ctx.ramResist ?? 1;
     for (const u of act) {
       const ratio = (u.kind === 'zealot' ? 0.5 : 0.35) * resist;
-      const hit = collideVehicles(player, u.car, ratio);
+      // ...and nobody drives through the horse box.
+      const hit = Math.max(collideVehicles(player, u.car, ratio), collideTrailer(player, u.car));
       if (hit && u.mode !== 'leave' && u.mode !== 'patrol') touching = Math.max(touching, hit);
     }
     for (let i = 0; i < act.length; i++) {
@@ -314,19 +318,29 @@ function flashSirens(sirens, on, time) {
 }
 
 // Up to two roadblocks: parked Bureau sedans and sawhorses across a road ahead of you.
+let sawhorseGeo = null;
+function sawhorse() {
+  if (!sawhorseGeo) {
+    const at = new THREE.Matrix4();
+    sawhorseGeo = mergeParts([
+      { geo: new THREE.BoxGeometry(3.2, 0.35, 0.18).translate(0, 1.0, 0), color: 0xe8e0d0, matrix: at },
+      { geo: new THREE.BoxGeometry(0.9, 0.36, 0.2).translate(0, 1.0, 0), color: 0xb02a20, matrix: at },
+      { geo: new THREE.BoxGeometry(0.12, 1.1, 0.6).translate(-1.3, 0.55, 0), color: 0xe8e0d0, matrix: at },
+      { geo: new THREE.BoxGeometry(0.12, 1.1, 0.6).translate(1.3, 0.55, 0), color: 0xe8e0d0, matrix: at },
+    ]);
+  }
+  return sawhorseGeo;
+}
+
 class Roadblocks {
   constructor(scene, world) {
     this.world = world;
     this.pool = [0, 1].map(() => {
       const group = new THREE.Group();
       const cars = [0, 1].map(() => { const v = buildVehicle('fed'); group.add(v.group); return v; });
-      const barrierMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.7 });
-      const stripeMat = new THREE.MeshStandardMaterial({ color: 0xb02a20, roughness: 0.7 });
+      // Sawhorses: one shared painted-wood geometry, one draw call each.
       const barriers = [0, 1].map(() => {
-        const b = new THREE.Group();
-        b.add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.35, 0.18).translate(0, 1.0, 0), barrierMat));
-        b.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.36, 0.2).translate(0, 1.0, 0), stripeMat));
-        for (const x of [-1.3, 1.3]) b.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.6).translate(x, 0.55, 0), barrierMat));
+        const b = new THREE.Mesh(sawhorse(), MATERIALS.body);
         group.add(b);
         return b;
       });

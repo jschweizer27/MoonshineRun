@@ -274,6 +274,26 @@ function temperanceBanner() {
   return bannerTex;
 }
 const bannerMat = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide });
+const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
+let zealotGeo = null;
+function zealotParts() {
+  if (!zealotGeo) {
+    const join = (geos) => {
+      const out = new THREE.BufferGeometry();
+      for (const name of ['position', 'normal', 'uv']) {
+        const all = new Float32Array(geos.reduce((n, g) => n + g.attributes[name].array.length, 0));
+        geos.reduce((o, g) => { all.set(g.attributes[name].array, o); return o + g.attributes[name].array.length; }, 0);
+        out.setAttribute(name, new THREE.BufferAttribute(all, geos[0].attributes[name].itemSize));
+      }
+      return out;
+    };
+    zealotGeo = {
+      flames: join([-0.7, 0.7].map((x) => new THREE.ConeGeometry(0.22, 0.6, 8).toNonIndexed().translate(x, 0, 0))),
+      banners: join([-0.88, 0.88].map((x) => new THREE.PlaneGeometry(1.7, 0.42).toNonIndexed().rotateY(Math.PI / 2).translate(x, 1.18, 1.25))),
+    };
+  }
+  return zealotGeo;
+}
 
 // Returns { group, wheels, frontPivots, sirens, torches, wheelRadius, trailer? }
 export function buildVehicle(style = 'player') {
@@ -374,19 +394,13 @@ export function buildVehicle(style = 'player') {
       ...lampHousings(-2.05, 1.5, 0.58),
     );
     lamps.push(...headlamps(-2.05, 1.5, 0.58), part(box(0.2, 0.15, 0.06), 0xff2a1a, -0.7, 1.0, 2.2), part(box(0.2, 0.15, 0.06), 0xff2a1a, 0.7, 1.0, 2.2));
-    for (const x of [-0.7, 0.7]) {
-      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 8), new THREE.MeshBasicMaterial({ color: 0xff8a2a }));
-      flame.position.set(x, 3.25, 1.6);
-      group.add(flame);
-      torches.push(flame);
-    }
+    // Both torch flames are one mesh, and both banners another (shared by every pickup).
+    const flames = new THREE.Mesh(zealotParts().flames, flameMat);
+    flames.position.set(0, 3.25, 1.6);
+    group.add(flames);
+    torches.push(flames);
     bannerMat.map = temperanceBanner();
-    for (const x of [-0.88, 0.88]) {
-      const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42), bannerMat);
-      banner.position.set(x, 1.18, 1.25);
-      banner.rotation.y = Math.PI / 2;
-      group.add(banner);
-    }
+    group.add(new THREE.Mesh(zealotParts().banners, bannerMat));
     wheelSpots = [[-0.93, -1.7, true], [0.93, -1.7, true], [-0.93, 1.45], [0.93, 1.45]];
   }
 

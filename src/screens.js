@@ -52,8 +52,10 @@ export function showGarage(ui, career, { onChange, onLedger, bribeUnlocked }) {
       const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': id }, cost == null ? 'MAXED' : `HIRE ${money(cost)}`);
       if (cost == null || career.cash < cost) btn.disabled = true;
       btn.addEventListener('click', () => { if (career.buy(id)) { onChange(); render(); } });
+      // In the Rolls some specialists' work doesn't apply: say so.
+      const note = career.ride === 'rolls' ? { armor: ' Truck only: the Rolls tows no horse box.', cargo: ' Big orders won’t fit the Rolls’ trunk.' }[id] || '' : '';
       body.append(el('div', { class: 'upgrade' },
-        el('div', {}, el('b', {}, `${u.name} — ${u.what}`), pips, el('small', {}, u.desc)), btn));
+        el('div', {}, el('b', {}, `${u.name} — ${u.what}`), pips, el('small', {}, u.desc + note)), btn));
     }
     // The motor car: buy the Rolls-Royce once, then switch between it and the truck.
     {

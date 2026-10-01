@@ -36,6 +36,26 @@ test('the horse trailer swings behind the truck through a corner', async ({ page
   expect(r.bar).toBeCloseTo(3.6, 1);                          // stays hitched
 });
 
+test('pursuers bounce off the horse box instead of driving through it', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, v = g.player, t = v.trailer, u = g.police.units[0];
+    window.shine.teleport(-44, 150, 0);
+    window.shine.step(0.2);
+    // A pursuer parked right on top of the horse box.
+    u.active = true; u.mode = 'chase'; u.car.setVisible(true);
+    const fx = Math.sin(t.heading), fz = -Math.cos(t.heading);
+    u.car.place(t.x + fx * 0.35, t.z + fz * 0.35, 0);
+    window.shine.step(1 / 60);
+    const box = [t.x + fx * 0.35, t.z + fz * 0.35];
+    const d = Math.hypot(u.car.position.x - box[0], u.car.position.z - box[1]);
+    u.active = false; u.car.setVisible(false);
+    return d;
+  });
+  expect(r).toBeGreaterThan(1.5);            // pushed clear of the box
+});
+
 test('exhaust and dust while driving, sparks on a crash, a shake on impact', async ({ page }) => {
   await openGame(page);
   await startRun(page);

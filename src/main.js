@@ -401,7 +401,10 @@ class Game {
     if (wasPlaying) this.pause({ showMenu: false });
     this.career.markSeen(beatId);
     await playDialog(this.ui, BEATS[beatId].lines, { reducedMotion: !!this.settings.reducedMotion });
-    if (BEATS[beatId].unlocks === 'disguise') this.hud.toast('Unlocked: the horse-box disguise (stay under 30 mph when loaded)', 'gold', 4000);
+    if (BEATS[beatId].unlocks === 'disguise') {
+      const where = this.player.trailer ? '' : ' — in the truck, not the Rolls';
+      this.hud.toast(`Unlocked: the horse-box disguise (stay under 30 mph when loaded)${where}`, 'gold', 4000);
+    }
     if (BEATS[beatId].unlocks === 'bribe') this.hud.toast('Unlocked: bribe the county sheriff at the garage', 'gold', 4000);
     if (wasPlaying && !this.ui.anyOpen) this.resume();
   }
@@ -952,7 +955,9 @@ class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.post?.setSize(window.innerWidth, window.innerHeight);
     const h = this.renderer.domElement.height;
-    this.particles.setScale(h / (2 * Math.tan((CONFIG.camera.fov * Math.PI) / 360)));
+    const scale = h / (2 * Math.tan((CONFIG.camera.fov * Math.PI) / 360));
+    this.particles.setScale(scale);
+    this.fire.material.uniforms.uScale.value = scale;
     // Resizing clears the canvas; redraw so a paused game doesn't go black.
     if (render) this.renderFrame();
   }
