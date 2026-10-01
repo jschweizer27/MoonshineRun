@@ -161,15 +161,17 @@ export function buildCounty(world, rng) {
   });
   for (const im of [postMesh, railMesh]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
 
-  // Low fieldstone walls mark the edge of the county.
-  const stone = new THREE.MeshStandardMaterial({ color: 0x5e5a52, roughness: 1 });
+  // Low fieldstone walls mark the edge of the county (one instanced draw for all five).
   const { minX, maxX, minZ, maxZ } = COUNTY;
-  for (const [x0, z0, x1, z1] of [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], [maxX, minZ, maxX, maxZ], [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]]) {
+  const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], [maxX, minZ, maxX, maxZ], [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
+  const wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.2, 1).translate(0, 0.6, 0),
+    new THREE.MeshStandardMaterial({ color: 0x5e5a52, roughness: 1 }), walls.length);
+  walls.forEach(([x0, z0, x1, z1], i) => {
     const w = Math.max(1, Math.abs(x1 - x0)), d = Math.max(1, Math.abs(z1 - z0));
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d).translate(0, 0.6, 0), stone);
-    wall.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
-    scene.add(wall);
-  }
+    wallMesh.setMatrixAt(i, m.compose(p.set((x0 + x1) / 2, 0, (z0 + z1) / 2), q.identity(), s.set(w, 1, d)));
+  });
+  wallMesh.instanceMatrix.needsUpdate = true;
+  scene.add(wallMesh);
 
   return { barns: barnSpots, hideout };
 }
