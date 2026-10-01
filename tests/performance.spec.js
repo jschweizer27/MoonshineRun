@@ -72,7 +72,7 @@ test('every wheel in the city draws through one instanced mesh per wheel shape, 
     out.added = window.shine.renderInfo().calls - calls0;
     return out;
   });
-  expect(r.batches).toBeLessThanOrEqual(4);           // truck, horse box, sedan, pickup wheels
+  expect(r.batches).toBeLessThanOrEqual(5);           // truck, horse box, Rolls, sedan, pickup wheels
   expect(r.spun).toBe(true);
   expect(r.cops).toBeGreaterThan(1);
   expect(r.found).toBe(true);

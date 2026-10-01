@@ -85,6 +85,7 @@ class Game {
     mark('world');
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
+    this.player.addRide('rolls', 'rolls');   // the garage's Rolls-Royce, built up front
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
     WHEELS.attach(this.scene);    // every vehicle exists now: one instanced mesh per wheel shape
@@ -145,13 +146,18 @@ class Game {
     // The only moving real light; it always exists so the light count never changes. It
     // rides on the sprung body, so the beam dips when the nose dives under braking.
     const lamp = new THREE.SpotLight(0xfff0cc, 90, 75, Math.PI / 5.5, 0.55, 1.2);
-    const [z, y] = this.player.model.lamp;
-    lamp.position.set(0, y, z - 0.4);
-    const target = new THREE.Object3D();
-    target.position.set(0, 0, -22);
-    this.player.model.body.add(lamp, target);
-    lamp.target = target;
+    lamp.target = new THREE.Object3D();
     this.headlight = lamp;
+    this._mountHeadlight();
+  }
+
+  // The headlight moves to whichever car Otto is driving (moved, never re-added: the light
+  // count stays fixed).
+  _mountHeadlight() {
+    const lamp = this.headlight, [z, y] = this.player.model.lamp;
+    lamp.position.set(0, y, z - 0.4);
+    lamp.target.position.set(0, 0, -22);
+    this.player.model.body.add(lamp, lamp.target);
   }
 
   // J: all the game-feel effects on or off, to compare.
@@ -235,6 +241,14 @@ class Game {
   // Upgrades from the garage change how the truck drives and how hard it is to pin.
   _applyPerks() {
     const p = this.career.perks, base = CONFIG.player;
+    // The truck (with the horse box) or the Rolls-Royce.
+    if (this.player.ride !== p.ride) {
+      this.player.setRide(p.ride);
+      this._mountHeadlight();
+      this.feel?.reset();
+    }
+    this.carSuspicion = p.suspicion;
+    this.chase.rideScale = p.trailer ? 1 : CONFIG.camera.noTrailer;
     Object.assign(this.player.t, { maxSpeed: base.maxSpeed * p.speed, accel: base.accel * p.accel, turnRate: base.turnRate * p.turn });
     this.gripBase = base.grip * p.grip;
     this.bustTime = CONFIG.police.bustTime + p.bustTime;
@@ -568,14 +582,15 @@ class Game {
     this.player.t.grip = this.gripBase * fx.grip * (this.surface < 1 ? 0.85 : 1);
     this.player.update(dt, input);
 
-    const disguised = this.disguiseUnlocked && m.carrying && Math.abs(this.player.speed) < CONFIG.heat.disguiseSpeed;
+    // The horse-box disguise needs the horse box (not the Rolls).
+    const disguised = this.disguiseUnlocked && !!this.player.trailer && m.carrying && Math.abs(this.player.speed) < CONFIG.heat.disguiseSpeed;
     const safeZone = this.safeZone;
     this.minimap.updateRoute(dt, this.player.position, m.target, this.police.blocked);
     const status = this.police.update(dt, this.player, this.camera, this.time, {
       carrying: m.carrying, disguised, sight: fx.sight, safeZone, bribed: this.career.data.bribes.county,
       tier: m.tier, route: this.minimap.route, ramResist: this.ramResist,
     });
-    const events = m.update(dt, this.player.position, status, this.time, { speed: this.player.speed, disguised, safeZone, env: fx, camera: this.camera.position });
+    const events = m.update(dt, this.player.position, status, this.time, { speed: this.player.speed, disguised, safeZone, suspicion: this.carSuspicion, env: fx, camera: this.camera.position });
     this._onEvents(events, status);
 
     const tier = m.tier;
@@ -740,6 +755,7 @@ class Game {
     this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
     let pill = null;
     if (safeZone) pill = ['safe', 'SAFE COUNTY — the sheriff looks away'];
+    else if (m.carrying && !this.player.trailer) pill = ['disguised', 'GENTLEMAN’S MOTOR CAR — slow to raise suspicion'];
     else if (m.carrying && this.disguiseUnlocked) {
       pill = disguised ? ['disguised', 'DISGUISED — just a horse box'] : ['speeding', `OVER ${Math.round(CONFIG.heat.disguiseSpeed * MS_TO_MPH)} MPH — LOOKS SUSPICIOUS`];
     }

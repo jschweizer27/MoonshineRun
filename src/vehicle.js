@@ -32,6 +32,33 @@ export class Vehicle {
     }
   }
 
+  // A second car the player can own (the garage's Rolls-Royce). Every body is built up
+  // front so nothing is created mid-game; one is shown at a time, and only the truck tows
+  // the horse box.
+  addRide(name, style) {
+    if (!this.rides) this.rides = { truck: { model: this.model, trailer: this.trailer } };
+    const model = buildVehicle(style);
+    model.group.visible = false;
+    this.scene.add(model.group);
+    this.rides[name] = { model, trailer: null };
+  }
+
+  setRide(name) {
+    const r = this.rides?.[name] || this.rides?.truck;
+    if (!r) return;
+    const shown = this.mesh.visible;
+    for (const x of Object.values(this.rides)) {
+      x.model.group.visible = false;
+      if (x.trailer) x.trailer.group.visible = false;
+    }
+    this.model = r.model;
+    this.mesh = r.model.group;
+    this.trailer = r.trailer;
+    this.ride = this.rides[name] ? name : 'truck';
+    this.setVisible(shown);
+    this.place(this.position.x, this.position.z, this.heading);
+  }
+
   place(x, z, heading = 0) {
     this.position.set(x, 0, z);
     this.heading = heading;

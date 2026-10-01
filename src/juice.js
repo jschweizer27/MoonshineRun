@@ -71,9 +71,14 @@ export class VehicleFeel {
     this.particles = particles;
     this.headlight = headlight;
     this.headlightBase = headlight ? headlight.intensity : 0;
-    // The player's lamp lenses get their own material so they can flicker alone.
-    this.lens = vehicle.model.lampMesh;
-    if (this.lens) { this.lens.material = this.lens.material.clone(); this.lensBase = this.lens.material.color.clone(); }
+    // The player's lamp lenses (on each car Otto owns) get their own material so they can
+    // flicker alone.
+    for (const { model } of vehicle.rides ? Object.values(vehicle.rides) : [vehicle]) {
+      const lens = model.lampMesh;
+      if (!lens) continue;
+      lens.material = lens.material.clone();
+      lens.userData.base = lens.material.color.clone();
+    }
     this.skids = new SkidMarks(scene);
     this.roll = new Spring();
     this.pitch = new Spring();
@@ -222,7 +227,8 @@ export class VehicleFeel {
     }
     this.lightLevel = level;
     if (this.headlight) this.headlight.intensity = this.headlightBase * level;
-    if (this.lens) this.lens.material.color.copy(this.lensBase).multiplyScalar(0.25 + 0.75 * level);
+    const lens = this.v.model.lampMesh;
+    if (lens?.userData.base) lens.material.color.copy(lens.userData.base).multiplyScalar(0.25 + 0.75 * level);
   }
 }
 

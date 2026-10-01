@@ -1,4 +1,5 @@
 import { loadJSON, saveJSON } from './save.js';
+import { CONFIG } from './config.js';
 
 // Otto's saved progress: money, upgrades, story, bribes, stats and the ledger.
 const KEY = 'shine.career.v1';
@@ -29,6 +30,8 @@ const DEFAULT = {
   started: false,
   cash: 0,
   upgrades: { engine: 0, handling: 0, cargo: 0, armor: 0 },
+  cars: { rolls: false },    // motor cars bought at the garage
+  ride: 'truck',             // what Otto drives: 'truck' (with the horse box) or 'rolls'
   story: {},                 // beat id -> true once seen
   bribes: { county: false },
   stats: { earned: 0, deliveries: 0, busts: 0, fines: 0, jugs: 0, bestStreak: 0, bestStreakRuns: 0, playSeconds: 0 },
@@ -43,6 +46,7 @@ export class Career {
     this.data = {
       ...structuredClone(DEFAULT), ...d,
       upgrades: { ...DEFAULT.upgrades, ...(d.upgrades || {}) },
+      cars: { ...DEFAULT.cars, ...(d.cars || {}) },
       stats: { ...DEFAULT.stats, ...(d.stats || {}) },
       bribes: { ...DEFAULT.bribes, ...(d.bribes || {}) },
       story: { ...(d.story || {}) },
@@ -73,6 +77,25 @@ export class Career {
     if (cost == null || this.data.cash < cost) return false;
     this.data.cash -= cost;
     this.data.upgrades[id] += 1;
+    this.save();
+    return true;
+  }
+
+  get ride() { return this.data.ride === 'rolls' && this.data.cars.rolls ? 'rolls' : 'truck'; }
+
+  // The Rolls-Royce: bought once, then Otto can switch between it and the truck.
+  buyRolls() {
+    if (this.data.cars.rolls || this.data.cash < CONFIG.rolls.cost) return false;
+    this.data.cash -= CONFIG.rolls.cost;
+    this.data.cars.rolls = true;
+    this.data.ride = 'rolls';
+    this.save();
+    return true;
+  }
+
+  setRide(ride) {
+    if (ride === 'rolls' && !this.data.cars.rolls) return false;
+    this.data.ride = ride === 'rolls' ? 'rolls' : 'truck';
     this.save();
     return true;
   }
@@ -116,17 +139,22 @@ export class Career {
   }
 
   // Player-facing multipliers from upgrades.
+  // In the Rolls there's no horse box: no disguise, no armoured box, and a smaller load.
   get perks() {
-    const u = this.data.upgrades;
+    const u = this.data.upgrades, rolls = this.ride === 'rolls', R = CONFIG.rolls;
     return {
-      speed: 1 + 0.08 * u.engine,
-      accel: 1 + 0.12 * u.engine,
+      speed: (1 + 0.08 * u.engine) * (rolls ? R.speed : 1),
+      accel: (1 + 0.12 * u.engine) * (rolls ? R.accel : 1),
       grip: 1 + 0.15 * u.handling,
       turn: 1 + 0.08 * u.handling,
       jugs: 1 + 0.25 * u.cargo,
-      bigOrders: u.cargo >= 1,
-      bustTime: 0.6 * u.armor,
-      ramResist: 1 - 0.18 * u.armor,
+      maxJugs: rolls ? R.trunkJugs : Infinity,
+      bigOrders: u.cargo >= 1 && !rolls,
+      bustTime: rolls ? 0 : 0.6 * u.armor,
+      ramResist: rolls ? 1 : 1 - 0.18 * u.armor,
+      suspicion: rolls ? R.suspicion : 1,
+      trailer: !rolls,
+      ride: rolls ? 'rolls' : 'truck',
     };
   }
 }

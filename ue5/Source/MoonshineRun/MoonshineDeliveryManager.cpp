@@ -211,7 +211,9 @@ void AMoonshineDeliveryManager::PlaceDrop(const FVector& From)
 
 	// Pay = jugs x price x (1 + distance / 900 m), rounded to $10.
 	const float Distance = FVector::Dist2D(From, Spot);
-	CurrentPay = FMath::RoundToInt(Order.Jugs * Order.PricePerJug * (1.f + Distance / ShineTuning::PayDistance) / 10.f) * 10;
+	// The Rolls' trunk takes small loads only.
+	const int32 Jugs = bGentlemansCar ? FMath::Min(Order.Jugs, ShineTuning::RollsTrunkJugs) : Order.Jugs;
+	CurrentPay = FMath::RoundToInt(Jugs * Order.PricePerJug * (1.f + Distance / ShineTuning::PayDistance) / 10.f) * 10;
 }
 
 // A spot at least MinDistance away (a random one among those far enough, else the
@@ -355,7 +357,8 @@ FShineHeatContext AMoonshineDeliveryManager::GetHeatContext() const
 	Ctx.bContact = bContact;
 	if (const AMoonshineVehicle* Truck = GetTruck())
 	{
-		Ctx.bDisguised = bCarrying && Truck->bDisguiseUnlocked && FMath::Abs(Truck->GetForwardSpeed()) < DisguiseSpeed;
+		// The disguise is the horse box: not while driving the Rolls.
+		Ctx.bDisguised = bCarrying && !bGentlemansCar && Truck->bDisguiseUnlocked && FMath::Abs(Truck->GetForwardSpeed()) < DisguiseSpeed;
 	}
 	return Ctx;
 }
@@ -374,7 +377,7 @@ void AMoonshineDeliveryManager::UpdateHeat(float DeltaSeconds, const FShinePolic
 	// Informants tip off the law while you haul (4x slower in disguise).
 	if (bCarrying && Heat <= 0.f && !Ctx.bSafeZone)
 	{
-		Suspicion += TipOffRate * Mult * (Ctx.bDisguised ? DisguiseSuspicion : 1.f) * DeltaSeconds;
+		Suspicion += TipOffRate * Mult * (Ctx.bDisguised ? DisguiseSuspicion : 1.f) * (bGentlemansCar ? RollsSuspicion : 1.f) * DeltaSeconds;
 		if (Suspicion >= 1.f)
 		{
 			FirstStar();

@@ -7,6 +7,7 @@ don't (or with `?models=0`). They're listed in `CONFIG.look.models` (`src/config
 |---|---|---|
 | `runner.glb` | Otto's truck | "Moonshine Runner" by car-go — sketchfab.com/3d-models/moonshine-runner-fd63e809162647bcbb567248d1b6617c |
 | `bureau-sedan.glb` | Prohibition Bureau sedans | "Volvo PV4 V2 Downloadable" by Libau Media — sketchfab.com/3d-models/volvo-pv4-v2-downloadable-4ee791d8d2de47c5ba1b132db990da77 |
+| `rolls-royce.glb` | The garage's Rolls-Royce | "1925 Rolls Royce Phantom I Jonckheere Coupe" by Antonio Sagistiano — sketchfab.com/3d-models/1925-rolls-royce-phantom-i-jonckheere-coupe-1043f7cdbe1146df828a047dcbf42cc2 |
 | `arc-lamp.glb` | Street lamps | "Arc Lamp - Victorian Street Lamp" by i-m-a-kitty-cat — sketchfab.com/3d-models/arc-lamp-victorian-street-lamp-41e1be71fdaf430d9d91c871cf153f0d |
 
 All are licensed CC BY 4.0 (creativecommons.org/licenses/by/4.0/). They were reduced

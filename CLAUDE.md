@@ -45,7 +45,10 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   it. Preferences live in `settings.js` (localStorage).
 - States: `intro` → `playing` ⇄ `paused` → `gameover`. Pausing stops simulation and
   rendering and suspends audio.
-- Career (`career.js`, localStorage) holds cash, upgrades, story flags, stats, ledger.
+- Career (`career.js`, localStorage) holds cash, upgrades, story flags, stats, ledger, and
+  the car Otto drives (`ride`: the truck + horse box, or the garage's Rolls-Royce,
+  `CONFIG.rolls`). Both bodies are built at boot (`Vehicle.addRide`/`setRide`); `perks`
+  carries the ride's rules (no trailer = no disguise/armour, trunk-sized loads).
   Mission modes: `escape` (Act I) and `loop`. Stills are county barns, drops are named city
   intersections (`world.drops`). Mission emits events (`orders`, `pickup`, `deliver`,
   `hideout`, `escaped`, `spotted`, ...); `main.js` turns them into screens and saves.

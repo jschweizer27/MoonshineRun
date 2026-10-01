@@ -137,6 +137,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Heat")
 	float DisguiseSuspicion = ShineTuning::DisguiseSuspicion;
 
+	// Driving the Rolls-Royce instead of the truck and horse box (set by the garage): tip-offs
+	// build at RollsSuspicion, the horse-box disguise is off, loads are capped at RollsTrunkJugs.
+	UPROPERTY(BlueprintReadWrite, Category = "Heat")
+	bool bGentlemansCar = false;
+
+	UPROPERTY(EditAnywhere, Category = "Heat")
+	float RollsSuspicion = ShineTuning::RollsSuspicion;
+
 	// Set from a trigger volume (e.g. the county after the sheriff's bribe): nobody sees you.
 	UPROPERTY(BlueprintReadWrite, Category = "Heat")
 	bool bInSafeZone = false;

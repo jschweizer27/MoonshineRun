@@ -69,9 +69,21 @@ export const CONFIG = {
     ],
   },
 
+  // The garage's 1925 Rolls-Royce Phantom I: a gentleman's motor car. Faster, and the
+  // informants suspect it less, but it can't tow the horse box (no disguise, no armoured
+  // box) and the trunk only holds so many jugs (no big orders).
+  rolls: {
+    cost: 8000,
+    speed: 1.15,          // top speed x (on top of the engine upgrades)
+    accel: 1.1,
+    suspicion: 0.6,       // tip-offs build this much as fast
+    trunkJugs: 24,
+  },
+
   camera: {
     distance: 15,         // far enough back to see the horse trailer
     height: 7.2,          // high enough to see the road over it
+    noTrailer: 0.72,      // distance and height x when there's no horse box to see over (the Rolls)
     fov: 62,              // chase feel (lag, pull-back, FOV kick, shake) is in src/juice.js
   },
 
@@ -107,6 +119,7 @@ export const CONFIG = {
       truck: 'assets/runner.glb',          // Otto's truck
       fed: 'assets/bureau-sedan.glb',      // Prohibition Bureau sedans
       lamp: 'assets/arc-lamp.glb',         // street lamps
+      rolls: 'assets/rolls-royce.glb',     // the garage's Rolls-Royce
     },
     modelReflections: 0.35,          // how much a textured model (the truck) mirrors the street
     // Post-processing (High: full-res bloom, Medium: half-res bloom, Low: off).

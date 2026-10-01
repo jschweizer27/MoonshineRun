@@ -59,7 +59,10 @@ Enter, the D-pad and A/B, or touch.
      lose the cargo, pay a fine and continue from the hideout.
 5. Roll slowly into the **⌂ hideout** to lie low (clears the heat if nobody sees you) and visit the
    **garage**. Hire the County Specialists (Mechanic, Wheelman, Still-master, Enforcer),
-   and later **bribe the sheriff** to make the county a safe zone.
+   buy a **1925 Rolls-Royce Phantom I** ($8,000: faster, and informants are slow to suspect
+   a gentleman, but it can't tow the horse box, so no disguise, no armour and small loads
+   only; switch between it and the truck at the garage), and later **bribe the sheriff** to
+   make the county a safe zone.
 6. As the story unfolds the Jockey teaches you the **horse-box disguise**: with shine aboard,
    stay **under 30 mph** and patrols see a thoroughbred, not a bootlegger.
 7. Night runs are safer than daylight; rain makes the cobbles slick; fog hides you. **Otto's
@@ -178,7 +181,7 @@ src/
   settings.js   saved preferences and key bindings
   hud.js, waypoint.js, audio.js, save.js, debug.js, rng.js
 sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
-assets/         3D models (truck, Bureau sedans, street lamps) and their credits
+assets/         3D models (truck, Rolls-Royce, Bureau sedans, street lamps) and their credits
 vendor/three/   Three.js r160 (bundled; no CDN needed)
 scripts/        dev server, build, checks, CI summary
 tests/          Playwright playtests
@@ -189,4 +192,4 @@ ue5/            Unreal Engine 5 C++ project (open MoonshineRun.uproject; see CHE
 3D models from Sketchfab, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 (reduced and re-oriented for the game; details in [assets/README.md](assets/README.md)):
 "Moonshine Runner" by car-go, "Volvo PV4 V2" by Libau Media, "Arc Lamp - Victorian Street
-Lamp" by i-m-a-kitty-cat.
+Lamp" by i-m-a-kitty-cat, "1925 Rolls Royce Phantom I Jonckheere Coupe" by Antonio Sagistiano.

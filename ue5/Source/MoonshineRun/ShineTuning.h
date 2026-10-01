@@ -32,6 +32,14 @@ namespace ShineTuning
 	constexpr float DisguiseSpeed = 1340.f;      // horse-box disguise works under 30 mph
 	constexpr float DisguiseSuspicion = 0.25f;   // suspicion builds 4x slower while disguised
 
+	// The garage's 1925 Rolls-Royce (config.rolls): faster and less suspicious, but no horse
+	// box (no disguise, no armour) and the trunk takes small loads only.
+	constexpr int32 RollsCost = 8000;
+	constexpr float RollsSpeed = 1.15f;          // top speed multiplier
+	constexpr float RollsAccel = 1.1f;
+	constexpr float RollsSuspicion = 0.6f;       // tip-offs build this much as fast
+	constexpr int32 RollsTrunkJugs = 24;
+
 	// Mission (config.mission)
 	constexpr float MarkerRadius = 700.f;
 	constexpr float MinPickupDistance = 15000.f; // stills never appear on top of you

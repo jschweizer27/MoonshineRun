@@ -341,6 +341,23 @@ export function buildVehicle(style = 'player') {
     group.add(beacon);
     sirens.push(beacon);
     wheelSpots = [[-0.93, -1.75, true], [0.93, -1.75, true], [-0.93, 1.45], [0.93, 1.45]];
+  } else if (style === 'rolls') {
+    // The garage's Rolls-Royce (stand-in when its model isn't loaded): a long black coupe.
+    const body = 0x101114;
+    r = 0.47;
+    parts.push(
+      part(box(1.75, 0.28, 5.0), BLACK, 0, 0.68, 0),
+      ...frontEnd(body, CHROME, 2.0, -1.4),
+      ...fendersAndBoards(body, -1.85, 1.6, r),
+      part(box(1.7, 1.05, 2.1), body, 0, 1.55, 0.75),                            // cabin
+      part(arch(0.86, 2.2), body, 0, 2.05, 0.75),                                // rounded roof
+      part(box(1.5, 0.45, 0.05), GLASS, 0, 1.85, -0.31),
+      part(box(0.05, 0.4, 1.4), GLASS, -0.86, 1.85, 0.7), part(box(0.05, 0.4, 1.4), GLASS, 0.86, 1.85, 0.7),
+      part(box(1.4, 0.08, 0.1), CHROME, 0, 0.76, -2.55),
+      ...lampHousings(-2.3, 1.45, 0.6),
+    );
+    lamps.push(...headlamps(-2.3, 1.45, 0.6), part(box(0.2, 0.15, 0.06), 0xff2a1a, -0.7, 0.95, 2.52), part(box(0.2, 0.15, 0.06), 0xff2a1a, 0.7, 0.95, 2.52));
+    wheelSpots = [[-0.93, -1.85, true], [0.93, -1.85, true], [-0.93, 1.6], [0.93, 1.6]];
   } else {
     // Temperance Alliance roadster pickup: oxblood, soft top, torches in the bed.
     const body = 0x5e1c19;
@@ -428,8 +445,8 @@ export function buildVehicle(style = 'player') {
   }
   // lamp: where the headlights are [z, y, x], for the real headlight and its beams.
   const out = { group, body: sprung, bodyPivot: body, shell, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots, lamp: lens };
-  if (style === 'player') {
-    out.trailer = buildHorseTrailer(buildWheel(0.5), 0.5);
+  if (style === 'player') out.trailer = buildHorseTrailer(buildWheel(0.5), 0.5);
+  if (style === 'player' || style === 'rolls') {
     out.beam = headlightBeams(lens[0], lens[1], lens[2]);
     sprung.add(out.beam);
   }
@@ -437,9 +454,9 @@ export function buildVehicle(style = 'player') {
 }
 
 // Which assets/ model stands in for each kind of vehicle.
-const MODEL_FOR = { player: 'truck', fed: 'fed' };
+const MODEL_FOR = { player: 'truck', fed: 'fed', rolls: 'rolls' };
 // The built-in vehicles' headlamps: [z, y, x].
-const DEFAULT_LENS = { player: [-2.2, 1.6, 0.62], fed: [-2.15, 1.55, 0.6], zealot: [-2.05, 1.5, 0.58] };
+const DEFAULT_LENS = { player: [-2.2, 1.6, 0.62], fed: [-2.15, 1.55, 0.6], zealot: [-2.05, 1.5, 0.58], rolls: [-2.3, 1.45, 0.6] };
 
 // Otto's retrofitted steeplechase horse box: planked sides, curved roof, a ramp door, and
 // a thoroughbred looking out of the window (the best disguise in the county).

@@ -16,6 +16,7 @@ export class ChaseCamera {
     this.collision = collision;
     this.heading = 0;
     this.distanceScale = 1;
+    this.rideScale = 1;          // closer in for a car without the tall horse box (CONFIG.camera.noTrailer)
     this.reducedMotion = false;
     this._trauma = 0;
     this._t = 0;
@@ -31,13 +32,13 @@ export class ChaseCamera {
   _desired(v, heading, speed01 = 0) {
     const c = CONFIG.camera, J = JUICE.enabled ? JUICE.camera : null;
     const fx = Math.sin(heading), fz = -Math.cos(heading);
-    let dist = c.distance * this.distanceScale * (1 + (J ? J.pullBack * speed01 ** 1.3 : 0));
+    let dist = c.distance * this.distanceScale * this.rideScale * (1 + (J ? J.pullBack * speed01 ** 1.3 : 0));
     for (const k of [1, 0.7, 0.45, 0.25]) {
       const d = dist * k;
       if (!this.collision || !this.collision.segmentBlocked(v.position.x, v.position.z, v.position.x - fx * d, v.position.z - fz * d)) { dist = d; break; }
       if (k === 0.25) dist = d;
     }
-    const height = c.height * (0.6 + 0.4 * this.distanceScale) * (1 - (J ? J.dropAtSpeed * speed01 : 0));
+    const height = c.height * (0.6 + 0.4 * this.distanceScale) * this.rideScale * (1 - (J ? J.dropAtSpeed * speed01 : 0));
     const ahead = 6 + (J ? J.lookAhead * speed01 : 0);
     this._target.set(v.position.x - fx * dist, height, v.position.z - fz * dist);
     this._look.set(v.position.x + fx * ahead, 1.6, v.position.z + fz * ahead);

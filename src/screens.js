@@ -1,6 +1,7 @@
 import { el } from './ui.js';
 import { UPGRADES, BRIBE_COST } from './career.js';
 import { CAST } from './story.js';
+import { CONFIG } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -19,7 +20,7 @@ export function showOrders(ui, { still, options }, onPick) {
         el('b', {}, o.label),
         el('span', {}, `${o.jugs} jugs → ${o.drop.name}`),
         el('small', {}, `${(o.dist / 1000).toFixed(1)} km · heat ${stars(risk)}${o.tipOff ? ' · the law gets tipped off' : ''}`)),
-      el('span', { class: 'order-pay' }, o.locked ? 'Needs Still-master' : money(o.pay)));
+      el('span', { class: 'order-pay' }, o.locked ? (o.lockReason || 'Needs Still-master') : money(o.pay)));
     if (o.locked) card.setAttribute('aria-disabled', 'true');
     card.addEventListener('click', () => { if (!o.locked) finish(i); });
     body.append(card);
@@ -53,6 +54,22 @@ export function showGarage(ui, career, { onChange, onLedger, bribeUnlocked }) {
       btn.addEventListener('click', () => { if (career.buy(id)) { onChange(); render(); } });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('b', {}, `${u.name} — ${u.what}`), pips, el('small', {}, u.desc)), btn));
+    }
+    // The motor car: buy the Rolls-Royce once, then switch between it and the truck.
+    {
+      const owned = career.data.cars.rolls, inRolls = career.ride === 'rolls';
+      const label = !owned ? `BUY ${money(CONFIG.rolls.cost)}` : inRolls ? 'DRIVE THE TRUCK' : 'DRIVE THE ROLLS';
+      const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'rolls' }, label);
+      if (!owned && career.cash < CONFIG.rolls.cost) btn.disabled = true;
+      btn.addEventListener('click', () => {
+        const ok = !owned ? career.buyRolls() : career.setRide(inRolls ? 'truck' : 'rolls');
+        if (ok) { onChange(); render(); }
+      });
+      const desc = inRolls
+        ? 'Driving the Rolls: faster, and informants suspect a gentleman less. No horse box: no disguise, no armour, and the trunk takes small loads only.'
+        : 'A gentleman’s motor car: faster, and informants suspect it less. It can’t tow the horse box (no disguise, no armour) and the trunk takes small loads only.';
+      body.append(el('div', { class: 'upgrade rolls' },
+        el('div', {}, el('b', {}, `Motor car — 1925 Rolls-Royce Phantom I${owned ? (inRolls ? ' (driving)' : ' (in the garage)') : ''}`), el('small', {}, desc)), btn));
     }
     if (bribeUnlocked()) {
       const paid = career.data.bribes.county;

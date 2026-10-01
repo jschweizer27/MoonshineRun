@@ -76,11 +76,12 @@ export class Mission {
     return CONFIG.mission.orders.map((o, i) => {
       const drop = drops[i];
       const dist = Math.hypot(drop.x - this.still.laneX, drop.z - this.still.laneZ);
-      const jugs = Math.round(o.jugs * perks.jugs);
+      const jugs = Math.min(Math.round(o.jugs * perks.jugs), perks.maxJugs ?? Infinity);
+      const locked = !!o.needsBigOrders && !perks.bigOrders;
       return {
         ...o, drop, jugs, dist,
         pay: Math.round((jugs * o.price * (1 + dist / 900)) / 10) * 10,
-        locked: !!o.needsBigOrders && !perks.bigOrders,
+        locked, lockReason: locked ? (perks.trailer === false ? 'Won’t fit in the trunk' : 'Needs Still-master') : '',
       };
     });
   }
@@ -108,7 +109,7 @@ export class Mission {
     return events;
   }
 
-  // ctx: { speed, disguised, safeZone, env: { suspicion } }
+  // ctx: { speed, disguised, safeZone, suspicion (the car's multiplier), env: { suspicion } }
   update(dt, playerPos, police, time, ctx = {}) {
     const events = [];
     const H = CONFIG.heat;
@@ -149,7 +150,7 @@ export class Mission {
 
     const mult = this.order?.heat ?? 1;
     if (this.carrying && this.heat === 0 && !ctx.safeZone) {
-      this.suspicion += H.tipOffRate * mult * (ctx.env?.suspicion ?? 1) * (ctx.disguised ? H.disguiseSuspicion : 1) * dt;
+      this.suspicion += H.tipOffRate * mult * (ctx.env?.suspicion ?? 1) * (ctx.disguised ? H.disguiseSuspicion : 1) * (ctx.suspicion ?? 1) * dt;
       if (this.suspicion >= 1) {
         this.heat = 1;
         this.suspicion = 0;

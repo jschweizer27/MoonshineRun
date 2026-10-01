@@ -128,6 +128,82 @@ test('horse-box disguise: slow and loaded blends in, speeding looks suspicious',
   await expect(page.locator('#status-pill')).toContainText('DISGUISED');
 });
 
+test('the Rolls-Royce: bought at the garage, faster and less suspicious, but no horse box', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const truck = await page.evaluate(() => {
+    const g = window.shine.game;
+    g.career.data.cash = 5000; g.hud.setCash(5000);
+    g.police.patrolTarget = { city: 0, county: 0 };
+    return { speed: g.player.t.maxSpeed };
+  });
+  // Too dear at first.
+  await page.keyboard.press('Escape');
+  await page.click('#pause-garage');
+  await expect(page.locator('#garage-body [data-id="rolls"]')).toBeDisabled();
+  await page.evaluate(() => { const g = window.shine.game; g.career.data.cash = 9000; g.hud.setCash(9000); });
+  await page.keyboard.press('Escape');
+  await page.click('#pause-garage');
+  await page.locator('#garage-body [data-id="rolls"]').click();
+  await expect(page.locator('#garage-cash')).toHaveText('$1,000');
+  await expect(page.locator('#garage-body [data-id="rolls"]')).toHaveText('DRIVE THE TRUCK');
+  await screenshot(page, '24-garage-rolls');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
+  const rolls = await page.evaluate(() => {
+    const g = window.shine.game, p = g.player;
+    let lights = 0;
+    g.scene.traverse((o) => { if (o.isLight) lights++; });
+    return {
+      ride: p.ride, trailer: !!p.trailer, boxShown: p.rides.truck.trailer.group.visible, truckShown: p.rides.truck.model.group.visible,
+      shown: p.mesh.visible, speed: p.t.maxSpeed, lights, headlightOn: g.headlight.parent === p.model.body,
+    };
+  });
+  expect(rolls.ride).toBe('rolls');
+  expect(rolls.trailer).toBe(false);
+  expect(rolls.boxShown).toBe(false);
+  expect(rolls.truckShown).toBe(false);
+  expect(rolls.shown).toBe(true);
+  expect(rolls.speed).toBeGreaterThan(truck.speed * 1.1);
+  expect(rolls.lights).toBe(13);              // the headlight moved over; nothing added
+  expect(rolls.headlightOn).toBe(true);
+  // A small trunk: no big orders, loads capped. Informants are slower to suspect a
+  // gentleman, and there's no horse-box disguise.
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, m = g.mission;
+    const orders = m.generateOrders();
+    window.shine.loadShine(1);
+    const run = () => {
+      m.heat = 0; m.suspicion = 0;
+      window.shine.teleport(-44, 0, 0);
+      for (let k = 0; k < 120; k++) window.shine.step(1 / 60, { throttle: 1 });
+      return m.suspicion;
+    };
+    const inRolls = run();
+    g.career.setRide('truck'); g._applyPerks();
+    window.shine.loadShine(1);
+    const inTruck = run();
+    g.career.setRide('rolls'); g._applyPerks();
+    g.career.markSeen('jockey');              // the disguise is known, but needs the horse box
+    return { big: orders[2], maxJugs: Math.max(...orders.map((o) => o.jugs)), inRolls, inTruck };
+  });
+  expect(r.big.locked).toBe(true);
+  expect(r.big.lockReason).toContain('trunk');
+  expect(r.maxJugs).toBeLessThanOrEqual(24);
+  expect(r.inRolls).toBeLessThan(r.inTruck * 0.75);
+  await page.evaluate(() => { window.shine.loadShine(1); window.shine.teleport(-44, 0, 0); window.shine.step(0.3, { throttle: 0.2 }); });
+  await expect(page.locator('#status-pill')).toContainText('GENTLEMAN');
+  // Back to the truck at the garage: the horse box is hitched again. Saved across a reload.
+  await page.keyboard.press('Escape');
+  await page.click('#pause-garage');
+  await page.locator('#garage-body [data-id="rolls"]').click();
+  const back = await page.evaluate(() => ({ ride: window.shine.game.player.ride, trailer: !!window.shine.game.player.trailer }));
+  expect(back).toEqual({ ride: 'truck', trailer: true });
+  await page.reload();
+  await waitForBoot(page);
+  const saved = await page.evaluate(() => ({ owned: window.shine.game.career.data.cars.rolls, ride: window.shine.game.career.ride }));
+  expect(saved).toEqual({ owned: true, ride: 'truck' });
+});
+
 test('patrols spot a loaded truck that drives past them', async ({ page }) => {
   await openGame(page);
   await startRun(page);
