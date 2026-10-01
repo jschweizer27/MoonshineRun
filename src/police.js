@@ -306,9 +306,10 @@ export class Police {
 }
 
 function flashSirens(sirens, on, time) {
-  const phase = Math.floor(time * 5) % 2;
-  sirens.forEach((lamp, k) => {
-    lamp.material.color.copy(lamp.userData.base).multiplyScalar(on && phase === k ? 1 : 0.12);
+  // A rotating beacon: a bright sweep about twice a second, never fully dark.
+  const sweep = Math.pow(Math.abs(Math.sin(time * 6.5)), 4);
+  sirens.forEach((lamp) => {
+    lamp.material.color.copy(lamp.userData.base).multiplyScalar(on ? 0.15 + 0.85 * sweep : 0.1);
   });
 }
 

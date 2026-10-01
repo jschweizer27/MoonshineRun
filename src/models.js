@@ -243,6 +243,21 @@ function fendersAndBoards(body, zf, zr, r) {
   ];
 }
 
+// The Bureau's roof beacon: a red glass dome on a dark base, shared by every sedan. The
+// base is near-black in the vertex colours so only the dome lights up when it flashes.
+const BEACON = 0xff0804;
+let beaconGeo = null;
+function beaconGeometry() {
+  if (!beaconGeo) {
+    beaconGeo = mergeParts([
+      part(cyl(0.2, 0.07, 16), 0x161616, 0, 0.035, 0),
+      part(new THREE.SphereGeometry(0.17, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0xffffff, 0, 0.07, 0),
+      part(new THREE.TorusGeometry(0.17, 0.015, 6, 20), 0x333333, 0, 0.075, 0, Math.PI / 2, 0, 0),
+    ]);
+  }
+  return beaconGeo;
+}
+
 let bannerTex = null;
 function temperanceBanner() {
   if (!bannerTex) {
@@ -319,14 +334,12 @@ export function buildVehicle(style = 'player') {
       ...lampHousings(-2.15, 1.55, 0.6),
     );
     lamps.push(...headlamps(-2.15, 1.55, 0.6), part(box(0.2, 0.15, 0.06), 0xff2a1a, -0.7, 1.0, 1.66), part(box(0.2, 0.15, 0.06), 0xff2a1a, 0.7, 1.0, 1.66));
-    for (const [x, c] of [[-0.35, 0xff2020], [0.35, 0x2060ff]]) {
-      const mat = new THREE.MeshBasicMaterial({ color: c });
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.36), mat);
-      lamp.position.set(x, 2.66, -0.4);
-      lamp.userData.base = new THREE.Color(c);
-      group.add(lamp);
-      sirens.push(lamp);
-    }
+    // A single red dome beacon on the roof; it pulses in a chase (police.js).
+    const beacon = new THREE.Mesh(beaconGeometry(), new THREE.MeshBasicMaterial({ color: BEACON, vertexColors: true }));
+    beacon.position.set(0, 2.52, -0.1);
+    beacon.userData.base = new THREE.Color(BEACON);
+    group.add(beacon);
+    sirens.push(beacon);
     wheelSpots = [[-0.93, -1.75, true], [0.93, -1.75, true], [-0.93, 1.45], [0.93, 1.45]];
   } else {
     // Temperance Alliance roadster pickup: oxblood, soft top, torches in the bed.
@@ -385,7 +398,7 @@ export function buildVehicle(style = 'player') {
     lamps.length = 0;
     lamps.push(...headlamps(lens[0], lens[1], lens[2], 0.13),
       part(box(0.2, 0.14, 0.05), 0xff2a1a, -w * 0.36, 0.95, len / 2 + 0.01), part(box(0.2, 0.14, 0.05), 0xff2a1a, w * 0.36, 0.95, len / 2 + 0.01));
-    for (const siren of sirens) siren.position.y = x.roof + 0.12;
+    for (const siren of sirens) siren.position.y = x.roof - 0.03;   // sits on the roof
     if (custom.wheel && x.wheels) {
       wheelGeo = custom.wheel;
       wheelMat = custom.material || MATERIALS.body;
