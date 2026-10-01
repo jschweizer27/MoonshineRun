@@ -45,6 +45,7 @@ try {
         mph: v.speedMph, rollDeg: +(f.roll.x * 57.3).toFixed(1), pitchDeg: +(f.pitch.x * 57.3).toFixed(1), heaveCm: +(f.heave.x * 100).toFixed(1),
         fov: +c.fov.toFixed(1), camDist: +Math.hypot(c.position.x - v.position.x, c.position.z - v.position.z).toFixed(1),
         camH: +c.position.y.toFixed(1), smoke: alive(g.particles.smoke), sparks: alive(g.particles.glow), skids, light: +g.headlight.intensity.toFixed(0),
+        debris: g.debris ? g.debris.alive || 0 : 0, props: g.props ? g.props.flying : 0, hitStop: +(g.hitStop || 0).toFixed(3),
       };
     };
   }, { off: flags.has('--off'), wet: flags.has('--wet') });
@@ -82,6 +83,36 @@ try {
   await page.evaluate(() => window.shine.game.renderFrame());
   frames.push({ name: 'skid marks', png: await page.screenshot(), stats: await page.evaluate(() => window.__stats()) });
 
+  // Through the sidewalk clutter: down a north-south sidewalk lined with crates and barrels.
+  // A prop by the curb: come at it from the road, and watch from the side.
+  const lane = await page.evaluate(() => {
+    const g = window.shine.game, pr = g.props;
+    for (let i = 0; i < pr.n; i++) {
+      const x = pr.home[i * 4], z = pr.home[i * 4 + 1];
+      if (Math.abs(z) > 150 || Math.abs(x) > 180) continue;
+      const sx = x - 7, sz = z + 9;
+      window.shine.teleport(sx, sz, Math.atan2(x - sx, -(z - sz)));
+      window.__side = { x: x + 9 * 0.8, z: z + 9 * 0.6, tx: x, tz: z };
+      return { x, z };
+    }
+    return null;
+  });
+  if (lane) {
+    await page.evaluate(() => window.shine.step(0.55, { throttle: 0.9 }));
+    let t = 0;
+    for (const at of [0.35, 0.65, 1.0]) {
+      await page.evaluate((dt) => {
+        const g = window.shine.game, s = window.__side;
+        window.shine.step(dt, { throttle: 0.3 });
+        g.camera.position.set(s.x, 3, s.z);
+        g.camera.lookAt(s.tx, 1, s.tz);
+        g.renderFrame();
+      }, at - t);
+      t = at;
+      frames.push({ name: `props ${at}s`, png: await page.screenshot(), stats: await page.evaluate(() => window.__stats()) });
+    }
+  }
+
   // Crash: flat out down an east-west street into the warehouses at the city edge.
   await page.evaluate(() => { window.shine.teleport(140, 132, Math.PI / 2); });
   const hitAt = await page.evaluate(() => {
@@ -97,7 +128,7 @@ try {
   // Contact sheet: 4 across, captioned.
   const sheet = await browser.newPage({ viewport: { width: 1640, height: 400 } });
   const html = `<body style="margin:0;background:#111;font:13px monospace;color:#ddd;display:grid;grid-template-columns:repeat(4,400px);gap:8px;padding:8px">${
-    frames.map((f) => `<div><img style="width:400px;display:block" src="data:image/png;base64,${f.png.toString('base64')}"><div>${f.name} · ${f.stats.mph} mph · roll ${f.stats.rollDeg}° pitch ${f.stats.pitchDeg}° · fov ${f.stats.fov} · skids ${f.stats.skids} · smoke ${f.stats.smoke}</div></div>`).join('')
+    frames.map((f) => `<div><img style="width:400px;display:block" src="data:image/png;base64,${f.png.toString('base64')}"><div>${f.name} · ${f.stats.mph} mph · roll ${f.stats.rollDeg}° pitch ${f.stats.pitchDeg}° · fov ${f.stats.fov} · skids ${f.stats.skids} · smoke ${f.stats.smoke} · debris ${f.stats.debris} · props ${f.stats.props}${f.stats.hitStop ? ' · HIT-STOP' : ''}</div></div>`).join('')
   }</body>`;
   await sheet.setContent(html);
   await sheet.screenshot({ path: `${out}/reel-${label}.png`, fullPage: true });

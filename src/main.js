@@ -20,7 +20,8 @@ import { BEATS, nextBeat } from './story.js';
 import { showOrders, showGarage, showLedger, playDialog, money } from './screens.js';
 import { Fire } from './effects.js';
 import { Particles } from './particles.js';
-import { JUICE, juice, VehicleFeel } from './juice.js';
+import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
+import { Props } from './props.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -90,6 +91,10 @@ class Game {
     this.police = new Police(this.scene, this.world);
     WHEELS.attach(this.scene);    // every vehicle exists now: one instanced mesh per wheel shape
     this.world.enableShadows();   // the vehicles too
+    // Crates, barrels and signs that cars knock flying, and debris from heavy crashes (juice).
+    this.props = new Props(this.scene, this.world, this.citySeed);
+    this.debris = new Debris(this.scene);
+    this.hitStop = 0;
     // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
     const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
     this.rng = createRng(missionSeed);
@@ -99,6 +104,7 @@ class Game {
     this.fire = new Fire(this.scene, this.world.fxLight);
     this.particles = new Particles(this.scene);
     this.feel = new VehicleFeel(this.scene, this.player, this.particles, this.headlight);
+    this._cars = [this.player, ...this.police.units.map((u) => u.car)];   // what knocks props over
     this.warehouse = this.world.buildings
       .filter((b) => !b.barn && b.minX > 150 && b.maxX < 226 && b.minZ > 50 && b.maxZ < 90)
       .sort((a, b) => b.h - a.h)[0] || this.world.buildings[0];
@@ -126,6 +132,8 @@ class Game {
     if (this.post.enabled) this.renderer.setRenderTarget(this.post.composer.renderTarget1);
     this.renderer.compile(this.scene, this.camera);
     this.renderer.setRenderTarget(null);
+    mark('compile');
+    this._warmUp();
     mark('shaders');
     this.world.setAnisotropy(Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
 
@@ -140,6 +148,34 @@ class Game {
     window.addEventListener('keydown', wake, { once: true });
     this._onResize({ render: false });   // the first frame is drawn by the loop, not during loading
     this.renderer.setAnimationLoop(() => this._loop());
+  }
+
+  // Draw everything once at boot, hidden and off-screen things included (pooled police
+  // cars, roadblocks, the spare car, debris), so their buffers are on the GPU before they
+  // first appear mid-chase. Lights stay as they are: the light count must not change.
+  _warmUp() {
+    const shown = [], unculled = [];
+    const reveal = (o) => {
+      if (o.isLight) return;
+      if (!o.visible) { shown.push(o); o.visible = true; }
+      if (o.frustumCulled) { unculled.push(o); o.frustumCulled = false; }   // wherever it's parked
+      for (const c of o.children) reveal(c);
+    };
+    this.scene.traverse((o) => { if (!o.visible && !o.isLight && !shown.includes(o)) reveal(o); });
+    // One pass into the same kind of target the game draws to, clipped to a single pixel and
+    // without the shadow pass: everything is processed and uploaded, almost nothing filled.
+    const r = this.renderer, target = this.post.enabled ? this.post.composer.renderTarget1 : null;
+    const shadows = r.shadowMap.autoUpdate;
+    r.shadowMap.autoUpdate = false;
+    WHEELS.update();
+    if (target) { target.scissorTest = true; target.scissor.set(0, 0, 1, 1); } else { r.setScissorTest(true); r.setScissor(0, 0, 1, 1); }
+    r.setRenderTarget(target);
+    r.render(this.scene, this.camera);
+    r.setRenderTarget(null);
+    if (target) target.scissorTest = false; else r.setScissorTest(false);
+    r.shadowMap.autoUpdate = shadows;
+    for (const o of shown) o.visible = false;
+    for (const o of unculled) o.frustumCulled = true;
   }
 
   _addHeadlight() {
@@ -380,6 +416,9 @@ class Game {
     this.mission.reset(this.player.position, mode);
     this.fire.out();
     this.particles.clear();
+    this.props.reset();
+    this.debris.clear();
+    this.hitStop = 0;
     this.feel.reset();
     this.chase.snap(this.player);
     this._applyPerks();
@@ -605,7 +644,8 @@ class Game {
     this.bustMeter = Math.max(0, Math.min(1, this.bustMeter + (pinned ? dt / this.bustTime : -dt * P.bustRecover)));
     this.hud.setBust(this.bustMeter);
 
-    // Collisions: a thud, sparks, a shake and a red flash when rammed.
+    // Collisions: a thud, sparks, a shake and a red flash when rammed; the hard ones throw
+    // debris and hold the action for a beat (hit-stop).
     const p = this.player.position;
     if (status.touching > 4 && this.time - this._lastRam > 0.4) {
       this._lastRam = this.time;
@@ -614,13 +654,17 @@ class Game {
       this.chase.shake(Math.min(0.8, status.touching / 18));
       this.feel.hit(status.touching / 15);
       this.particles.sparks(p.x, p.z, status.touching / 15);
+      this._impact(status.touching / 15, p.x, p.z);
     } else if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
       this._lastRam = this.time;
       this.audio.crash(Math.min(0.6, this.player.impact / 25));
       this.chase.shake(Math.min(0.5, this.player.impact / 30));
       this.feel.hit(this.player.impact / 20);
       this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
+      this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     }
+    this.props.update(dt, this._cars);
+    this.debris.update(dt);
 
     this.env.update(dt, this.camera.position);
     this.fire.update(this.time);
@@ -650,6 +694,13 @@ class Game {
     });
 
     if (this.bustMeter >= 1) this.bust();
+  }
+
+  // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.
+  _impact(strength, x, z) {
+    const I = JUICE.impacts;
+    if (strength >= I.debrisFrom) this.debris.burst(x, 0.8, z, this.player.vx, this.player.vz, strength);
+    if (strength >= I.hitStopFrom) this.hitStop = Math.max(this.hitStop, juice('impacts', 'hitStop'));
   }
 
   _onEvents(events, status) {
@@ -804,6 +855,7 @@ class Game {
       grade: (on) => { this.post.grade.enabled = on; },
       beams: (on) => { if (this.player.model.beam) this.player.model.beam.visible = on; },
       sky: (on) => { w.sky.mesh.visible = on; },
+      props: (on) => { this.props.mesh.visible = on; },
     };
   }
 
@@ -811,7 +863,10 @@ class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.input.poll();
     if (this.state === STATE.PLAYING) {
-      this.step(dt, this.input.read());
+      // Hit-stop: after a hard crash the action holds for a beat (the frame keeps drawing).
+      const input = this.input.read();
+      if (this.hitStop > 0) this.hitStop -= dt;
+      else this.step(dt, input);
       this.minimap.draw(this.player, this._mapMarkers(), this._mapPolice(), this.time);
       this.renderFrame();
     } else if (this.state === STATE.INTRO) {

@@ -545,6 +545,7 @@ export class World {
       if (pole) this.collision.addCircle(sp.postX ?? sp.x, sp.postZ ?? sp.z, 0.25, { tag: 'lamp' });
     });
     for (const im of [poles, bulbs, caps, cones, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+    caps.visible = !arc;          // the arc lamp has its own hood
     pools.renderOrder = 1;
     cones.renderOrder = 2;
     this.lampPools = pools;

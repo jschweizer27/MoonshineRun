@@ -21,7 +21,10 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
 - `src/config.js` — **all gameplay tuning numbers**. Change balance here, not in code.
   `CONFIG.look` holds the night palette (exposure, FogExp2, teal fill, moonlight).
 - `src/juice.js` — **all game-feel values** (`JUICE`) plus `VehicleFeel` (sprung body roll /
-  pitch / bounce for truck and horse box, skid marks, tyre smoke, spray, headlight flicker).
+  pitch / bounce for truck and horse box, skid marks, tyre smoke, spray, headlight flicker,
+  crash rattle/dent) and `Debris` (pooled chunks on heavy hits). `src/props.js`: sidewalk
+  crates/barrels/signs that cars knock flying (one InstancedMesh, no colliders). Hit-stop
+  is held in `main._loop` (real time), so `window.shine.step` tests are unaffected.
   Juice is visual only; `J` toggles it. `camera.js` reads `JUICE.camera`.
 - Visual review loop: `npm run shots -- <label>` and `npm run reel -- <label>` write
   screenshots / contact sheets to `artifacts/shots/` (they stop the game loop and step it

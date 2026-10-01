@@ -42,6 +42,16 @@ export const JUICE = {
   lights: {
     headlightFlicker: 1,  // headlights stutter after a hard hit
   },
+
+  impacts: {
+    hitStop: 0.05,        // seconds the action holds on a hard crash
+    hitStopFrom: 0.45,    // crash strength (0-1) that earns a hit-stop
+    rattle: 0.09,         // radians the body rattles after a hit (dies away in ~half a second)
+    dent: 0.14,           // how far the body squashes on impact before springing back
+    debris: 1,            // chunks thrown on heavy hits (x the count)
+    debrisFrom: 0.4,      // crash strength that throws debris
+    props: 1,             // crates, barrels and signs get knocked flying (x the kick)
+  },
 };
 
 // The current value of one effect (0 when juice is switched off).
@@ -85,6 +95,8 @@ export class VehicleFeel {
     this.heave = new Spring();
     this.trailerRoll = new Spring();
     this.trailerHeave = new Spring();
+    this.dent = new Spring();            // squash on impact, springing back
+    this.rattle = 0;                     // decaying shudder after a hit
     this._rumble = 0;
     this._rumbleT = 0;
     this._wheelSpots = [];
@@ -97,6 +109,8 @@ export class VehicleFeel {
     this._prevTrailer = this.v.trailer ? this.v.trailer.heading : 0;
     this._aLat = this._aLong = this._tLat = 0;
     this.trailerRoll.reset(); this.trailerHeave.reset();
+    this.dent.reset();
+    this.rattle = 0;
     this.accel01 = 0;
     this.flicker = 0;
     this.lightLevel = 1;
@@ -111,6 +125,9 @@ export class VehicleFeel {
     this.heave.v += juice('body', 'hitBounce') * (1.5 + 3 * s);
     this.roll.v += (Math.random() - 0.5) * juice('body', 'hitBounce') * 2 * s;
     this.flicker = Math.max(this.flicker, (0.35 + 0.6 * s) * juice('lights', 'headlightFlicker'));
+    // The panels give and spring back, and the whole rig shudders.
+    this.dent.v -= juice('impacts', 'dent') * (6 + 14 * s);
+    this.rattle = Math.max(this.rattle, juice('impacts', 'rattle') * (0.3 + 0.7 * s));
   }
 
   // ctx: { throttle, brake (0..1), handbrake, ground: 'cobble' | 'dirt' | 'grass' | 'smooth', wet (0..1), dt }
@@ -151,7 +168,10 @@ export class VehicleFeel {
     const swayTarget = on ? clamp((B.roll * B.trailerSway * this._tLat) / G, -0.18, 0.18) : 0;
     this.trailerRoll.step(swayTarget, kk * 0.6, c * 0.6, dt);
     this.trailerHeave.step(this.heave.x * 0.8, kk * 1.4, c, dt);
-    if (!on) { this.roll.reset(); this.pitch.reset(); this.heave.reset(); this.trailerRoll.reset(); this.trailerHeave.reset(); }
+    this.dent.step(0, 420, 9, dt);
+    this.rattle *= Math.exp(-7 * dt);
+    this._t = (this._t || 0) + dt;
+    if (!on) { this.roll.reset(); this.pitch.reset(); this.heave.reset(); this.trailerRoll.reset(); this.trailerHeave.reset(); this.dent.reset(); this.rattle = 0; }
     this._apply();
 
     this._wheels(dt, ctx, speed, speed01);
@@ -161,8 +181,11 @@ export class VehicleFeel {
   _apply() {
     const body = this.v.model.bodyPivot;
     if (!body) return;
-    body.rotation.z = this.roll.x;
-    body.rotation.x = this.pitch.x;
+    const t = this._t || 0, r = this.rattle, d = clamp(this.dent.x, -0.12, 0.12);
+    body.rotation.z = this.roll.x + Math.cos(t * 47) * r * 0.6;
+    body.rotation.x = this.pitch.x + Math.sin(t * 61) * r * 0.4;
+    body.rotation.y = Math.sin(t * 53) * r;
+    body.scale.set(1 - d * 0.6, 1 + d, 1 - d * 0.4);       // d < 0: squashed down and out
     body.position.y = body.userData.pivot + clamp(this.heave.x, -0.25, 0.25);
     const box = this.v.trailer?.bodyPivot;
     if (box) {
@@ -230,6 +253,86 @@ export class VehicleFeel {
     const lens = this.v.model.lampMesh;
     if (lens?.userData.base) lens.material.color.copy(lens.userData.base).multiplyScalar(0.25 + 0.75 * level);
   }
+}
+
+// Debris on heavy hits: splinters, glass and bent tin, pooled in one InstancedMesh (one
+// draw call). Chunks fly, tumble, bounce on the road and shrink away.
+const DEBRIS_COLORS = [0xd9b57a, 0xcfe4ee, 0x8c9096, 0xb08850, 0xe8ecf0, 0x2f6a4c].map((c) => new THREE.Color(c));
+export class Debris {
+  constructor(scene, n = 72) {
+    this.n = n;
+    this.pos = new Float32Array(n * 3);
+    this.vel = new Float32Array(n * 3);
+    this.rot = new Float32Array(n * 3);
+    this.spin = new Float32Array(n * 3);
+    this.size = new Float32Array(n * 3);
+    this.life = new Float32Array(n);
+    this.cursor = 0;
+    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.2, emissive: 0x1a140c }), n);
+    this.mesh.frustumCulled = false;
+    this.mesh.name = 'debris';
+    for (let i = 0; i < n; i++) this.mesh.setColorAt(i, DEBRIS_COLORS[i % DEBRIS_COLORS.length]);
+    this._o = new THREE.Object3D();
+    this._o.scale.setScalar(1e-5);
+    this._o.updateMatrix();
+    for (let i = 0; i < n; i++) this.mesh.setMatrixAt(i, this._o.matrix);
+    this._dirty = false;
+    // Hidden (no draw call) while no chunks are flying, but only after it has been drawn
+    // once: that first frame compiles its shader and uploads its buffers up front.
+    this._drawn = false;
+    this.mesh.onAfterRender = () => { this._drawn = true; };
+    scene.add(this.mesh);
+  }
+
+  // A burst at (x, y, z), thrown along the car's motion (vx, vz) and outward (strength 0..1).
+  burst(x, y, z, vx, vz, strength) {
+    const count = Math.round((10 + 22 * clamp(strength, 0, 1)) * juice('impacts', 'debris'));
+    for (let k = 0; k < count; k++) {
+      const i = this.cursor;
+      this.cursor = (this.cursor + 1) % this.n;
+      const a = Math.random() * Math.PI * 2, out = 2 + Math.random() * 5 * (0.5 + strength);
+      this.pos.set([x + (Math.random() - 0.5), y + Math.random() * 0.6, z + (Math.random() - 0.5)], i * 3);
+      this.vel.set([vx * 0.35 + Math.cos(a) * out, 3.5 + Math.random() * 6 * (0.5 + strength), vz * 0.35 + Math.sin(a) * out], i * 3);
+      this.spin.set([(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22], i * 3);
+      const big = 0.14 + Math.random() * 0.32;
+      this.size.set([big * (0.6 + Math.random()), big * (0.25 + Math.random() * 0.4), big * (0.6 + Math.random())], i * 3);
+      this.life[i] = 1.6 + Math.random() * 1.4;
+    }
+    this._dirty = true;
+  }
+
+  update(dt) {
+    this.mesh.visible = this._dirty || !this._drawn;
+    if (!this._dirty) return;
+    let alive = 0;
+    const o = this._o;
+    for (let i = 0; i < this.n; i++) {
+      const k = i * 3;
+      if (this.life[i] > 0) {
+        this.life[i] -= dt;
+        alive++;
+        this.vel[k + 1] -= 9.8 * dt;
+        for (let a = 0; a < 3; a++) { this.pos[k + a] += this.vel[k + a] * dt; this.rot[k + a] += this.spin[k + a] * dt; }
+        if (this.pos[k + 1] < 0.03) {          // bounce on the road, losing energy
+          this.pos[k + 1] = 0.03;
+          this.vel[k + 1] *= -0.35;
+          this.vel[k] *= 0.6; this.vel[k + 2] *= 0.6;
+          for (let a = 0; a < 3; a++) this.spin[k + a] *= 0.5;
+        }
+      }
+      const fade = clamp(this.life[i] / 0.5, 0, 1);   // shrink away at the end
+      o.position.set(this.pos[k], this.pos[k + 1], this.pos[k + 2]);
+      o.rotation.set(this.rot[k], this.rot[k + 1], this.rot[k + 2]);
+      o.scale.set(this.size[k] * fade || 1e-5, this.size[k + 1] * fade || 1e-5, this.size[k + 2] * fade || 1e-5);
+      o.updateMatrix();
+      this.mesh.setMatrixAt(i, o.matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this._dirty = alive > 0;
+    this.alive = alive;
+  }
+
+  clear() { this.life.fill(0); this._dirty = true; this.update(0); this.mesh.visible = !this._drawn; }
 }
 
 // Skid marks: pooled quads laid on the road, one draw call. Each wheel draws a strip while

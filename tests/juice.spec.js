@@ -60,3 +60,67 @@ test('the moonlight casts shadows, and the light count stays fixed', async ({ pa
   expect(r.fog).toBe(true);
   expect(r.lights).toBe(13);
 });
+
+// Drive the player into the first prop well inside the city (from 11 m away); returns its track.
+const hitProp = (page, skip = 0) => page.evaluate((skip) => {
+  const g = window.shine.game, pr = g.props;
+  let i = 0;
+  for (; i < pr.n; i++) if (Math.abs(pr.home[i * 4 + 1]) < 150 && Math.abs(pr.home[i * 4]) < 180 && skip-- <= 0) break;
+  const x = pr.home[i * 4], z = pr.home[i * 4 + 1];
+  window.shine.teleport(x - 7, z + 9, Math.atan2(7, 9));
+  let top = 0;
+  for (let k = 0; k < 100; k++) { window.shine.step(1 / 60, { throttle: 0.9 }); top = Math.max(top, pr.pos[i * 3 + 1]); }
+  return { i, moved: Math.hypot(pr.pos[i * 3] - x, pr.pos[i * 3 + 2] - z), top };
+}, skip);
+
+test('impacts: a hard crash holds a beat, rattles the body and throws debris; props get knocked flying', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const before = await page.evaluate(() => {
+    const g = window.shine.game;
+    window.shine.step(0.1); g.renderFrame();
+    return { programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries };
+  });
+  const crash = await page.evaluate(() => {
+    const g = window.shine.game;
+    window.shine.teleport(140, 132, Math.PI / 2);          // flat out into the warehouses
+    let impact = 0;
+    for (let k = 0; k < 400 && !impact; k++) { window.shine.step(1 / 60, { throttle: 1 }); if (g.player.impact > 6) impact = g.player.impact; }
+    const at = { hitStop: g.hitStop, debris: g.debris.alive, rattle: g.feel.rattle };
+    window.shine.step(0.05);
+    return { impact, ...at, dent: g.feel.dent.x };
+  });
+  expect(crash.impact).toBeGreaterThan(9);
+  expect(crash.hitStop).toBeGreaterThan(0.03);          // ~50 ms hold, run by the main loop
+  expect(crash.debris).toBeGreaterThan(10);
+  expect(crash.rattle).toBeGreaterThan(0.03);
+  expect(crash.dent).toBeLessThan(-0.01);              // squashed, springing back
+  // The real-time loop holds the action for the hit-stop, then carries on.
+  // (Headless frames are slow, so poll rather than sleep a fixed time.)
+  await page.evaluate(() => { const g = window.shine.game; g._impact(1, g.player.position.x, g.player.position.z); window.__t0 = g.time; });
+  expect(await page.evaluate(() => window.shine.game.hitStop)).toBeGreaterThan(0.03);
+  await expect.poll(() => page.evaluate(() => window.shine.game.hitStop <= 0 && window.shine.game.time > window.__t0), { timeout: 10_000 }).toBe(true);
+
+  const prop = await hitProp(page);
+  expect(prop.moved).toBeGreaterThan(1.5);
+  expect(prop.top).toBeGreaterThan(0.6);               // it flew
+  const settled = await page.evaluate((i) => { window.shine.step(4); const pr = window.shine.game.props; return { moving: pr.moving[i], y: pr.pos[i * 3 + 1] }; }, prop.i);
+  expect(settled.moving).toBe(0);
+  expect(settled.y).toBeGreaterThan(0.05);             // resting on the road, not under it
+  const after = await page.evaluate(() => ({ programs: window.shine.game.renderer.info.programs.length, geometries: window.shine.game.renderer.info.memory.geometries }));
+  expect(after.programs).toBe(before.programs);
+  expect(after.geometries).toBe(before.geometries);
+
+  // J: no hit-stop, no debris, props stay put.
+  await page.keyboard.press('KeyJ');
+  const off = await page.evaluate(() => {
+    const g = window.shine.game;
+    g.props.reset(); g.debris.clear(); g.hitStop = 0;
+    g._impact(1, 0, 0);
+    return { hitStop: g.hitStop, debris: g.debris.alive };
+  });
+  expect(off.hitStop).toBe(0);
+  expect(off.debris || 0).toBe(0);
+  const still = await hitProp(page);
+  expect(still.moved).toBeLessThan(0.01);
+});
