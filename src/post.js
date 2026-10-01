@@ -22,13 +22,14 @@ const GRADE = {
     uContrast: { value: 1 },
     uVignette: { value: 0 },
     uGrain: { value: 0 },
+    uRush: { value: 0 },
   },
   vertexShader: `
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float uTime, uAspect, uAmount, uSaturation, uContrast, uVignette, uGrain;
+    uniform float uTime, uAspect, uAmount, uSaturation, uContrast, uVignette, uGrain, uRush;
     uniform vec3 uShadow, uHigh;
     varying vec2 vUv;
     void main() {
@@ -42,6 +43,15 @@ const GRADE = {
       vec2 d = vUv - 0.5;
       d.x *= uAspect;
       c *= mix(1.0 - uVignette, 1.0, smoothstep(0.95, 0.3, length(d)));
+      // Flat out: the corners pulse darker and thin speed lines streak out from the middle.
+      if (uRush > 0.0) {
+        float r = length(d), ang = atan(d.y, d.x) / 6.2832 + 0.5;   // 0..1 round the screen
+        float sliver = ang * 160.0, seed = fract(sin(floor(sliver) * 12.9898) * 43758.5453);
+        float on = step(0.86, fract(seed * 13.0 + uTime * (1.5 + seed)));   // a few at a time, flickering
+        float thin = 1.0 - abs(fract(sliver) - 0.5) * 2.0;
+        c += vec3(on * thin * smoothstep(0.3, 0.8, r) * 0.14 * uRush);
+        c *= 1.0 - uRush * (0.16 + 0.1 * sin(uTime * 11.0)) * smoothstep(0.25, 0.9, r);
+      }
       // Film grain, strongest in the mid-tones.
       float n = fract(sin(dot(floor(gl_FragCoord.xy) + fract(uTime * 7.3) * 91.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
       c += n * uGrain * (0.4 + 0.6 * (1.0 - abs(l - 0.45) * 1.6));
@@ -97,6 +107,9 @@ export class PostFX {
     this.bloom.threshold = P.bloomThreshold + 1.6 * d;
     this.bloom.strength = P.bloomStrength * (1 - 0.6 * d);
   }
+
+  // 0..1 near top speed (JUICE.cinematic.speedPulse).
+  setRush(v) { this.grade.uniforms.uRush.value = v; }
 
   render() {
     if (!this.enabled) { this.renderer.render(this.scene, this.camera); this.sceneCalls = this.renderer.info.render.calls; return; }

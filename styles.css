@@ -378,3 +378,36 @@ html.reduced-motion #flash { display: none; }
 
 /* Model credits on the How to play screen. */
 .credits { font-size: 0.72rem; opacity: 0.6; margin: 0.8rem 0 0.4rem; line-height: 1.4; }
+
+/* Game-feel UI (JUICE.ui): cash pop, heat bump/throb, objective slide, spotted flash. */
+#cash { display: inline-block; transform-origin: left center; }
+#cash.pop { animation: cashswell var(--roll, 0.9s) ease-out; }
+@keyframes cashswell {
+  0% { transform: scale(1); }
+  18% { transform: scale(var(--pop, 1.35)); color: #fff2c4; text-shadow: 0 0 18px rgba(242, 197, 92, 0.9); }
+  100% { transform: scale(1); }
+}
+#heat { transform-origin: right center; }
+#heat.bump { animation: heatbump 0.6s ease-out; }
+@keyframes heatbump {
+  0% { transform: scale(1); }
+  15% { transform: scale(1.35) translateX(-4px); }
+  30% { transform: scale(1.2) translateX(5px); }
+  45% { transform: scale(1.15) translateX(-4px); }
+  60% { transform: scale(1.08) translateX(3px); }
+  100% { transform: scale(1); }
+}
+#heat-meter.rising { animation: throb 0.5s ease-in-out infinite alternate; }
+@keyframes throb { from { box-shadow: 0 0 0 rgba(216, 69, 58, 0); } to { box-shadow: 0 0 14px rgba(216, 69, 58, 0.9); transform: scaleY(1.5); } }
+.hud-banner.slide { animation: bannerin var(--slide, 0.35s) cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+@keyframes bannerin { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+#siren-flash { position: fixed; inset: 0; z-index: 11; pointer-events: none; opacity: 0; }
+#siren-flash.on { animation: siren 1.2s steps(1) forwards; }
+@keyframes siren {
+  0% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(230, 40, 30, 0.85), inset -70px 0 90px -40px rgba(40, 80, 255, 0.85); }
+  25% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(40, 80, 255, 0.85), inset -70px 0 90px -40px rgba(230, 40, 30, 0.85); }
+  50% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(230, 40, 30, 0.85), inset -70px 0 90px -40px rgba(40, 80, 255, 0.85); }
+  75% { opacity: calc(var(--strength, 1) * 0.6); box-shadow: inset 70px 0 90px -40px rgba(40, 80, 255, 0.7), inset -70px 0 90px -40px rgba(230, 40, 30, 0.7); }
+  100% { opacity: 0; }
+}
+html.reduced-motion #siren-flash { display: none; }

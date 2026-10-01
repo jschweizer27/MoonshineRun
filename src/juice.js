@@ -43,6 +43,36 @@ export const JUICE = {
     headlightFlicker: 1,  // headlights stutter after a hard hit
   },
 
+  ui: {
+    cashPop: 1,           // the cash counter swells and glows as it rolls up (x the bump)
+    cashRoll: 0.9,        // seconds the counter takes to roll up to the new total
+    floatText: 1,         // the "+$50" that floats up on a delivery
+    heatPulse: 1,         // the stars and heat meter pulse and shake as the heat rises
+    spottedFlash: 1,      // red/blue flash round the screen edges when the law spots you
+    bannerSlide: 0.35,    // seconds the objective banner takes to slide in when it changes
+    speedEase: 9,         // how fast the speedometer catches up (0 = it snaps)
+  },
+
+  audio: {
+    engineLoad: 1,        // the engine growls louder and brighter under throttle
+    squeal: 1,            // tyre squeal when the tyres slide (x the volume)
+    crunch: 1,            // the crunch of a crash (x the volume)
+    siren: 1,             // sirens: faint and muffled when the heat rises, loud and clear up close
+    wind: 1,              // wind rushing past at speed
+    nightBed: 1,          // the night: distant jazz from the speakeasies, crickets in the county
+    duck: 0.65,           // how far the radio drops when sirens are close (0-1)
+  },
+
+  cinematic: {
+    slowMo: 0.3,          // seconds of slow motion on near-misses and big crashes (real time)
+    slowMoScale: 0.3,     // how fast the game runs during it
+    slowMoFrom: 0.6,      // crash strength (0-1) that earns slow motion
+    nearMiss: 2.5,        // metres between bodies: a pursuer this close at speed is a near-miss
+    nearMissSpeed: 14,    // m/s of closing speed that makes it count
+    sirenSweep: 1,        // the pursuers' red beacon light sweeps across the buildings
+    speedPulse: 1,        // vignette pulse and speed lines near top speed
+  },
+
   impacts: {
     hitStop: 0.05,        // seconds the action holds on a hard crash
     hitStopFrom: 0.45,    // crash strength (0-1) that earns a hit-stop

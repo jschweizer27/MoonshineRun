@@ -95,6 +95,8 @@ class Game {
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
+    this.slowMo = 0;
+    this._nearMiss = new Float32Array(16).fill(-1e9);   // per pursuer: when it last earned slow-mo
     // Missions are random each visit, but fixed under ?seed / ?test so tests are repeatable.
     const missionSeed = OPTIONS.seed ?? (OPTIONS.test ? 7 : (Date.now() ^ 0x5eed) >>> 0);
     this.rng = createRng(missionSeed);
@@ -419,6 +421,7 @@ class Game {
     this.props.reset();
     this.debris.clear();
     this.hitStop = 0;
+    this.slowMo = 0;
     this.feel.reset();
     this.chase.snap(this.player);
     this._applyPerks();
@@ -620,6 +623,7 @@ class Game {
     this.player.speedFactor = this.surface;
     this.player.t.grip = this.gripBase * fx.grip * (this.surface < 1 ? 0.85 : 1);
     this.player.update(dt, input);
+    this._throttle = input.throttle || 0;
 
     // The horse-box disguise needs the horse box (not the Rolls).
     const disguised = this.disguiseUnlocked && !!this.player.trailer && m.carrying && Math.abs(this.player.speed) < CONFIG.heat.disguiseSpeed;
@@ -664,6 +668,8 @@ class Game {
       this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     }
     this.props.update(dt, this._cars);
+    this._nearMisses(status);
+    this._sirenSweep();
     this.debris.update(dt);
 
     this.env.update(dt, this.camera.position);
@@ -684,7 +690,7 @@ class Game {
     this.particles.update(dt);
     this.chase.update(dt, this.player, !!input.lookBack, this.feel.accel01);
     this.waypoint.update(this.player, m.target, this.time);
-    this._updateHud(status, disguised, safeZone);
+    this._updateHud(status, disguised, safeZone, dt);
     this._updateAudio(status);
 
     this.tutorial.update(dt, {
@@ -701,6 +707,46 @@ class Game {
     const I = JUICE.impacts;
     if (strength >= I.debrisFrom) this.debris.burst(x, 0.8, z, this.player.vx, this.player.vz, strength);
     if (strength >= I.hitStopFrom) this.hitStop = Math.max(this.hitStop, juice('impacts', 'hitStop'));
+    if (strength >= JUICE.cinematic.slowMoFrom) this.slowMo = Math.max(this.slowMo, juice('cinematic', 'slowMo'));
+  }
+
+  // Game speed for the real-time loop: slow motion after a near-miss or a big crash.
+  get timeScale() { return this.slowMo > 0 ? JUICE.cinematic.slowMoScale : 1; }
+
+  // A pursuer flashing past within a car's width, fast, without touching: a near-miss.
+  _nearMisses(status) {
+    const C = JUICE.cinematic, v = this.player;
+    if (!juice('cinematic', 'slowMo') || status.touching > 0) return;
+    this.police.units.forEach((u, k) => {
+      if (!u.active || this.time - this._nearMiss[k] < 3) return;
+      const c = u.car, dx = c.position.x - v.position.x, dz = c.position.z - v.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 2.2 + C.nearMiss || d < 1) return;
+      if (Math.hypot(c.vx - v.vx, c.vz - v.vz) < C.nearMissSpeed) return;
+      this._nearMiss[k] = this.time;
+      this.slowMo = Math.max(this.slowMo, C.slowMo);
+      this.nearMisses = (this.nearMisses || 0) + 1;
+    });
+  }
+
+  // The pursuers' red beacon throws a sweeping light across the nearest buildings (the shared
+  // effects light: moved, never added, so nothing recompiles). The burning warehouse wins.
+  _sirenSweep() {
+    const light = this.world.fxLight;
+    if (this.fire.active) return;
+    let best = null, bd = 70 * 70;
+    if (juice('cinematic', 'sirenSweep')) {
+      for (const u of this.police.units) {
+        if (!u.active || u.kind !== 'fed' || (u.mode !== 'chase' && u.mode !== 'search')) continue;
+        const dd = u.car.position.distanceToSquared(this.camera.position);
+        if (dd < bd) { bd = dd; best = u.car; }
+      }
+    }
+    if (!best) { light.intensity = 0; return; }
+    const a = this.time * 7.5;                   // the beacon turns ~1.2 times a second
+    light.color.setHex(0xff1a0c);
+    light.position.set(best.position.x + Math.sin(a) * 5, 3.2, best.position.z + Math.cos(a) * 5);
+    light.intensity = 70 * JUICE.cinematic.sirenSweep * (0.15 + 0.85 * Math.pow(Math.abs(Math.sin(a)), 6));
   }
 
   _onEvents(events, status) {
@@ -731,6 +777,7 @@ class Game {
       if (e.type === 'spotted') {
         const msg = { patrol: 'Spotted by a patrol!', tipoff: 'Word of a big order got out — the law is coming', tip: 'Tipped off! The law is on its way' }[e.reason];
         this.hud.toast(msg || 'Spotted!', 'red');
+        this.hud.sirenFlash();
       }
       if (e.type === 'lostTier') this.hud.toast('Shook one off — keep out of sight', 'blue');
       if (e.type === 'clear') this.hud.toast('You lost them', 'blue');
@@ -768,10 +815,23 @@ class Game {
     this.audio.update({
       speed01: Math.min(1, speed / v.t.maxSpeed), rpm01,
       slip01: speed > 6 ? Math.min(1, Math.max(0, (v.slip - 3) / 8)) : 0,
-      siren01: this.police.pursuing ? Math.max(0.25, 1 - status.nearest / 160) : 0,
+      // Pursuers: louder and clearer as they close in; a faint distant wail while the heat
+      // is up but they're not on you yet.
+      siren01: this.police.pursuing ? Math.max(0.25, 1 - status.nearest / 160) : this.mission.tier > 0 && JUICE.enabled ? 0.18 : 0,
+      near01: this.police.pursuing ? Math.max(0, 1 - status.nearest / 120) : 0,
+      throttle01: Math.max(0, this._throttle || 0),
+      jazz01: night ? this._jazzLevel(v.position) : 0,
       doppler, hot: this.mission.tier > 0, rain01: this.env.wet,
       crickets: night && this.env.weather === 'clear' && this.world.inCounty(v.position) && this.mission.tier === 0,
     });
+  }
+
+  // How loud the jazz from the nearest speakeasy (a buyer's corner) is: full at the door,
+  // nothing past 70 m.
+  _jazzLevel(p) {
+    let best = Infinity;
+    for (const d of this.world.drops) best = Math.min(best, Math.hypot(d.x - p.x, d.z - p.z));
+    return Math.max(0, 1 - best / 70);
   }
 
   async _escaped() {
@@ -784,7 +844,7 @@ class Game {
     else this.career.markSeen('valley');
   }
 
-  _updateHud(status, disguised, safeZone) {
+  _updateHud(status, disguised, safeZone, dt = 0) {
     const m = this.mission;
     const tier = m.tier;
     let label = '', mode = '', meter = 0;
@@ -802,7 +862,7 @@ class Game {
     const dx = m.target.x - this.player.position.x, dz = m.target.z - this.player.position.z;
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
     this.hud.setObjective(m.objective, Math.round(Math.hypot(dx, dz) / 10) * 10, m.targetKind, Math.atan2(Math.sin(bearing), Math.cos(bearing)));
-    this.hud.setSpeed(this.player.speedMph);
+    this.hud.setSpeed(this.player.speedMph, dt);
     const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
     this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
     let pill = null;
@@ -836,6 +896,8 @@ class Game {
     this.world.sky.follow(this.camera);
     WHEELS.update();
     this.post.setDaylight(this.env.daylight);
+    const s01 = Math.abs(this.player.speed) / this.player.t.maxSpeed;
+    this.post.setRush(juice('cinematic', 'speedPulse') * Math.min(1, Math.max(0, (s01 - 0.85) / 0.15)));
     // Headlight beams show in the dark (and more in fog or rain), dim by day, stutter after a hit.
     const beam = this.player.model.beam;
     if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
@@ -866,7 +928,8 @@ class Game {
       // Hit-stop: after a hard crash the action holds for a beat (the frame keeps drawing).
       const input = this.input.read();
       if (this.hitStop > 0) this.hitStop -= dt;
-      else this.step(dt, input);
+      else this.step(dt * this.timeScale, input);
+      if (this.slowMo > 0) this.slowMo -= dt;      // real time, so it lasts the same at any speed
       this.minimap.draw(this.player, this._mapMarkers(), this._mapPolice(), this.time);
       this.renderFrame();
     } else if (this.state === STATE.INTRO) {

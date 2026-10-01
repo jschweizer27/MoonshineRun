@@ -24,7 +24,11 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   pitch / bounce for truck and horse box, skid marks, tyre smoke, spray, headlight flicker,
   crash rattle/dent) and `Debris` (pooled chunks on heavy hits). `src/props.js`: sidewalk
   crates/barrels/signs that cars knock flying (one InstancedMesh, no colliders). Hit-stop
-  is held in `main._loop` (real time), so `window.shine.step` tests are unaffected.
+  is held in `main._loop` (real time), so `window.shine.step` tests are unaffected; so is
+  slow-mo (`JUICE.cinematic`, `game.timeScale`). `JUICE.ui` drives the HUD animations
+  (`hud.js` + `styles.css`), `JUICE.audio` the extra sound (wind, engine load, muffled
+  distant sirens, radio ducking, jazz near the speakeasies). The siren light sweep moves
+  `world.fxLight` (the fire takes priority); speed lines live in the grade pass (`uRush`).
   Juice is visual only; `J` toggles it. `camera.js` reads `JUICE.camera`.
 - Visual review loop: `npm run shots -- <label>` and `npm run reel -- <label>` write
   screenshots / contact sheets to `artifacts/shots/` (they stop the game loop and step it

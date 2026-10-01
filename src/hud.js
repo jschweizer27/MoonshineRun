@@ -1,6 +1,10 @@
 // Thin wrapper over the DOM HUD and overlay screens. Keeps Three.js code free of
 // document lookups.
+import { JUICE, juice } from './juice.js';
+
 const $ = (id) => document.getElementById(id);
+// Restart a CSS animation class on an element (remove, force a reflow, add).
+const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
 
 export class HUD {
   constructor() {
@@ -11,7 +15,7 @@ export class HUD {
       cargo: $('cargo'), speed: $('speed'), toast: $('toast'), cashPop: $('cash-pop'), flash: $('flash'),
       bust: $('bust'), bustFill: $('bust').querySelector('.meter > div'),
       hint: $('hint'), hintText: $('hint-text'), mute: $('btn-mute'),
-      gameover: $('gameover'), gameoverMsg: $('gameover-msg'),
+      gameover: $('gameover'), gameoverMsg: $('gameover-msg'), heat: $('heat'), siren: $('siren-flash'),
       finalCash: $('final-cash'), finalRuns: $('final-runs'), bestCash: $('best-cash'), newBest: $('new-best'),
     };
     this.onHintClose = () => {};
@@ -20,6 +24,9 @@ export class HUD {
     this._last = {};
     this._cashShown = 0;
     this._cashAnim = null;
+    this._speedShown = 0;
+    this._tier = 0;
+    this._meter = 0;
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
@@ -31,14 +38,21 @@ export class HUD {
     fn(value);
   }
 
-  // Counts up to the new total when `animate` is set.
+  // Rolls up to the new total when `animate` is set, the counter swelling as it goes
+  // (JUICE.ui.cashRoll, cashPop).
   setCash(v, animate = false) {
     cancelAnimationFrame(this._cashAnim);
     const render = (n) => { this.el.cash.textContent = `$${Math.round(n).toLocaleString()}`; };
-    if (!animate) { this._cashShown = v; render(v); return; }
+    const roll = juice('ui', 'cashRoll');
+    if (!animate || !roll) { this._cashShown = v; render(v); return; }
+    if (juice('ui', 'cashPop')) {
+      this.el.cash.style.setProperty('--pop', 1 + 0.35 * JUICE.ui.cashPop);
+      this.el.cash.style.setProperty('--roll', `${roll}s`);
+      replay(this.el.cash, 'pop');
+    }
     const from = this._cashShown, t0 = performance.now();
     const tick = () => {
-      const k = Math.min(1, (performance.now() - t0) / 900);
+      const k = Math.min(1, (performance.now() - t0) / (roll * 1000));
       this._cashShown = from + (v - from) * (1 - (1 - k) ** 3);
       render(this._cashShown);
       if (k < 1) this._cashAnim = requestAnimationFrame(tick);
@@ -47,6 +61,7 @@ export class HUD {
   }
 
   cashPop(text) {
+    if (!juice('ui', 'floatText')) return;
     const p = this.el.cashPop;
     p.textContent = text;
     p.classList.remove('show');
@@ -79,7 +94,20 @@ export class HUD {
       p.textContent = pill[1];
     });
   }
-  setSpeed(mph) { this._set('speed', mph, () => { this.el.speed.textContent = mph; }); }
+  // The speedometer eases toward the real speed instead of snapping (JUICE.ui.speedEase).
+  setSpeed(mph, dt = 0) {
+    const k = juice('ui', 'speedEase');
+    this._speedShown = k && dt ? this._speedShown + (mph - this._speedShown) * (1 - Math.exp(-k * dt)) : mph;
+    const shown = Math.round(this._speedShown);
+    this._set('speed', shown, () => { this.el.speed.textContent = shown; });
+  }
+
+  // The law has spotted you: red and blue flash round the screen edges.
+  sirenFlash() {
+    if (!juice('ui', 'spottedFlash')) return;
+    this.el.siren.style.setProperty('--strength', JUICE.ui.spottedFlash);
+    replay(this.el.siren, 'on');
+  }
   setMuted(m) { this.el.mute.classList.toggle('muted', m); this.el.mute.setAttribute('aria-label', m ? 'Unmute' : 'Mute'); }
 
   // tier: whole stars. status: incoming | seen | closing | evading | ''.
@@ -88,7 +116,14 @@ export class HUD {
     this._set('tier', tier, () => {
       [...this.el.stars.children].forEach((s, k) => s.classList.toggle('on', k < tier));
       this.el.stars.parentElement.classList.toggle('hot', tier > 0);
+      // A new star: the heat display jumps and shakes.
+      if (tier > this._tier && juice('ui', 'heatPulse')) replay(this.el.heat, 'bump');
+      this._tier = tier;
     });
+    // The meter throbs while the heat builds.
+    const rising = mode === 'building' && meter > this._meter + 1e-4 && juice('ui', 'heatPulse') > 0;
+    this._meter = meter;
+    this._set('rising', rising, (on) => this.el.heatMeter.classList.toggle('rising', on));
     const label = { incoming: 'COPS INCOMING', seen: 'THEY SEE YOU', closing: 'COPS CLOSING IN!', evading: 'LOSING THEM…' }[status] || '';
     this._set('heatStatus', label, () => {
       this.el.heatStatus.textContent = label;
@@ -109,7 +144,12 @@ export class HUD {
   // bearing: radians from straight ahead (positive = to the right).
   setObjective(text, meters, kind, bearing = 0) {
     this.el.arrow.style.transform = `rotate(${Math.round((bearing * 180) / Math.PI)}deg)`;
-    this._set('objective', text, () => { this.el.objectiveText.textContent = text; });
+    this._set('objective', text, () => {
+      this.el.objectiveText.textContent = text;
+      // A new objective slides in from above (JUICE.ui.bannerSlide).
+      const t = juice('ui', 'bannerSlide');
+      if (t) { this.el.objective.style.setProperty('--slide', `${t}s`); replay(this.el.objective, 'slide'); }
+    });
     this._set('dist', meters, () => { this.el.objectiveDist.textContent = meters == null ? '' : `${meters} m`; });
     this._set('kind', kind, () => { this.el.objective.dataset.kind = kind; });
   }

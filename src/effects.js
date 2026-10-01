@@ -34,6 +34,7 @@ export class Fire {
       f.userData.base = onRoof ? 7 + Math.random() * 4 : 4 + Math.random() * 2;
     });
     this.light.position.set(cx, b.h + 4, cz + d * 0.3);
+    this.light.color.setHex(0xff8a3a);          // the light is shared with the siren sweep
     this.group.visible = true;
     this.active = true;
   }
