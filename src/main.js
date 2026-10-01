@@ -164,18 +164,17 @@ class Game {
       for (const c of o.children) reveal(c);
     };
     this.scene.traverse((o) => { if (!o.visible && !o.isLight && !shown.includes(o)) reveal(o); });
-    // One pass into the same kind of target the game draws to, clipped to a single pixel and
-    // without the shadow pass: everything is processed and uploaded, almost nothing filled.
+    // One pass into the same kind of target the game draws to, clipped to a single pixel:
+    // everything is processed and uploaded, almost nothing filled. The shadow pass runs too,
+    // so every caster's depth shader is built now rather than when it first casts a shadow.
     const r = this.renderer, target = this.post.enabled ? this.post.composer.renderTarget1 : null;
-    const shadows = r.shadowMap.autoUpdate;
-    r.shadowMap.autoUpdate = false;
+    r.shadowMap.needsUpdate = true;
     WHEELS.update();
     if (target) { target.scissorTest = true; target.scissor.set(0, 0, 1, 1); } else { r.setScissorTest(true); r.setScissor(0, 0, 1, 1); }
     r.setRenderTarget(target);
     r.render(this.scene, this.camera);
     r.setRenderTarget(null);
     if (target) target.scissorTest = false; else r.setScissorTest(false);
-    r.shadowMap.autoUpdate = shadows;
     for (const o of shown) o.visible = false;
     for (const o of unculled) o.frustumCulled = true;
   }
