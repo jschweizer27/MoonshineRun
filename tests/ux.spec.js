@@ -1,14 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
+import { mainThread, openGame, waitForBoot, startRun, clearLoot, screenshot } from './helpers.js';
 
 const state = (page) => page.evaluate(() => window.shine.game.state);
 
-test('Enter starts the game and restarts after being busted', async ({ page }) => {
+test('Enter starts the game; quitting goes back to the title, and Enter starts again', async ({ page }) => {
   await openGame(page);
   await page.keyboard.press('Enter');
   await expect.poll(() => state(page)).toBe('playing');
-  await page.evaluate(() => window.shine.game.bust());
-  await expect(page.locator('#gameover')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.click('#pause-quit');
+  await page.click('#confirm-yes');
+  await expect(page.locator('#intro')).toBeVisible();
+  expect(await state(page)).toBe('intro');
   await page.keyboard.press('Enter');
   await expect.poll(() => state(page)).toBe('playing');
 });
@@ -71,6 +74,7 @@ test('a gamepad drives the truck and navigates menus', async ({ page }) => {
   await press(0, true);                       // A on the title screen = START
   await expect.poll(() => state(page)).toBe('playing');
   await press(0, false);
+  await clearLoot(page);                      // nothing to pick up on the way
   await press(7, true);                       // RT = throttle
   await expect.poll(() => page.evaluate(() => window.shine.game.player.speed)).toBeGreaterThan(3);
   await press(7, false);
@@ -78,7 +82,7 @@ test('a gamepad drives the truck and navigates menus', async ({ page }) => {
   await expect.poll(() => state(page)).toBe('paused');
   await press(9, false);
   await press(13, true);                      // d-pad down
-  await expect(page.locator('#pause-map')).toBeFocused({ timeout: 5000 });
+  await expect(page.locator('#pause-map')).toBeFocused({ timeout: 20_000 });
   await press(13, false);
   await press(1, true);                       // B = back, which resumes
   await expect.poll(() => state(page)).toBe('playing');
@@ -91,6 +95,7 @@ test('touch controls appear on phones and the GAS pedal drives', async ({ browse
   await openGame(page);
   await page.tap('#start-btn');
   await expect(page.locator('#touch')).toBeVisible();
+  await clearLoot(page);
   await page.dispatchEvent('#touch-gas', 'pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true });
   await expect.poll(() => page.evaluate(() => window.shine.game.player.speed)).toBeGreaterThan(3);
   await page.dispatchEvent('#touch-gas', 'pointerup', { pointerId: 7, pointerType: 'touch' });
@@ -120,7 +125,7 @@ test('keys can be remapped', async ({ page }) => {
   await page.keyboard.press('KeyI');
   await expect(page.locator('#settings-body')).toContainText('I');
   await page.click('#settings-done');
-  await startRun(page);
+  await startRun(page, { loot: false });
   await page.keyboard.down('KeyI');
   // The new key reads as throttle, and that throttle drives the truck. (Stepped here rather
   // than waiting on real frames, which crawl on software-rendered CI machines.)
@@ -130,19 +135,49 @@ test('keys can be remapped', async ({ page }) => {
   await page.keyboard.up('KeyI');
 });
 
-test('the minimap and full map draw the route to the objective', async ({ page }) => {
+test('with loot aboard, the minimap and full map draw the route to the nearest market', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  // The minimap draws once per rendered frame; wait for it rather than a fixed delay
-  // (software rendering under load can take a second per frame).
-  await expect.poll(() => page.evaluate(() => {
-    const cv = document.getElementById('minimap');
-    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-    let lit = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 120) lit++;
-    return lit;
-  }), { timeout: 30_000 }).toBeGreaterThan(200);
-  expect(await page.evaluate(() => window.shine.game.minimap.route.length)).toBeGreaterThan(1);
+  // An empty trunk: free roam, no route.
+  expect(await page.evaluate(() => { const g = window.shine.game; g._updateRoute(1); return g.minimap.route.length; })).toBe(0);
+  await page.evaluate(() => window.shine.game.trunk.place('crate', 0, 0));
+  // The minimap draws once per rendered frame. Draw it here rather than waiting on real
+  // frames, which can crawl on software-rendered CI machines: there the page was too busy
+  // drawing the 3D view to answer for 15 s at a time. So the real-time loop stops for the
+  // check (one slow answer, once) and starts again after. Each check reports what it saw,
+  // so a failure says why (a page that didn't answer, an error, or a blank radar).
+  await page.evaluate(() => window.shine.game.renderer.setAnimationLoop(null));
+  const checks = [];
+  const look = () => page.evaluate(() => {
+    const t0 = performance.now();
+    try {
+      const g = window.shine.game;
+      g._updateRoute(1);
+      g.minimap.draw(g.player, g._mapMarkers());
+      const cv = document.getElementById('minimap');
+      const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      let lit = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 120) lit++;
+      return { lit, size: cv.width, shown: !!cv.offsetParent, state: g.state, route: g.minimap.route.length, ms: Math.round(performance.now() - t0) };
+    } catch (e) {
+      return { lit: -1, error: String(e && e.stack || e), ms: Math.round(performance.now() - t0) };
+    }
+  });
+  let lit = -1;
+  const deadline = Date.now() + 45_000;
+  while (lit <= 200 && Date.now() < deadline) {
+    const t0 = Date.now();
+    let r = await Promise.race([look(), new Promise((res) => setTimeout(() => res(null), 15_000))]);
+    if (!r) r = { lit: -1, error: 'no answer within 15 s', where: await mainThread(page) };
+    checks.push({ ...r, waited: Date.now() - t0 });
+    lit = r.lit;
+    if (lit <= 200) await page.waitForTimeout(250);
+  }
+  expect(lit, `the radar never drew; checks: ${JSON.stringify(checks.slice(-4))}`).toBeGreaterThan(200);
+  const route = await page.evaluate(() => { const r = window.shine.game.minimap.route; return { n: r.length, end: r[r.length - 1] }; });
+  expect(route.n).toBeGreaterThan(1);
+  expect(route.end).toEqual({ x: -44, z: 44 });          // Lexington Market, the nearest
+  await page.evaluate(() => { const g = window.shine.game; g.renderer.setAnimationLoop(() => g._loop()); });
   await page.keyboard.press('Tab');
   await expect(page.locator('#map')).toBeVisible();
   expect(await state(page)).toBe('paused');
@@ -152,59 +187,82 @@ test('the minimap and full map draw the route to the objective', async ({ page }
   expect(await state(page)).toBe('playing');
 });
 
-test('the bust bar fills while pinned and drains when you break free', async ({ page }) => {
+test('sale feedback: cash pop-up and count-up', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  await page.evaluate(() => {
-    const g = window.shine.game;
-    window.shine.teleport(0, 0, 0);
-    g.mission.heat = 1;
-    g.police.setTarget(1, g.player, g.camera);
-    g.police.active[0].car.place(0, 6, 0);    // right behind you
-    g.police.active[0].mode = 'search';
-  });
-  await step(page, 1);
-  const pinned = await page.evaluate(() => window.shine.game.bustMeter);
-  expect(pinned).toBeGreaterThan(0.2);
-  await expect(page.locator('#bust')).toBeVisible();
-  await page.evaluate(() => window.shine.game.police.reset());
-  await step(page, 2, { throttle: 1 });
-  expect(await page.evaluate(() => window.shine.game.bustMeter)).toBeLessThan(pinned);
-  expect((await snapshot(page)).state).toBe('playing');
-});
-
-test('delivery feedback: cash pop-up and count-up', async ({ page }) => {
-  await openGame(page);
-  await startRun(page);
-  const pay = await page.evaluate(() => { window.shine.loadShine(0); return window.shine.game.mission.order.pay; });
-  await page.evaluate(() => { const m = window.shine.game.mission; window.shine.teleport(m.drop.position.x, m.drop.position.z); });
-  await step(page, 0.1);
+  await page.evaluate(() => { const g = window.shine.game; g.trunk.place('crate', 0, 0); g.openMarket(); });
+  const pay = Number(await page.locator('#market-sell-all').getAttribute('data-total'));
+  expect(pay).toBeGreaterThan(0);
+  await page.locator('#market-sell-all').click();
   await expect(page.locator('#cash-pop')).toHaveText(`+$${pay.toLocaleString()}`);
   await expect(page.locator('#cash')).toHaveText(`$${pay.toLocaleString()}`);
 });
 
-test('first-run tips appear and go away once you drive', async ({ page }) => {
-  await openGame(page, '&hints');
-  await page.evaluate(() => localStorage.removeItem('shine.hints.v1'));
-  await startRun(page);
-  await step(page, 2);
-  await expect(page.locator('#hint')).toBeVisible();
-  await expect(page.locator('#hint-text')).toContainText('to drive');
-  await step(page, 3, { throttle: 1 });
-  await expect(page.locator('#hint-text')).not.toContainText('to drive');
-});
-
-test('stills and drops are told apart by shape and label, not just colour', async ({ page }) => {
+test('markets are told apart by shape and label, not just colour', async ({ page }) => {
   await openGame(page);
   const r = await page.evaluate(() => {
-    const m = window.shine.game.mission;
-    const ring = (g) => g.children.find((c) => c.geometry?.type === 'TorusGeometry').geometry.parameters.tubularSegments;
-    const label = (g) => g.children.some((c) => c.isSprite);
-    return { still: ring(m.pickup), drop: ring(m.drop), labels: label(m.pickup) && label(m.drop) };
+    const m = window.shine.game.marketMarkers[0];
+    const ring = m.children.find((c) => c.geometry?.type === 'TorusGeometry').geometry.parameters.tubularSegments;
+    return { ring, label: m.children.some((c) => c.isSprite) };
   });
-  expect(r.drop).toBe(4);          // diamond
-  expect(r.still).toBeGreaterThan(20);
-  expect(r.labels).toBe(true);
+  expect(r.ring).toBe(6);          // a hexagon, like its radar icon
+  expect(r.label).toBe(true);
+});
+
+test('the pause menu: resume, map, ledger, settings, help and quit; the ledger keeps the books', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  await page.keyboard.press('Escape');
+  const buttons = await page.locator('#pause button').allTextContents();
+  expect(buttons).toEqual(['RESUME', 'MAP', 'LEDGER', 'SETTINGS', 'HOW TO PLAY', 'QUIT TO TITLE']);
+  await page.click('#pause-ledger');
+  await expect(page.locator('#ledger-runs')).toContainText('Nothing sold yet');
+  await page.click('#ledger-done');
+  await page.keyboard.press('Escape');
+  // A sale and an upgrade, then the books.
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.dredge.data.cash = 300;                  // enough for one upgrade
+    g.trunk.place('keg', 0, 0);
+    g.openMarket();
+  });
+  await page.locator('#market-sell-all').click();
+  const earned = await page.evaluate(() => window.shine.game.dredge.data.stats.earned);
+  await page.click('#market-body [data-id="up-magnet"]');
+  await page.click('#market-done');
+  await page.keyboard.press('Escape');
+  await page.click('#pause-ledger');
+  await expect(page.locator('#ledger-totals')).toContainText(`Earned, all time$${earned.toLocaleString()}`);
+  await expect(page.locator('#ledger-totals')).toContainText('Pieces sold1');
+  await expect(page.locator('#ledger-totals')).toContainText('Upgrades bought1');
+  const rows = await page.locator('#ledger-runs tr').allTextContents();
+  expect(rows[1]).toContain('Long arm (level 1)');
+  expect(rows[1]).toContain('−$250');
+  expect(rows[2]).toContain('Sold 1 piece at Lexington Market');
+  await screenshot(page, '11-ledger');
+});
+
+test('erasing saved progress empties the cash, the upgrades and the trunk', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.dredge.data.cash = 5000;
+    g.dredge.buy('trunk');
+    g._applyPerks();
+    g.trunk.place('keg', 0, 0);
+    g.dredge.saveTrunk(g.trunk);
+  });
+  expect(await page.evaluate(() => window.shine.game.player.look)).toBe('reinforced');
+  await page.keyboard.press('Escape');
+  await page.click('#pause-settings');
+  await page.getByRole('button', { name: 'Erase saved progress' }).click();
+  await page.click('#confirm-yes');
+  const r = await page.evaluate(() => {
+    const g = window.shine.game;
+    return { cash: g.dredge.cash, levels: Object.values(g.dredge.data.upgrades), size: [g.trunk.cols, g.trunk.rows], count: g.trunk.count, look: g.player.look, hud: document.getElementById('cash').textContent };
+  });
+  expect(r).toEqual({ cash: 0, levels: [0, 0, 0, 0, 0], size: [5, 3], count: 0, look: 'stock', hud: '$0' });
 });
 
 test('installable app: manifest, icons and offline play', async ({ page, context }) => {

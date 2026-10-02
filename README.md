@@ -1,15 +1,16 @@
-# SHINE — A Prohibition Bootlegging Demo
+# SHINE — Roads of 1922 Baltimore
 
-Baltimore, 1922. You are **Otto Braun**, a Highlandtown brewer turned moonshine runner. Load
-shine at the still, deliver it across the city, and beat the heat as Prohibition Bureau
-Feds and Temperance Alliance zealots run you down.
+Baltimore, 1922. You are **Otto Braun**, and the roads out of the city are littered with what
+other people lost: crates, kegs, copper. Work the roads between Baltimore and the Green
+Spring Valley, pack what you find into the truck, and sell it where it pays best.
 
 This repository has two parts:
 
 - **The playable demo** (repo root): a 3D browser game built with Three.js.
-- **`ue5/`**: an Unreal Engine 5 C++ project for the full game, following the *Moonshine Run
-  Dev Guide*, with the same rules and tuning as the web demo. Start with the step-by-step
-  [`ue5/CHECKLIST.md`](ue5/CHECKLIST.md).
+- **`ue5/`**: an Unreal Engine 5 C++ project from the game's first design, the bootlegging
+  run (stills, heat and the law), following the *Moonshine Run Dev Guide*. It is **frozen**:
+  the browser game has since become the loot-and-sell run described here, and the UE5
+  project keeps the old design. Start with the step-by-step [`ue5/CHECKLIST.md`](ue5/CHECKLIST.md).
 
 ---
 
@@ -18,7 +19,7 @@ This repository has two parts:
 | Option | Setup | How |
 |---|---|---|
 | **In your browser** | Nothing | Open **https://jschweizer27.github.io/MoonshineRun/** *(live once GitHub Pages is on; see below)* |
-| **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** (uses the simpler built-in car and lamp models) |
+| **Offline, no install** | Nothing | Download `Shine-offline-*.zip` from [Releases](../../releases), unzip it, and double-click **Shine.html** (uses the simpler built-in truck and lamp models) |
 | **From this folder** | [Node.js](https://nodejs.org) (free) | Double-click **`Play (Mac).command`** or **`Play (Windows).bat`**, or run `npm start` |
 
 ### Controls
@@ -31,6 +32,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Throttle / brake & reverse | `W` `S` or `↑` `↓` | RT / LT | GAS / BRAKE |
 | Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
 | Handbrake (slide) | `Space` | A | DRIFT |
+| Open the trunk | `T` | X | — |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
 | Look back | `C` | Y | — |
@@ -39,44 +41,42 @@ on-screen pedals appear automatically on phones and tablets.
 | Mute / fullscreen | `M` / `F` | — | buttons, top right |
 | Game-feel effects on/off (to compare) | `J` | — | — |
 
+**In the trunk:** the arrows (or D-pad) move the piece, **R** / **Q** (or LB / RB) turn it,
+**Enter** (A) puts it down, lifts a piece or swaps the two, **X** leaves it on the road, and
+**Esc** (B) closes the trunk. You can also drag pieces with the mouse.
+
 Every key can be changed in **Settings → Controls**. Menus work with the arrow keys and
 Enter, the D-pad and A/B, or touch.
 
 ### How to play
 
-1. Press **Enter** (or click **START THE RUN**). A new game opens with **Act I**: the Temperance
-   Alliance has torched your Highlandtown warehouse. Get out of the city up **York Road**.
-2. In **Green Spring Valley** the stills hide in farm barns. Follow the **gold arrow**, the
-   compass and the **gold GPS route** on the minimap to the **● still** and pick an order from
-   the **order book**. Bigger loads pay more but draw more heat.
-3. Deliver to the named buyer in Baltimore (**◆ drop**) to get paid.
-4. While you haul, informants tip off the law and **patrols** can spot you. **Heat stars** send
-   Prohibition Feds (they cut you off) and Temperance zealots (they ram) after you. At
-   ★★ they set up **roadblocks** ahead (the GPS routes around them), and at ★★★ they're faster.
-   - They need **line of sight**. Duck around corners or into the woods. When the bar reads
-     *LOSING THEM…* and fills blue, you shed a star.
-   - If they **pin you down while you're slow**, the red bar fills and you're **BUSTED**: you
-     lose the cargo, pay a fine and continue from the hideout.
-5. Roll slowly into the **⌂ hideout** to lie low (clears the heat if nobody sees you) and visit the
-   **garage**. Hire the County Specialists (Mechanic, Wheelman, Still-master, Enforcer),
-   buy a **1925 Rolls-Royce Phantom I** ($8,000: faster, and informants are slow to suspect
-   a gentleman, but it can't tow the horse box, so no disguise, no armour and small loads
-   only; switch between it and the truck at the garage), and later **bribe the sheriff** to
-   make the county a safe zone.
-6. As the story unfolds the Jockey teaches you the **horse-box disguise**: with shine aboard,
-   stay **under 30 mph** and patrols see a thoroughbred, not a bootlegger.
-7. Night runs are safer than daylight; rain makes the cobbles slick; fog hides you. **Otto's
-   Ledger** keeps your books. Everything is saved: **Continue** picks up where you left off.
+1. Press **Enter** (or click **START DRIVING**). Otto's truck starts on **York Road**, just
+   inside the city.
+2. Drive the roads. **Glowing loot** lies beside them (crates, bottle cases, sacks, barrels,
+   jugs, kegs, copper coils, a strongbox); the radar shows what's near. Its colour tells you
+   what it's worth: olive is cheap, brick and cream middling, copper good, amber best.
+3. Drive over a piece to pick it up. The **trunk** opens with it in hand: turn it and fit it
+   in; pieces can't overlap. Leave behind what won't fit, or press **T** any time to
+   rearrange.
+4. With loot aboard, the banner's arrow and the **gold route** on the radar lead to the
+   nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, or
+   the **Monkton General Store** at the crossroads up York Road. Each town pays differently,
+   prices drift day to day, and selling a lot of one thing in one place drives its price down.
+5. Spend your cash at either market on **upgrades**: a bigger bed (the trunk grows and the
+   truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
+   and a spotter for the radar.
+6. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+   fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
+   cash, upgrades and whatever is in the trunk.
 
-Tips pop up the first time you need them (turn them off or replay them in Settings).
 Settings → Help also lets you **roll a new city layout** or **copy a link** to share yours.
 
-**Sights and sounds:** everything is generated in the browser, with no image or audio files.
-You get a stride-piano ragtime soundtrack that turns to hot jazz in a chase, a Model TT
-truck towing a swinging horse trailer, 1920s Bureau sedans and Temperance pickups, neon
-blade signs, rooftop water towers, and exhaust, dust and sparks. The engine shifts gears,
-the tyres screech, sirens have Doppler shift, and you hear rain on the cobbles and
-crickets in the valley.
+**Sights and sounds:** everything but the street lamp model is generated in the browser,
+with no image or audio files: a painted brick-and-stone city with neon blade signs, bay
+windows and rooftop water towers, a village of clapboard houses in the valley, a stride-piano
+ragtime soundtrack, and exhaust, dust and sparks. The engine shifts gears, the tyres
+screech, and you hear rain on the cobbles, jazz from the speakeasies at night and crickets
+in the valley.
 
 ### Settings
 
@@ -86,7 +86,9 @@ touch controls and key bindings. Everything is remembered between visits.
 
 Graphics quality: **High** has shadows from the moon and the nearest lamp, 8 real lamp
 lights and full bloom; **Medium** fewer lamp lights and half-resolution bloom; **Low** skips
-shadows and post-processing for older machines.
+shadows and post-processing for older machines. **Painterly look** (on by default, Medium and
+High) softens the picture into brush-like patches with a light depth haze; switch it off in
+Settings for the plain image.
 
 ### Install it like an app
 
@@ -137,17 +139,23 @@ npm test           # playtests only; screenshots in artifacts/screenshots/
 npm run build      # dist/ website + dist/Shine.html (single-file offline game)
 ```
 
-- **Tune the game** in [`src/config.js`](src/config.js): speeds, heat rates, rewards, police,
-  camera and the night look (`look`: exposure, fog, moonlight, window glow). Every number
-  is commented.
+- **Tune the game** in [`src/config.js`](src/config.js): the truck (`player`), the camera,
+  the night look (`look`: exposure, fog, moonlight, window glow, the painterly pass), and
+  the run (`dredge`: the palette, the towns and their prices, the markets, the trunk, the
+  upgrades and the loot). Every number is commented.
 - **Tune the game feel** in [`src/juice.js`](src/juice.js) (`JUICE`: camera spring, FOV kick,
   shake, body roll, skid marks, smoke...). With `?debug` every value has a live slider;
   press `J` in-game to switch all of it off and compare.
 - **Art-direction screenshots:** `npm run shots -- mylabel` (chase, street and truck views
-  plus render cost) and `npm run reel -- mylabel` (a launch / brake / drift / crash contact
-  sheet with the effect values), in `artifacts/shots/`.
-- URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic missions),
-  `?seed=123` (a different city layout).
+  plus render cost), `npm run shots -- dredge-mylabel` (the full set: skyline, county,
+  truck, loot, trunk, markets and both towns, with draw-call counts), `npm run reel --
+  mylabel` (a launch / brake / drift / crash contact sheet with the effect values) and
+  `node scripts/playtest.mjs mylabel` (a scripted run from the title screen to both
+  markets), all in `artifacts/shots/`. `node scripts/economy.mjs 10` plays ten game
+  minutes on autopilot and prints what the run earns a minute, for tuning prices and
+  upgrade costs.
+- URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
+  clock stands still), `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in
   [`CLAUDE.md`](CLAUDE.md).
 
@@ -156,40 +164,40 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
 ```
 index.html, styles.css   page, HUD, menus (loading/error screens, responsive overlays)
 src/
-  main.js       boot, game loop, state machine, career flow
+  main.js       boot, game loop, state machine, the run (loot, trunk, markets, upgrades)
   config.js     all tuning numbers
-  world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, drops
-  county.js     Green Spring Valley: farm roads, barns, woods, fences
+  world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, named corners
+  atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
+  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton village
   environment.js  day/night cycle and weather
-  career.js     saved progress: cash, upgrades, story, stats, ledger
-  story.js      story beats from the treatment
-  screens.js    order book, garage, ledger, dialogue cards
-  effects.js    the Act I warehouse fire
-  particles.js  exhaust, dust, sparks, smoke and embers
+  loot.js       loot along the roads (pooled, instanced per kind)
+  trunk.js, trunkscreen.js   the trunk grid and its screen
+  market.js     prices and selling (drift, gluts)
+  dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger
+  marker.js     the market markers
+  screens.js    the market and ledger screens
+  particles.js  exhaust, dust, sparks and smoke
   music.js      generated ragtime soundtrack
-  collision.js  2D colliders, bounds, line of sight
+  collision.js  2D colliders, bounds, line of sight (for the camera)
   roadgraph.js  street graph + pathfinding
   vehicle.js    driving physics (grip, handbrake, collisions)
-  models.js     procedural 1920s trucks, sedans and pickups
-  police.js     pursuer AI (pooled cars, road navigation, search, give up)
-  mission.js    bootlegger loop + heat / evasion
+  models.js     the truck (the GLB, or the procedural stand-in), wheels, headlight beams
   camera.js     chase camera (+ look back)
   input.js      keyboard (remappable), gamepad, touch controls
   ui.js         menu screens, focus navigation, settings panel
   minimap.js    corner radar + full map with GPS route
-  tutorial.js   first-run tips
   settings.js   saved preferences and key bindings
-  hud.js, waypoint.js, audio.js, save.js, debug.js, rng.js
+  hud.js, audio.js, juice.js, props.js, sky.js, post.js, assets.js, save.js, debug.js, rng.js
 sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
-assets/         3D models (truck, Rolls-Royce, Bureau sedans, street lamps) and their credits
+assets/         3D models (the truck, street lamps) and their credits
 vendor/three/   Three.js r160 (bundled; no CDN needed)
-scripts/        dev server, build, checks, CI summary
+scripts/        dev server, build, checks, CI summary, screenshots, playtest, make-truck.mjs (the truck)
 tests/          Playwright playtests
-ue5/            Unreal Engine 5 C++ project (open MoonshineRun.uproject; see CHECKLIST.md)
+ue5/            Unreal Engine 5 C++ project, frozen at the bootlegging design (see CHECKLIST.md)
 ```
 
 ## Credits
-3D models from Sketchfab, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-(reduced and re-oriented for the game; details in [assets/README.md](assets/README.md)):
-"Moonshine Runner" by car-go, "Volvo PV4 V2" by Libau Media, "Arc Lamp - Victorian Street
-Lamp" by i-m-a-kitty-cat, "1925 Rolls Royce Phantom I Jonckheere Coupe" by Antonio Sagistiano.
+Street lamp model: "Arc Lamp - Victorian Street Lamp" by i-m-a-kitty-cat on Sketchfab,
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (reduced and re-oriented
+for the game; details in [assets/README.md](assets/README.md)). The truck is made in code
+(`scripts/make-truck.mjs`).

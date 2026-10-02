@@ -17,6 +17,7 @@ export const ACTIONS = [
   ['mute', 'Mute'],
   ['fullscreen', 'Fullscreen'],
   ['juice', 'Effects on/off (compare)'],
+  ['trunk', 'Open the trunk'],
 ];
 
 export const DEFAULT_BINDINGS = {
@@ -33,6 +34,7 @@ export const DEFAULT_BINDINGS = {
   mute: ['KeyM'],
   fullscreen: ['KeyF'],
   juice: ['KeyJ'],
+  trunk: ['KeyT'],
 };
 
 const prefersReducedMotion = () => {
@@ -49,9 +51,9 @@ export const DEFAULT_SETTINGS = {
   cameraDistance: 'normal', // near | normal | far
   reducedMotion: null,      // null = follow the operating system setting
   largeText: false,
+  painterly: true,          // the painterly post pass (Medium and High graphics)
   minimapRotate: true,
   touchControls: 'auto',    // auto | on | off
-  hints: true,
   bindings: DEFAULT_BINDINGS,
 };
 

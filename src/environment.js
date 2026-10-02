@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
 // Day/night cycle and weather. One in-game day passes in ~16 real minutes, starting at
-// 9:30 PM. Night is darker but safer (fewer witnesses); rain makes the cobbles slick;
-// fog shortens how far the law can see. The night palette lives in CONFIG.look.
+// 9:30 PM. Rain makes the cobbles slick; fog closes in. The night palette lives in
+// CONFIG.look.
 const L = CONFIG.look;
 const NIGHT = new THREE.Color(L.sky), DUSK = new THREE.Color(0x4a3448), DAY = new THREE.Color(0x8fb0d6);
 const HEMI_DAY = new THREE.Color(0xc4d8ff), SUN = new THREE.Color(0xfff0d8), FOG_GREY = new THREE.Color(0x3a4450);
@@ -56,14 +56,9 @@ export class Environment {
     return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
   }
 
-  // Multipliers the heat system and physics use.
+  // Multipliers the physics uses.
   get effects() {
-    const d = this.daylight;
-    return {
-      suspicion: 0.8 + 0.55 * d,               // witnesses by day
-      sight: (1 + 0.25 * d) * (1 - 0.4 * this.fog),
-      grip: 1 - 0.2 * this.wet,
-    };
+    return { grip: 1 - 0.2 * this.wet };
   }
 
   setWeather(w) { this.weather = w; this._weatherTimer = 180 + Math.random() * 120; }

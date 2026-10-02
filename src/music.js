@@ -1,7 +1,6 @@
 // A generated ragtime / stride-piano loop (no audio files, no licensing). An 8-bar
 // progression with an oom-pah left hand, a syncopated right-hand melody and brushed
-// drums. When the law is on you it switches to "hot" mode: faster, busier, with a hi-hat.
-// Notes are scheduled slightly ahead on the audio clock, so pausing (suspending the
+// drums. Notes are scheduled slightly ahead on the audio clock, so pausing (suspending the
 // audio context) freezes the music in place.
 const PROGRESSION = [
   // [bass note, chord tones] as MIDI numbers
@@ -36,7 +35,6 @@ export class Music {
     this.out.gain.value = 0;
     this.out.connect(out);
     this.on = true;
-    this.hot = false;
     this._bar = 0;
     this._eighth = 0;
     this._next = 0;
@@ -66,8 +64,7 @@ export class Music {
 
   _schedule() {
     if (this.ctx.state !== 'running') return;
-    const bpm = this.hot ? 138 : 104;
-    const step = 60 / bpm / 2;                     // eighth notes
+    const step = 60 / 104 / 2;                     // eighth notes at 104 bpm
     while (this._next < this.ctx.currentTime + 0.2) {
       this._play(this._bar, this._eighth, this._next, step);
       this._next += step * (this._eighth % 2 === 0 ? 1.08 : 0.92);   // a little swing
@@ -82,14 +79,12 @@ export class Music {
     if (e === 0) this._piano(midi(bass - 12), t, 0.5, 0.32);
     if (e === 4) this._piano(midi(bass - 5), t, 0.5, 0.26);
     if (e === 2 || e === 6) for (const n of chord) this._piano(midi(n - 12), t, 0.25, 0.09);
-    // Right hand melody, an octave up; busier when hot.
+    // Right hand melody, an octave up.
     const idx = MELODY[bar][e];
     if (idx != null) this._piano(midi(chord[idx % chord.length] + 12), t, step * 1.6, 0.16);
-    else if (this.hot && e % 2) this._piano(midi(chord[(bar + e) % chord.length] + 24), t, step, 0.08);
-    // Drums: soft kick on 1 and 3, brush on 2 and 4, hi-hat eighths when hot.
+    // Drums: soft kick on 1 and 3, brush on 2 and 4.
     if (e === 0 || e === 4) this._kick(t);
     if (e === 2 || e === 6) this._brush(t, 0.12);
-    if (this.hot) this._brush(t, 0.04, 7000);
   }
 
   _piano(freq, t, len, vol) {

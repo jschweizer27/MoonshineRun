@@ -23,7 +23,7 @@ body:
     id: best
     attributes:
       label: Best moment
-      placeholder: e.g. Losing two Feds by cutting down an alley.
+      placeholder: e.g. Fitting a keg into the last gap in the trunk.
   - type: textarea
     id: worst
     attributes:

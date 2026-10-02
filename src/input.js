@@ -50,7 +50,7 @@ export class Input {
     if (this.playing && (actions.length || ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code))) e.preventDefault();
     if (e.repeat) { this.down.add(e.code); return; }
     this.down.add(e.code);
-    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice'].includes(a)) this.onAction(a, 'keyboard');
+    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice', 'trunk'].includes(a)) this.onAction(a, 'keyboard');
   }
 
   isDown(action) { return (this.bindings[action] || []).some((c) => this.down.has(c)); }
@@ -84,6 +84,11 @@ export class Input {
     edge(PAD.BACK, 'map');
     edge(PAD.B, 'back', 'horn');
     edge(PAD.A, 'confirm');
+    // The trunk: X opens it while driving (and leaves a piece behind inside it);
+    // the shoulder buttons turn a piece.
+    edge(PAD.X, 'trunk');
+    edge(PAD.LB, 'rotate');
+    edge(PAD.RB, 'rotate');
     edge(PAD.UP, 'up');
     edge(PAD.DOWN, 'down');
     edge(PAD.LEFT, 'left');

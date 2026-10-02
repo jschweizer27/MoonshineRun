@@ -1,8 +1,12 @@
+import { CONFIG } from './config.js';
+
 // Corner radar (heading-up or north-up) and the full-screen map. The static map (roads,
 // buildings) is drawn once into an offscreen canvas; each frame only draws the visible
 // slice plus the route and icons. Markers use distinct shapes, not just colours.
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
-const COLORS = { still: '#e0a83a', drop: '#5aa7d8', hideout: '#8fd18a', goal: '#f2c55c', gold: '#f2c55c', me: '#ece3cf', fed: ['#ff3b30', '#3b82ff'], zealot: '#ff8a2a' };
+// Glyph colours, from the palette (the route is gold).
+const P = CONFIG.dredge.palette;
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, market: P.cream, me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -49,19 +53,22 @@ export class MiniMap {
     return cv;
   }
 
-  // Recompute the GPS route along the roads, around any roadblocks (cheap; throttled).
-  updateRoute(dt, from, to, blocked = null) {
+  // Recompute the GPS route along the roads (cheap; throttled).
+  updateRoute(dt, from, to) {
     this._routeTimer -= dt;
     const moved = !this._routeTarget || this._routeTarget.x !== to.x || this._routeTarget.z !== to.z;
-    const blocks = blocked ? blocked.size : 0;
-    if (this._routeTimer > 0 && !moved && blocks === this._blocks) return;
+    if (this._routeTimer > 0 && !moved) return;
     this._routeTimer = 0.5;
-    this._blocks = blocks;
     this._routeTarget = { x: to.x, z: to.z };
     const roads = this.world.roads;
     const a = roads.nearest(from.x, from.z), b = roads.nearest(to.x, to.z);
-    const ids = roads.path(a.id, b.id, blocked) || roads.path(a.id, b.id) || [];
+    const ids = roads.path(a.id, b.id) || [];
     this.route = [...ids.map((i) => roads.nodes[i]), { x: to.x, z: to.z }];
+  }
+
+  clearRoute() {
+    this.route = [];
+    this._routeTarget = null;
   }
 
   _fit(canvas) {
@@ -71,7 +78,7 @@ export class MiniMap {
     return w;
   }
 
-  draw(player, markers, police, time) {
+  draw(player, markers) {
     if (!this.canvas.offsetParent) return;   // hidden
     const g = this.ctx;
     const size = this._fit(this.canvas);
@@ -105,11 +112,6 @@ export class MiniMap {
     };
     const r = size * 0.045;
     for (const m of markers) { const [x, y] = place(m.x, m.z); drawMarker(g, m.kind, x, y, r); }
-    for (const u of police) {
-      const [x, y] = place(u.x, u.z);
-      g.fillStyle = u.kind === 'fed' ? COLORS.fed[Math.floor(time * 4) % 2] : COLORS.zealot;
-      g.fillRect(x - r * 0.7, y - r * 0.7, r * 1.4, r * 1.4);
-    }
     drawPlayer(g, c, c, this.rotate ? 0 : h, r * 1.3);
     if (this.rotate) {
       const [nx, ny] = [c + (c - size * 0.08) * Math.sin(-h), c - (c - size * 0.08) * Math.cos(-h)];
@@ -134,7 +136,7 @@ export class MiniMap {
   }
 
   // Full map, north up, whole world fitted to the canvas.
-  drawBig(player, markers, police, time) {
+  drawBig(player, markers) {
     const cv = this.big;
     const size = this._fit(cv);
     const g = cv.getContext('2d');
@@ -155,28 +157,27 @@ export class MiniMap {
     }
     const r = size / 70;
     for (const m of markers) drawMarker(g, m.kind, X(m.x), Z(m.z), r);
-    for (const u of police) {
-      g.fillStyle = u.kind === 'fed' ? COLORS.fed[Math.floor(time * 4) % 2] : COLORS.zealot;
-      g.fillRect(X(u.x) - r * 0.7, Z(u.z) - r * 0.7, r * 1.4, r * 1.4);
-    }
     drawPlayer(g, X(player.position.x), Z(player.position.z), player.heading, r * 1.5);
   }
 }
 
-// still = circle, drop = diamond, hideout = house, goal = flag (shape + colour for
+// market = hexagon, loot = small square, premium loot = a bigger diamond (shape + colour for
 // colour-blind players)
 function drawMarker(g, kind, x, y, r) {
   g.lineWidth = Math.max(1.5, r * 0.3);
   g.strokeStyle = '#0b0d14';
   g.fillStyle = COLORS[kind] || '#fff';
   g.beginPath();
-  if (kind === 'goal') {
-    g.rect(x - r * 0.9, y - r * 1.3, r * 0.35, r * 2.6);
-    g.moveTo(x - r * 0.55, y - r * 1.3); g.lineTo(x + r * 1.2, y - r * 0.75); g.lineTo(x - r * 0.55, y - r * 0.2); g.closePath();
-  } else if (kind === 'drop') {
-    g.moveTo(x, y - r * 1.25); g.lineTo(x + r * 1.25, y); g.lineTo(x, y + r * 1.25); g.lineTo(x - r * 1.25, y); g.closePath();
-  } else if (kind === 'hideout') {
-    g.moveTo(x, y - r * 1.3); g.lineTo(x + r * 1.2, y - r * 0.2); g.lineTo(x + r, y + r); g.lineTo(x - r, y + r); g.lineTo(x - r * 1.2, y - r * 0.2); g.closePath();
+  if (kind === 'market') {
+    // Market: a hexagon.
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); }
+    g.closePath();
+  } else if (kind === 'loot-premium') {
+    // Premium loot: a bigger diamond.
+    g.moveTo(x, y - r * 1.05); g.lineTo(x + r * 1.05, y); g.lineTo(x, y + r * 1.05); g.lineTo(x - r * 1.05, y); g.closePath();
+  } else if (kind === 'loot') {
+    // Loot: a small square, smaller than the places you drive to.
+    g.rect(x - r * 0.55, y - r * 0.55, r * 1.1, r * 1.1);
   } else {
     g.arc(x, y, r, 0, Math.PI * 2);
   }

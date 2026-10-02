@@ -1,7 +1,7 @@
 {
-  "name": "SHINE — A Prohibition Bootlegging Demo",
+  "name": "SHINE — Roads of 1922 Baltimore",
   "short_name": "SHINE",
-  "description": "Run moonshine through 1920s Baltimore and beat the heat.",
+  "description": "Work the roads of 1920s Baltimore, pack the truck and sell what you find.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

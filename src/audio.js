@@ -1,5 +1,5 @@
 import { Music } from './music.js';
-import { JUICE, juice } from './juice.js';
+import { juice } from './juice.js';
 
 // Procedural audio (no asset files). Everything routes through master -> (music | sfx)
 // buses so volume settings, mute and pause apply everywhere. Created after a user
@@ -26,8 +26,7 @@ export class Audio {
     this.sfx = ctx.createGain();
     this.sfx.connect(this.master);
     this.musicBus = ctx.createGain();
-    this.duck = ctx.createGain();                  // the radio ducks under nearby sirens
-    this.musicBus.connect(this.duck).connect(this.master);
+    this.musicBus.connect(this.master);
     this.noise = this._noiseBuffer(2);
 
     // Engine: two saws an octave apart through a lowpass; an LFO on the gain gives the
@@ -52,25 +51,6 @@ export class Audio {
     this.engine2.connect(sub).connect(this.engineFilter);
     this.engineFilter.connect(this.engineGain).connect(this.sfx);
     for (const o of [this.engine, this.engine2, putter]) o.start();
-
-    // Siren: a wailing mechanical siren; its pitch shifts with the Doppler effect.
-    this.siren = ctx.createOscillator();
-    this.siren.type = 'triangle';
-    this.siren.frequency.value = 700;
-    this.sirenGain = ctx.createGain();
-    this.sirenGain.gain.value = 0;
-    // Distant sirens are muffled; the filter opens as they close in.
-    this.sirenFilter = ctx.createBiquadFilter();
-    this.sirenFilter.type = 'lowpass';
-    this.sirenFilter.frequency.value = 900;
-    this.siren.connect(this.sirenFilter).connect(this.sirenGain).connect(this.sfx);
-    this.sirenLfo = ctx.createOscillator();
-    this.sirenLfo.frequency.value = 0.9;
-    const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 260;
-    this.sirenLfo.connect(lfoDepth).connect(this.siren.frequency);
-    this.siren.start();
-    this.sirenLfo.start();
 
     // Looping noise beds: tyre screech and rain.
     const loop = (freq, q, type = 'bandpass') => {
@@ -135,7 +115,7 @@ export class Audio {
     return this.radio;
   }
 
-  // s: { speed01, rpm01, throttle01, slip01, siren01, near01, doppler, hot, rain01, crickets, jazz01 }
+  // s: { speed01, rpm01, throttle01, slip01, rain01, crickets, jazz01 }
   update(s) {
     if (!this.enabled || !this.active) return;
     const t = this.ctx.currentTime;
@@ -145,37 +125,28 @@ export class Audio {
     this.engineFilter.frequency.setTargetAtTime(320 + rpm * 1500 + load * 900, t, 0.06);
     this.engineGain.gain.setTargetAtTime(0.045 + s.speed01 * 0.05 + load * 0.035, t, 0.08);
     this.putterDepth.gain.setTargetAtTime(0.03 * (1 - Math.min(1, s.speed01 * 4)), t, 0.1);
-    // Sirens: a muffled wail in the distance as the heat rises, bright and loud up close.
-    // (With juice off they play as they always did: full and unfiltered.)
-    this.sirenGain.gain.setTargetAtTime(0.045 * s.siren01 * (JUICE.enabled ? JUICE.audio.siren : 1), t, 0.15);
-    this.sirenFilter.frequency.setTargetAtTime(JUICE.enabled ? 700 + 4300 * (s.near01 || 0) : 20000, t, 0.2);
-    this.siren.detune.setTargetAtTime(1200 * Math.log2(s.doppler || 1), t, 0.1);
     this.screechGain.gain.setTargetAtTime(0.09 * s.slip01 * (juice('audio', 'squeal') || 1), t, 0.05);
     this.rainGain.gain.setTargetAtTime(0.05 * (s.rain01 || 0), t, 0.5);
     this.windGain.gain.setTargetAtTime(0.07 * s.speed01 * s.speed01 * juice('audio', 'wind'), t, 0.3);
-    this.duck.gain.setTargetAtTime(1 - juice('audio', 'duck') * Math.min(1, (s.near01 || 0) * 1.4) * (s.siren01 > 0 ? 1 : 0), t, 0.25);
     // Jazz from a club down the street (only plays while you're near one).
     const jazz = (s.jazz01 || 0) * juice('audio', 'nightBed');
     if (jazz > 0.02 !== this.jazz.on) this.jazz.setOn(jazz > 0.02);
     this.jazzGain.gain.setTargetAtTime(0.5 * jazz, t, 0.4);
-    this.music.hot = !!s.hot;
     if (s.crickets && t > this._cricketAt && juice('audio', 'nightBed')) {
       this._chirp(t);
       this._cricketAt = t + 0.6 + Math.random() * 2.2;
     }
   }
 
-  // Fade the engine and siren to silence (busted screen, title).
+  // Fade the engine and the road to silence (the title screen).
   setActive(on) {
     this.active = on;
     if (!this.enabled) return;
     if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume().catch(() => {});
     if (!on) {
       const t = this.ctx.currentTime;
-      for (const g of [this.engineGain, this.sirenGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain]) g.gain.setTargetAtTime(0, t, 0.05);
-      this.duck.gain.setTargetAtTime(1, t, 0.05);
+      for (const g of [this.engineGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain]) g.gain.setTargetAtTime(0, t, 0.05);
       this.putterDepth.gain.setTargetAtTime(0, t, 0.05);
-      this.music.hot = false;
     }
   }
 
@@ -237,6 +208,33 @@ export class Audio {
     o.connect(og).connect(this.sfx);
     o.start(t);
     o.stop(t + 0.3);
+  }
+
+  // A piece of loot thrown aboard: a quick wooden knock and a bright two-note ping.
+  pickup() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [freq, delay, vol] of [[1568, 0, 0.1], [2349, 0.07, 0.08]]) {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(vol, t + delay);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + delay + 0.35);
+      o.connect(g).connect(this.sfx);
+      o.start(t + delay);
+      o.stop(t + delay + 0.4);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 700;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random(), 0.15);
   }
 
   // Cash register: a bell and the drawer.

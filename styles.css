@@ -1,8 +1,6 @@
 :root {
   --gold: #d8b25a;
   --amber: #e0a83a;
-  --blue: #5aa7d8;
-  --red: #d8453a;
   --ink: #0d0b08;
   --paper: #ece3cf;
   --muted: #b6ab90;
@@ -57,19 +55,8 @@ html, body {
 #btn-mute.muted .cross { display: inline; }
 #btn-mute.muted .wave { display: none; }
 
-#heat { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.heat-label { font-size: calc(15px * var(--ts)); color: #c9c0aa; letter-spacing: 3px; }
-#stars i { font-style: normal; font-size: calc(28px * var(--ts)); color: rgba(255, 255, 255, 0.18); margin-left: 2px; }
-#stars i.on { color: var(--red); text-shadow: 0 0 10px rgba(216, 69, 58, 0.8); }
-#heat.hot .heat-label { color: var(--red); }
-#heat-status { min-height: 18px; margin-top: 2px; font-size: calc(13px * var(--ts)); letter-spacing: 2px; color: var(--paper); text-shadow: 0 1px 4px #000; }
-#heat-status.alarm { color: #ff8a7a; animation: pulse 0.7s ease-in-out infinite alternate; }
-@keyframes pulse { from { opacity: 1; } to { opacity: 0.45; } }
-
-.meter { width: 150px; height: 6px; margin-top: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; overflow: hidden; }
-.meter > div { height: 100%; background: var(--blue); transform-origin: left; transform: scaleX(0); }
-#heat-meter.building > div { background: var(--red); }
-#heat-meter.idle { visibility: hidden; }
+/* Free roam: no arrow until there's somewhere to deliver to. */
+.hud-banner[data-kind="roam"] #objective-arrow { display: none; }
 
 .hud-banner {
   position: absolute;
@@ -90,13 +77,9 @@ html, body {
   border: 1px solid rgba(216, 178, 90, 0.5);
   border-radius: 2px;
 }
-.hud-banner[data-kind="still"] { border-color: var(--amber); }
-.hud-banner[data-kind="drop"] { border-color: var(--blue); }
 #objective-text { overflow: hidden; text-overflow: ellipsis; }
 #objective-dist { color: var(--gold); font-variant-numeric: tabular-nums; }
 #objective-arrow { width: 22px; height: 22px; align-self: center; fill: var(--gold); flex: none; filter: drop-shadow(0 0 4px rgba(242, 197, 92, 0.6)); }
-.hud-banner[data-kind="still"] #objective-arrow { fill: var(--amber); }
-.hud-banner[data-kind="drop"] #objective-arrow { fill: var(--blue); }
 
 #toast {
   position: absolute;
@@ -114,9 +97,6 @@ html, body {
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 #toast.gold { color: var(--gold); font-weight: bold; }
-#toast.amber { color: var(--amber); }
-#toast.red { color: #ff7a6a; }
-#toast.blue { color: #8cc8f0; }
 
 #cash-pop {
   position: absolute; top: 38%; left: 50%; transform: translate(-50%, 0);
@@ -132,21 +112,6 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -50px) scale(1); }
 }
 
-#bust { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); text-align: center; }
-.bust-label { font-size: calc(16px * var(--ts)); letter-spacing: 2px; color: #ff8a7a; text-shadow: 0 2px 6px #000; animation: pulse 0.5s ease-in-out infinite alternate; }
-.bust-meter { width: min(320px, 70vw); height: 10px; margin: 8px auto 0; border: 1px solid rgba(216, 69, 58, 0.7); }
-.bust-meter > div { background: var(--red); }
-
-#hint {
-  position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 14px;
-  max-width: min(620px, calc(100vw - 2 * var(--gutter)));
-  padding: 10px 14px 10px 18px;
-  font-size: calc(16px * var(--ts)); line-height: 1.4; color: var(--paper);
-  background: rgba(13, 11, 8, 0.82); border: 1px solid var(--gold); border-radius: 4px;
-  pointer-events: auto; animation: hintin 0.3s ease-out;
-}
-@keyframes hintin { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .text-btn { font: inherit; font-size: calc(13px * var(--ts)); letter-spacing: 1px; color: var(--gold); background: none; border: 1px solid rgba(216, 178, 90, 0.5); border-radius: 3px; padding: 6px 10px; cursor: pointer; white-space: nowrap; min-height: 34px; }
 
 .pill {
@@ -164,9 +129,6 @@ html, body {
 #speedo { font-size: calc(18px * var(--ts)); color: #c9c0aa; text-shadow: 0 2px 6px #000; }
 #speedo b { font-size: calc(34px * var(--ts)); color: var(--paper); font-variant-numeric: tabular-nums; }
 
-#flash { position: fixed; inset: 0; z-index: 11; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(216, 69, 58, 0) 45%, rgba(216, 69, 58, 0.55) 100%); }
-#flash.hit { animation: flash 0.45s ease-out; }
-@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
 
 /* ---------- Touch controls ---------- */
 #touch { position: fixed; inset: 0; z-index: 9; pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -185,8 +147,6 @@ html, body {
 body.touch-mode .hud-bl { top: 70px; bottom: auto; }
 body.touch-mode #minimap { width: 120px; height: 120px; }
 body.touch-mode .hud-br { bottom: 250px; }
-body.touch-mode #hint { bottom: 200px; }
-body.touch-mode #bust { bottom: 260px; }
 
 /* ---------- Overlays ---------- */
 /* Overlays scroll when their card is taller than the screen, so every button stays
@@ -201,13 +161,11 @@ body.touch-mode #bust { bottom: 260px; }
   padding: max(16px, env(safe-area-inset-top)) var(--gutter) max(16px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 35%, rgba(40, 30, 15, 0.55), rgba(3, 4, 7, 0.94));
 }
-#pause, #settings, #help, #map, #confirm, #orders, #garage, #ledger, #dialog { background: rgba(3, 4, 7, 0.82); z-index: 25; }
-#garage, #ledger { z-index: 26; }
+#pause, #settings, #help, #map, #confirm, #ledger { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#ledger { z-index: 26; }
 #confirm { z-index: 30; }
 /* Menus stack on top of each other, so their cards are solid (nothing bleeds through). */
-#pause .overlay-card, #settings .overlay-card, #help .overlay-card, #map .overlay-card, #confirm .overlay-card,
-#orders .overlay-card, #garage .overlay-card, #dialog .overlay-card { background: #0c0b09; }
-#dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.55)); }
+#pause .overlay-card, #settings .overlay-card, #help .overlay-card, #map .overlay-card, #confirm .overlay-card { background: #0c0b09; }
 
 .overlay-card {
   margin: auto;
@@ -231,7 +189,6 @@ body.touch-mode #bust { bottom: 260px; }
   text-shadow: 0 4px 24px rgba(216, 178, 90, 0.4);
 }
 .title.small { font-size: calc(40px * var(--ts)); letter-spacing: 8px; margin-bottom: 18px; }
-.gameover-title { color: var(--red); text-shadow: 0 4px 24px rgba(192, 57, 43, 0.4); }
 
 .subtitle { margin: 0 0 18px; font-size: calc(clamp(12px, 2.6vw, 16px) * var(--ts)); letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
 .story { font-size: calc(clamp(15px, 3.4vw, 17px) * var(--ts)); line-height: 1.55; color: #d8cfb8; margin: 0 0 16px; }
@@ -241,10 +198,7 @@ body.touch-mode #bust { bottom: 260px; }
 
 .gold { color: var(--gold); font-weight: bold; }
 .amber { color: var(--amber); font-weight: bold; }
-.blue { color: var(--blue); font-weight: bold; }
-.red { color: var(--red); font-weight: bold; }
-.green { color: #8fd18a; font-weight: bold; }
-.badge { display: inline-block; margin-left: 6px; padding: 2px 8px; font-size: 12px; letter-spacing: 2px; color: var(--ink); background: var(--gold); border-radius: 2px; vertical-align: middle; }
+.cream { color: var(--paper); font-weight: bold; }
 
 .btn-col { display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 360px; margin: 0 auto; }
 .btn-row { display: flex; gap: 10px; justify-content: center; }
@@ -309,28 +263,15 @@ body.touch-mode #bust { bottom: 260px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Clock, status pill */
+/* Clock */
 #clock { margin-top: 2px; font-size: calc(14px * var(--ts)); letter-spacing: 2px; color: #c9c0aa; text-shadow: 0 1px 4px #000; }
-#status-pill.disguised { color: #9fd89a; border-color: rgba(143, 209, 138, 0.7); }
-#status-pill.speeding { color: #ff8a7a; border-color: rgba(216, 69, 58, 0.7); }
-#status-pill.safe { color: #8cc8f0; border-color: rgba(90, 167, 216, 0.7); }
 
-/* Order book */
-#orders-body { display: flex; flex-direction: column; gap: 10px; }
-.order { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 12px 16px; font: inherit; color: var(--paper); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(216, 178, 90, 0.5); border-radius: 4px; cursor: pointer; }
-.order:hover, .order:focus-visible { background: rgba(216, 178, 90, 0.14); border-color: var(--gold); outline: none; }
-.order.locked { opacity: 0.45; cursor: not-allowed; }
-.order-key { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--gold); border-radius: 50%; color: var(--gold); font-weight: bold; }
-.order-main { display: flex; flex-direction: column; gap: 2px; font-size: calc(15px * var(--ts)); }
-.order-main small { color: var(--muted); font-size: calc(13px * var(--ts)); }
-.order-pay { font-size: calc(22px * var(--ts)); color: var(--gold); font-weight: bold; white-space: nowrap; }
-
-/* Garage */
-#garage-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; }
+/* Market: what's for sale, then the upgrades */
+#market-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; max-height: 52vh; overflow-y: auto; }
+.market-head { margin: 8px 0 0; font-size: calc(13px * var(--ts)); letter-spacing: 3px; color: var(--gold); }
 .upgrade { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid rgba(216, 178, 90, 0.3); border-radius: 4px; }
 .upgrade b { font-size: calc(16px * var(--ts)); color: var(--paper); }
 .upgrade small { display: block; color: var(--muted); font-size: calc(13px * var(--ts)); margin-top: 2px; }
-.upgrade.bribe { border-color: rgba(90, 167, 216, 0.5); }
 .pips { margin-left: 10px; }
 .pips i { display: inline-block; width: 10px; height: 10px; margin-right: 3px; border-radius: 50%; border: 1px solid var(--gold); }
 .pips i.on { background: var(--gold); }
@@ -345,20 +286,11 @@ body.touch-mode #bust { bottom: 260px; }
 #ledger-runs { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-family: "Courier New", Courier, monospace; font-size: calc(13px * var(--ts)); text-align: left; }
 #ledger-runs th { color: var(--gold); font-weight: normal; border-bottom: 1px solid rgba(216, 178, 90, 0.5); padding: 4px; }
 #ledger-runs td { padding: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #d8cfb8; }
-#ledger-runs tr.busted td { color: #e89a90; }
-
-/* Dialogue */
-.dialog-card { max-width: 640px; text-align: left; }
-.dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
-#dialog-face { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--gold); border-radius: 50%; font-weight: bold; letter-spacing: 1px; }
-#dialog-name { font-size: calc(15px * var(--ts)); letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
-#dialog-text { font-size: calc(clamp(17px, 3.6vw, 20px) * var(--ts)); line-height: 1.55; min-height: 4.8em; margin: 0 0 18px; color: var(--paper); }
-#dialog.narration #dialog-text { font-style: italic; color: #d8cfb8; }
+#ledger-runs tr.spent td { color: #e89a90; }
 
 /* Reduced motion: no flashing, pulsing or popping. */
 html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::after { animation: none !important; transition: none !important; }
 html.reduced-motion #cash-pop.show { opacity: 1; }
-html.reduced-motion #flash { display: none; }
 
 /* Short landscape phones: tighten everything up. */
 @media (max-height: 500px) {
@@ -379,7 +311,7 @@ html.reduced-motion #flash { display: none; }
 /* Model credits on the How to play screen. */
 .credits { font-size: 0.72rem; opacity: 0.6; margin: 0.8rem 0 0.4rem; line-height: 1.4; }
 
-/* Game-feel UI (JUICE.ui): cash pop, heat bump/throb, objective slide, spotted flash. */
+/* Game-feel UI (JUICE.ui): cash pop, objective slide. */
 #cash { display: inline-block; transform-origin: left center; }
 #cash.pop { animation: cashswell var(--roll, 0.9s) ease-out; }
 @keyframes cashswell {
@@ -387,27 +319,84 @@ html.reduced-motion #flash { display: none; }
   18% { transform: scale(var(--pop, 1.35)); color: #fff2c4; text-shadow: 0 0 18px rgba(242, 197, 92, 0.9); }
   100% { transform: scale(1); }
 }
-#heat { transform-origin: right center; }
-#heat.bump { animation: heatbump 0.6s ease-out; }
-@keyframes heatbump {
-  0% { transform: scale(1); }
-  15% { transform: scale(1.35) translateX(-4px); }
-  30% { transform: scale(1.2) translateX(5px); }
-  45% { transform: scale(1.15) translateX(-4px); }
-  60% { transform: scale(1.08) translateX(3px); }
-  100% { transform: scale(1); }
-}
-#heat-meter.rising { animation: throb 0.5s ease-in-out infinite alternate; }
-@keyframes throb { from { box-shadow: 0 0 0 rgba(216, 69, 58, 0); } to { box-shadow: 0 0 14px rgba(216, 69, 58, 0.9); transform: scaleY(1.5); } }
 .hud-banner.slide { animation: bannerin var(--slide, 0.35s) cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 @keyframes bannerin { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-#siren-flash { position: fixed; inset: 0; z-index: 11; pointer-events: none; opacity: 0; }
-#siren-flash.on { animation: siren 1.2s steps(1) forwards; }
-@keyframes siren {
-  0% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(230, 40, 30, 0.85), inset -70px 0 90px -40px rgba(40, 80, 255, 0.85); }
-  25% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(40, 80, 255, 0.85), inset -70px 0 90px -40px rgba(230, 40, 30, 0.85); }
-  50% { opacity: var(--strength, 1); box-shadow: inset 70px 0 90px -40px rgba(230, 40, 30, 0.85), inset -70px 0 90px -40px rgba(40, 80, 255, 0.85); }
-  75% { opacity: calc(var(--strength, 1) * 0.6); box-shadow: inset 70px 0 90px -40px rgba(40, 80, 255, 0.7), inset -70px 0 90px -40px rgba(230, 40, 30, 0.7); }
-  100% { opacity: 0; }
+/* ---------- The trunk ---------- */
+#trunk-grid {
+  --cell: min(64px, calc((100vw - 96px) / var(--cols, 5)));
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: 0;
+  justify-content: center;
+  margin: 10px auto;
+  padding: 8px;
+  width: max-content;
+  background: var(--d-shadow-teal, #1b2530);
+  border: 2px solid var(--d-slate, #2f3b47);
+  border-radius: 6px;
+  outline: none;
+  touch-action: none;
 }
-html.reduced-motion #siren-flash { display: none; }
+#trunk-grid:focus-visible { box-shadow: 0 0 0 2px var(--d-amber, var(--gold)); }
+#trunk-grid.nope { animation: trunk-nope 0.3s; }
+@keyframes trunk-nope { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+#trunk-grid .cell {
+  border: 2px solid color-mix(in srgb, var(--d-cream, #efe6d0) 6%, transparent);
+  background: var(--d-slate, #2f3b47);
+  color: var(--d-cream, #efe6d0);
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: pointer;
+}
+/* Selected cell and a valid placement: amber outline; an invalid one: taillight red. */
+#trunk-grid .cell.cursor { box-shadow: inset 0 0 0 3px var(--d-amber, var(--gold)); }
+#trunk-grid .cell.ghost { box-shadow: inset 0 0 0 3px var(--d-amber, var(--gold)); }
+#trunk-grid .cell.ghost.bad { box-shadow: inset 0 0 0 3px var(--d-taillight, #d8402f); }
+#trunk .hint.small { font-size: calc(12px * var(--ts)); opacity: 0.75; }
+@media (prefers-reduced-motion: reduce) { #trunk-grid.nope { animation: none; } }
+
+/* ---------- The palette (CONFIG.dredge.palette, set on <html> as --d-* with html.dredge) ----------
+   Cream text on dark teal panels; amber is the accent; copper edges; taillight red only for
+   "no". hud.js sets html.dredge as the game boots; the rules above are the fallback look
+   for the loading and error screens. */
+html.dredge {
+  --gold: var(--d-amber);
+  --amber: var(--d-amber);
+  --paper: var(--d-cream);
+  --ink: var(--d-shadow-teal);
+  --muted: color-mix(in srgb, var(--d-cream) 72%, var(--d-shadow-teal));
+}
+html.dredge, html.dredge body { background: var(--d-shadow-teal); }
+html.dredge .overlay { background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--d-slate) 55%, transparent), color-mix(in srgb, var(--d-shadow-teal) 94%, black)); }
+html.dredge .overlay-card,
+html.dredge #pause .overlay-card, html.dredge #settings .overlay-card, html.dredge #help .overlay-card, html.dredge #map .overlay-card,
+html.dredge #confirm .overlay-card, html.dredge #trunk .overlay-card, html.dredge #market .overlay-card {
+  background: var(--d-shadow-teal);
+  border-color: var(--d-copper);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--d-amber) 12%, transparent);
+}
+html.dredge .title { text-shadow: 0 4px 24px color-mix(in srgb, var(--d-amber) 35%, transparent); }
+html.dredge .story { color: var(--d-cream); }
+html.dredge .btn:hover { background: color-mix(in srgb, var(--d-amber) 80%, var(--d-cream)); }
+html.dredge .btn.secondary { border-color: var(--d-copper); }
+html.dredge .btn.secondary:hover, html.dredge .btn.secondary:focus-visible { background: color-mix(in srgb, var(--d-copper) 24%, transparent); color: var(--d-cream); }
+html.dredge .btn:focus-visible, html.dredge .text-btn:focus-visible { outline-color: var(--d-cream); }
+html.dredge .upgrade { border-color: var(--d-slate); background: color-mix(in srgb, var(--d-slate) 40%, transparent); }
+html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: -1px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-cream) 30%, transparent); }
+html.dredge .hud-banner, html.dredge .pill {
+  background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);
+  border-color: color-mix(in srgb, var(--d-copper) 70%, transparent);
+}
+html.dredge .hud-banner[data-kind="market"] { border-color: var(--d-amber); }
+html.dredge #market .btn-row .btn { font-size: calc(14px * var(--ts)); letter-spacing: 1.5px; padding: 10px 12px; }
+html.dredge #objective-arrow { fill: var(--d-amber); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--d-amber) 60%, transparent)); }
+html.dredge #minimap { border-color: var(--d-copper); background: color-mix(in srgb, var(--d-shadow-teal) 80%, transparent); }
+html.dredge #toast { color: var(--d-cream); }
+html.dredge #toast.gold { color: var(--d-amber); }

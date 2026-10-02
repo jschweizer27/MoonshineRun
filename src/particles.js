@@ -191,20 +191,6 @@ export class Particles {
     }
   }
 
-  // Smoke and embers rising from the burning warehouse.
-  fire(dt, x, y, z, w) {
-    if (!this.detail) return;
-    for (let k = this._rate('fire', 30, dt); k > 0; k--) {
-      const ox = (Math.random() - 0.5) * w;
-      this.smoke.emit(x + ox, y, z + (Math.random() - 0.5) * w * 0.5, 0.8, 3 + Math.random() * 2, 0.3,
-        { life: 4, size: 4, grow: 5, color: [0.18, 0.16, 0.15], alpha: 0.55 });
-      if (Math.random() < 0.5) {
-        this.glow.emit(x + ox, y, z, (Math.random() - 0.5) * 3, 4 + Math.random() * 5, (Math.random() - 0.5) * 3,
-          { life: 1.5, size: 0.4, grow: -0.1, color: [1, 0.55, 0.2], alpha: 1, gravity: -1 });
-      }
-    }
-  }
-
   update(dt) {
     this.smoke.update(dt);
     this.glow.update(dt);

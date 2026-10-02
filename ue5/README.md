@@ -1,9 +1,17 @@
 # Shine: Unreal Engine 5 project
 
+> **Frozen: the bootlegging design.** This project mirrors the game's first design, the
+> bootlegging run (stills and drops, heat and evasion, the bust meter, patrols, wanted
+> tiers, pay). The playable web demo in the repo root has since replaced that loop with a
+> loot-and-sell run (pick up loot, pack the trunk, sell in two towns, buy upgrades), and
+> this project has **not** followed it. It is kept as it was, still checked by CI, as a
+> reference and a starting point; nothing in the web game has to be mirrored here.
+
 A **ready-to-open UE5 C++ project** for the full 3D build of *Shine*, following the
-*Moonshine Run Dev Guide*. It carries the same game rules as the playable web demo in the
-repo root (heat, evasion, bust meter, patrols, wanted tiers, pay), with the same numbers, so
-anything tuned in the browser carries straight over.
+*Moonshine Run Dev Guide*. It carries the game rules of the original web demo (heat,
+evasion, bust meter, patrols, wanted tiers, pay), with the same numbers as that version
+(the web files it names below were removed with the bootlegging loop; git history has
+them).
 
 **→ Start with [CHECKLIST.md](CHECKLIST.md)**: step-by-step from installing the engine to
 driving the loop.

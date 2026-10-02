@@ -2,7 +2,7 @@
 // Turns downloaded glTF models (Sketchfab etc.) into small game-ready files in assets/.
 // Its tools aren't project dependencies; install them once, without saving:
 //   npm i --no-save @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions meshoptimizer sharp
-//   node scripts/optimize-models.mjs runner=<file.glb> sedan=<file.glb> rolls=<file.glb> lamp=<file.glb>
+//   node scripts/optimize-models.mjs lamp=<file.glb>
 // (the originals are big downloads and are not kept in the repo).
 //
 // Each model is turned to face -Z (north), scaled to game size, set on the ground and
@@ -20,14 +20,12 @@ import { MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 
 const MODELS = {
-  // Otto's truck: keeps its painted, rusty textures.
-  runner: { out: 'runner.glb', yaw: -Math.PI / 2, length: 4.9, body: 22000, wheel: 900, lights: 'front' },
-  // Prohibition Bureau sedans.
-  sedan: { out: 'bureau-sedan.glb', yaw: Math.PI, length: 4.5, bake: true, body: 14000, wheel: 700, drop: /^Text/, wheelNodes: /wheel|tyre/i, lightNodes: /headlight glass/i },
-  // The garage's 1925 Rolls-Royce Phantom I.
-  rolls: { out: 'rolls-royce.glb', yaw: Math.PI, length: 5.4, bake: true, body: 26000, wheel: 900, wheelNodes: /\/SM_(Wheel|Hubcap)/, lightNodes: /\/SM_Headlightbulb/ },
   // Victorian arc street lamp (no wheels): iron, plus the glowing globe.
   lamp: { out: 'arc-lamp.glb', height: 7.5, bake: true, body: 500, glow: /glass|light/i },
+  // A vehicle takes a `length` instead of a `height` and gets a wheel cut out. The cars the
+  // old bootlegging game used were set up like this one (git history has the others):
+  //   sedan: { out: 'bureau-sedan.glb', yaw: Math.PI, length: 4.5, bake: true, body: 14000, wheel: 700,
+  //            drop: /^Text/, wheelNodes: /wheel|tyre/i, lightNodes: /headlight glass/i },
 };
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));

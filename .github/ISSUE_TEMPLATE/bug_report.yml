@@ -9,7 +9,7 @@ body:
     id: what
     attributes:
       label: What happened?
-      placeholder: e.g. The cops drove through a building near the drop.
+      placeholder: e.g. The truck drove through a building near Lexington Market.
     validations:
       required: true
   - type: textarea
@@ -18,7 +18,7 @@ body:
       label: How can we make it happen again?
       placeholder: |
         1. Start a run
-        2. Pick up shine at the still
+        2. Pick up a piece of loot on York Road
         3. ...
   - type: textarea
     id: expected
