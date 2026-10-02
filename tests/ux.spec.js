@@ -134,8 +134,11 @@ test('the minimap and full map draw the route to the objective', async ({ page }
   await openGame(page);
   await startRun(page);
   // The minimap draws once per rendered frame. Draw it here rather than waiting on real
-  // frames, which can crawl on software-rendered CI machines. Each check reports what it
-  // saw, so a failure says why (a page that didn't answer, an error, or a blank radar).
+  // frames, which can crawl on software-rendered CI machines: there the page was too busy
+  // drawing the 3D view to answer for 15 s at a time. So the real-time loop stops for the
+  // check (one slow answer, once) and starts again after. Each check reports what it saw,
+  // so a failure says why (a page that didn't answer, an error, or a blank radar).
+  await page.evaluate(() => window.shine.game.renderer.setAnimationLoop(null));
   const checks = [];
   const look = () => page.evaluate(() => {
     const t0 = performance.now();
@@ -164,6 +167,7 @@ test('the minimap and full map draw the route to the objective', async ({ page }
   }
   expect(lit, `the radar never drew; checks: ${JSON.stringify(checks.slice(-4))}`).toBeGreaterThan(200);
   expect(await page.evaluate(() => window.shine.game.minimap.route.length)).toBeGreaterThan(1);
+  await page.evaluate(() => { const g = window.shine.game; g.renderer.setAnimationLoop(() => g._loop()); });
   await page.keyboard.press('Tab');
   await expect(page.locator('#map')).toBeVisible();
   expect(await state(page)).toBe('paused');
