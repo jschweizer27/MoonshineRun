@@ -49,7 +49,9 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   views with draw-call counts), `npm run reel -- <label>` and `node scripts/playtest.mjs
   <label>` write screenshots / contact sheets to `artifacts/shots/` (they stop the game
   loop and step it themselves). Headless timings are a software GPU: compare them, don't
-  read them as fps.
+  read them as fps. `node scripts/economy.mjs [minutes] [level]` measures the economy
+  (a road-following autopilot with the clock on: $ per game minute, pickups, each sale);
+  set prices and upgrade costs in `CONFIG.dredge` against it.
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
   parts need no new material. Its headlight beams are additive cones

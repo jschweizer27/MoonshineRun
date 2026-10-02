@@ -540,7 +540,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
   expect(before.broke).toBe(false);
   expect(before.size).toEqual([5, 3]);
   expect(before.look).toBe('stock');
-  expect(before.buttons).toEqual(['BUY $400', 'BUY $500', 'BUY $400', 'BUY $300', 'BUY $250']);
+  expect(before.buttons).toEqual(['BUY $300', 'BUY $350', 'BUY $300', 'BUY $250', 'BUY $200']);
   // Buy one of each from the market screen, by keyboard focus and click.
   for (const id of ['trunk', 'engine', 'handling', 'magnet', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
   const after = await page.evaluate(() => {
@@ -555,14 +555,14 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
       label: document.querySelector('#market-body [data-id="up-trunk"]').textContent,
     };
   });
-  expect(after.cash).toBe(3000 - 400 - 500 - 400 - 300 - 250);
+  expect(after.cash).toBe(3000 - 300 - 350 - 300 - 250 - 200);
   expect(after.maxSpeed).toBe(before.maxSpeed + 3);
   expect(after.grip).toBe(before.grip + 2.5);
   expect(after.radius).toBeCloseTo(before.radius + 1.2, 5);
   expect(after.range).toBe(before.range + 60);
   expect(after.size).toEqual([6, 3]);
   expect(after.corner).toBe('small-crate');                    // the trunk grew around it
-  expect(after.label).toBe('BUY $1,100');
+  expect(after.label).toBe('BUY $800');
   expect(after).toMatchObject({ look: 'reinforced', reinforced: true, stock: false });
   expect(after.programs).toBe(before.programs);                 // the new look compiles and allocates nothing
   expect(after.geometries).toBe(before.geometries);
@@ -663,4 +663,23 @@ test('the game explains itself: the intro and How to Play tell the loot run, not
   for (const old of [/\bthe still\b/i, /\bheat\b/i, /\bbust/i, /\bFeds\b/, /shine aboard/i, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);
   expect(await page.locator('.bootleg-only, .dredge-only').count()).toBe(0);
   await screenshot(page, 'dredge-help');
+});
+
+test('gluts ease as the in-game hours pass: five sold knock 30% off, ten hours later it is back', async ({ page }) => {
+  await openGame(page);
+  const r = await page.evaluate(async () => {
+    const { priceOf, passTime } = await import('/src/market.js');
+    const state = { sold: { 'baltimore:crate': 5 }, clock: 1 };    // within one day: no drift change
+    const fresh = priceOf('baltimore', 'crate', { sold: {}, clock: 1 });
+    const glutted = priceOf('baltimore', 'crate', state);
+    passTime(state, 5);
+    const later = priceOf('baltimore', 'crate', state);
+    passTime(state, 5);
+    return { fresh, glutted, later, recovered: priceOf('baltimore', 'crate', state), left: state.sold };
+  });
+  expect(r.glutted).toBeCloseTo(r.fresh * 0.7, -1);
+  expect(r.later).toBeGreaterThan(r.glutted);
+  expect(r.later).toBeLessThan(r.fresh);
+  expect(r.recovered).toBe(r.fresh);
+  expect(r.left).toEqual({});
 });

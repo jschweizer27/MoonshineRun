@@ -151,7 +151,9 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   truck, loot, trunk, markets and both towns, with draw-call counts), `npm run reel --
   mylabel` (a launch / brake / drift / crash contact sheet with the effect values) and
   `node scripts/playtest.mjs mylabel` (a scripted run from the title screen to both
-  markets), all in `artifacts/shots/`.
+  markets), all in `artifacts/shots/`. `node scripts/economy.mjs 10` plays ten game
+  minutes on autopilot and prints what the run earns a minute, for tuning prices and
+  upgrade costs.
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
   clock stands still), `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in

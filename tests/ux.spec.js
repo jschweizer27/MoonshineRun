@@ -237,7 +237,7 @@ test('the pause menu: resume, map, ledger, settings, help and quit; the ledger k
   await expect(page.locator('#ledger-totals')).toContainText('Upgrades bought1');
   const rows = await page.locator('#ledger-runs tr').allTextContents();
   expect(rows[1]).toContain('Long arm (level 1)');
-  expect(rows[1]).toContain('−$300');
+  expect(rows[1]).toContain('−$250');
   expect(rows[2]).toContain('Sold 1 piece at Lexington Market');
   await screenshot(page, '11-ledger');
 });
