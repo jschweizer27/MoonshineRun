@@ -51,8 +51,8 @@ try {
   // Down a city street at speed, with a gentle weave.
   await page.evaluate(() => { const s = window.shine; s.teleport(0, 150, 0); });
   await page.evaluate(() => window.shine.step(2.5, { throttle: 1 }));
-  await page.evaluate(() => window.shine.step(0.6, { throttle: 1, steer: 0.35 }));
-  await page.evaluate(() => window.shine.step(0.6, { throttle: 1, steer: -0.35 }));
+  await page.evaluate(() => window.shine.step(0.6, { throttle: 1, steer: 0.1 }));     // the arcade truck turns sharply:
+  await page.evaluate(() => window.shine.step(0.6, { throttle: 1, steer: -0.1 }));    // a light touch stays in the street
   await shoot('chase');
 
   // Wide street view: a pedestrian's-eye camera on the corner looking down the avenue.

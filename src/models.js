@@ -55,7 +55,7 @@ function headlightBeams(z, y, x) {
   for (const sx of [-1, 1]) {
     // Narrow end (uv.y = 1) at the lamp, wide end down the road.
     const g = new THREE.CylinderGeometry(0.17, 3.4, len, 18, 1, true).translate(0, -len / 2, 0);
-    g.rotateX(-Math.PI / 2 + 0.07);   // point along -Z, dipped toward the road
+    g.rotateX(Math.PI / 2 - 0.07);    // the wide end ahead (-Z), dipped toward the road
     g.translate(sx * x, y, z - 0.05);
     geos.push(g);
   }

@@ -509,9 +509,15 @@ test('Otto drives the bevelled truck model: one body, four wheels, headlight bea
     g.renderFrame();
     let vehicles = 0;
     g.scene.traverse((o) => { if (o.userData.model) vehicles++; });
-    return { model: m.shell.userData.model, towing: 'trailer' in v || 'rides' in v, wheels: m.wheels.length, beam: !!m.beam, shown: m.group.visible, calls: window.shine.renderInfo().calls, vehicles };
+    // The headlight beams start at the lamps and reach down the road ahead (-Z), not behind.
+    const b = m.beam.geometry;
+    b.computeBoundingBox();
+    const beams = { from: m.lamp[0], ahead: b.boundingBox.min.z, behind: b.boundingBox.max.z };
+    return { model: m.shell.userData.model, towing: 'trailer' in v || 'rides' in v, wheels: m.wheels.length, beam: !!m.beam, shown: m.group.visible, calls: window.shine.renderInfo().calls, vehicles, beams };
   });
   expect(r).toMatchObject({ model: 'truck', towing: false, wheels: 4, beam: true, shown: true, vehicles: 1 });
+  expect(r.beams.ahead).toBeLessThan(r.beams.from - 15);
+  expect(r.beams.behind).toBeLessThan(r.beams.from + 0.5);
   expect(r.calls).toBeLessThan(60);
 });
 
