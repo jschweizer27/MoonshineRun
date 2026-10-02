@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
+import { mainThread, openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
 
 const state = (page) => page.evaluate(() => window.shine.game.state);
 
@@ -156,7 +156,8 @@ test('the minimap and full map draw the route to the objective', async ({ page }
   const deadline = Date.now() + 45_000;
   while (lit <= 200 && Date.now() < deadline) {
     const t0 = Date.now();
-    const r = await Promise.race([look(), new Promise((res) => setTimeout(() => res({ lit: -1, error: 'no answer within 15 s' }), 15_000))]);
+    let r = await Promise.race([look(), new Promise((res) => setTimeout(() => res(null), 15_000))]);
+    if (!r) r = { lit: -1, error: 'no answer within 15 s', where: await mainThread(page) };
     checks.push({ ...r, waited: Date.now() - t0 });
     lit = r.lit;
     if (lit <= 200) await page.waitForTimeout(250);

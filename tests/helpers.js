@@ -21,20 +21,24 @@ export async function waitForBoot(page, timeout = 60_000) {
   try {
     await page.waitForFunction(() => window.__shineReady === true, null, { timeout });
   } catch (err) {
-    let where;
-    try {
-      const cdp = await page.context().newCDPSession(page);
-      await cdp.send('Debugger.enable');
-      const paused = new Promise((res) => cdp.once('Debugger.paused', res));
-      await cdp.send('Debugger.pause');
-      const e = await Promise.race([paused, new Promise((r) => setTimeout(() => r(null), 10_000))]);
-      if (e) where = e.callFrames.slice(0, 12).map((f) => `  at ${f.functionName || '(anonymous)'} ${f.url.split('/').pop()}:${f.location.lineNumber + 1}`).join('\n');
-      else where = 'debugger could not pause the page (renderer or GPU process unresponsive)';
-      await cdp.send('Debugger.resume').catch(() => {});
-    } catch (e2) {
-      where = `diagnostics failed: ${e2.message}`;
-    }
-    throw new Error(`The game did not finish loading within ${timeout / 1000}s. Main thread:\n${where}`, { cause: err });
+    throw new Error(`The game did not finish loading within ${timeout / 1000}s. Main thread:\n${await mainThread(page)}`, { cause: err });
+  }
+}
+
+// Where the page's main thread is right now: pause it in the debugger and read the stack.
+// For failures where the page stops answering.
+export async function mainThread(page) {
+  try {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Debugger.enable');
+    const paused = new Promise((res) => cdp.once('Debugger.paused', res));
+    await cdp.send('Debugger.pause');
+    const e = await Promise.race([paused, new Promise((r) => setTimeout(() => r(null), 10_000))]);
+    await cdp.send('Debugger.resume').catch(() => {});
+    if (!e) return 'debugger could not pause the page (renderer or GPU process unresponsive)';
+    return e.callFrames.slice(0, 12).map((f) => `  at ${f.functionName || '(anonymous)'} ${f.url.split('/').pop()}:${f.location.lineNumber + 1}`).join('\n');
+  } catch (e2) {
+    return `diagnostics failed: ${e2.message}`;
   }
 }
 
