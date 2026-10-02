@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
 // with everything else and nothing is created mid-game. A model that fails to load just
 // leaves the built-in procedural one in its place.
 //
-// MODELS[name] = { body, wheel, glow: BufferGeometry | null, material: Material | null,
+// MODELS[name] = { body, wheel, glow, reinforced: BufferGeometry | null, material: Material | null,
 //                  extras: { size, wheels, wheelRadius, headlights, roof, head } }
 // material is null for models baked to vertex colours: they use the shared vehicle
 // material (models.js MATERIALS.body).
@@ -47,7 +47,7 @@ function unpack(scene) {
     return g;
   };
   return {
-    body: geo(body), wheel: geo(part('wheel')), glow: geo(part('glow')),
+    body: geo(body), wheel: geo(part('wheel')), glow: geo(part('glow')), reinforced: geo(part('reinforced')),
     material: baked ? null : body.material,
     extras: scene.userData || {},
   };

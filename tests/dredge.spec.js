@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun, step, snapshot, screenshot } from './helpers.js';
+import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
 
 // The dredge run (?mode=dredge): free-roam driving, loot, a trunk to pack, towns to sell in.
 // Built beside the bootlegging loop; these tests cover it stage by stage.
@@ -536,4 +536,78 @@ test('the dredge run drives its own bevelled truck model, without a horse box or
   });
   expect(r).toMatchObject({ ride: 'runner', model: 'dredgeTruck', trailer: false, wheels: 4, beam: true, shown: true, truckShown: false });
   expect(r.calls).toBeLessThan(60);
+});
+
+test('upgrades bought at the market change the truck, the trunk, the magnet and the radar, and survive a reload', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const before = await page.evaluate(() => {
+    const g = window.shine.game, info = window.shine.renderInfo();
+    g.dredge.data.cash = 0;
+    const broke = g.dredge.buy('engine');                       // can't afford it
+    g.dredge.data.cash = 3000;
+    g.trunk.place('small-crate', 4, 2);                           // a piece in the far corner stays put
+    g.openMarket();
+    return {
+      broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.dredgePerks.pickupRadius, range: g.dredgePerks.mapRange,
+      size: [g.trunk.cols, g.trunk.rows], look: g.player.look, calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
+      buttons: [...document.querySelectorAll('#market-body [data-id^="up-"]')].map((b) => b.textContent),
+    };
+  });
+  expect(before.broke).toBe(false);
+  expect(before.size).toEqual([5, 3]);
+  expect(before.look).toBe('stock');
+  expect(before.buttons).toEqual(['BUY $400', 'BUY $500', 'BUY $400', 'BUY $300', 'BUY $250']);
+  // Buy one of each from the market screen, by keyboard focus and click.
+  for (const id of ['trunk', 'engine', 'handling', 'magnet', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
+  const after = await page.evaluate(() => {
+    const g = window.shine.game;
+    g.renderFrame();
+    const info = window.shine.renderInfo();
+    return {
+      cash: g.dredge.cash, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.dredgePerks.pickupRadius, range: g.dredgePerks.mapRange,
+      size: [g.trunk.cols, g.trunk.rows], corner: g.trunk.pieceAt(4, 2)?.kind, look: g.player.look,
+      reinforced: g.player.model.looks.reinforced.visible, stock: g.player.model.looks.stock.visible,
+      calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
+      label: document.querySelector('#market-body [data-id="up-trunk"]').textContent,
+    };
+  });
+  expect(after.cash).toBe(3000 - 400 - 500 - 400 - 300 - 250);
+  expect(after.maxSpeed).toBe(before.maxSpeed + 3);
+  expect(after.grip).toBe(before.grip + 2.5);
+  expect(after.radius).toBeCloseTo(before.radius + 1.2, 5);
+  expect(after.range).toBe(before.range + 60);
+  expect(after.size).toEqual([6, 3]);
+  expect(after.corner).toBe('small-crate');                    // the trunk grew around it
+  expect(after.label).toBe('BUY $1,100');
+  expect(after).toMatchObject({ look: 'reinforced', reinforced: true, stock: false });
+  expect(after.programs).toBe(before.programs);                 // the new look compiles and allocates nothing
+  expect(after.geometries).toBe(before.geometries);
+  expect(after.calls).toBe(before.calls);
+
+  // The magnet: a piece 4.2 m to the side is out of reach at level 0 (3.4 m) and in reach now.
+  const grabbed = await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot;
+    g.ui.close('market'); g.resume();
+    g.trunk.clear();
+    for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
+    g.player.place(0, 100, 0);
+    L.kind[0] = 0; L.active[0] = 1; L.x[0] = 4.2; L.z[0] = 100;
+    window.shine.step(0.05);
+    return L.active[0] === 0;
+  });
+  expect(grabbed).toBe(true);
+
+  // A reload keeps the levels and the bigger trunk.
+  await page.reload();
+  await waitForBoot(page);
+  await startRun(page);
+  const reloaded = await page.evaluate(() => {
+    const g = window.shine.game;
+    return { levels: { ...g.dredge.data.upgrades }, size: [g.trunk.cols, g.trunk.rows], maxSpeed: g.player.t.maxSpeed, look: g.player.look };
+  });
+  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1 });
+  expect(reloaded.size).toEqual([6, 3]);
+  expect(reloaded.maxSpeed).toBe(after.maxSpeed);
+  expect(reloaded.look).toBe('reinforced');
 });

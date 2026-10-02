@@ -229,8 +229,18 @@ export const CONFIG = {
       recoverPerHour: 0.01, // and the price creeps back 1% per in-game hour
       stopSpeed: 3,         // m/s: slow to this inside a market to open it
     },
-    // The trunk: a grid to pack loot into (upgrades will grow it).
+    // The trunk: a grid to pack loot into (the trunk upgrade grows it).
     trunk: { cols: 5, rows: 3 },
+    // Upgrades, bought at a market. COSTS AND STEPS ARE PLACEHOLDERS: tune after playtesting.
+    // `costs` are levels 1-3; each level adds `step` to the base value (trunk: `sizes` per
+    // level, from the base 5x3 at level 0).
+    upgrades: {
+      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [400, 1100, 2400], sizes: [[5, 3], [6, 3], [6, 4], [7, 4]] },
+      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [500, 1300, 2800], step: { maxSpeed: 3, accel: 2 } },
+      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [400, 1000, 2200], step: { grip: 2.5, turnRate: 0.15 } },
+      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [300, 800, 1800], step: { pickupRadius: 1.2 } },
+      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [250, 700, 1500], step: { mapRange: 60 } },
+    },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
     // cream for low and mid, copper for high, and a strong amber for premium.

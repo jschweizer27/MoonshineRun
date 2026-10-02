@@ -5,6 +5,8 @@
 // colours and a _SURF attribute (roughness, metalness, clearcoat), so it uses the shared
 // vehicle material: no textures, no new shaders. Faces -Z, wheels cut out as their own
 // mesh (axle along X), wheel spots, headlights and roof height in the scene extras.
+// Two bodies: `body` (stock) and `reinforced` (the trunk upgrade: iron-strapped rails, a
+// taller stake fence and a darker, tarred canvas). The game shows one or the other.
 //   node scripts/make-truck.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,7 +22,7 @@ const OLIVE = 0x4a5240, OLIVE_DARK = 0x3a4132, BLACK = 0x18191a, CHASSIS = 0x202
 const GLASS = 0x1a222c, WOOD = 0x6e4a30, WOOD_LIGHT = 0x8a603c, CANVAS = 0x8a846c, CANVAS_RIB = 0x5c5848, TIRE = 0x161616;
 const FINISH = { paint: [0.5, 0.12, 0.6], metal: [0.3, 0.9, 0], glass: [0.06, 0, 1], rubber: [0.88, 0, 0], wood: [0.78, 0, 0.1], canvas: [0.92, 0, 0] };
 
-const parts = { body: [], wheel: [] };
+const parts = { body: [], wheel: [], rails: [] };
 const add = (mesh, geo, color, finish, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
   geo.rotateX(rx).rotateY(ry).rotateZ(rz).translate(x, y, z);
   parts[mesh].push({ geo, color, finish });
@@ -72,6 +74,15 @@ for (const z of [BED_Z - 0.95, BED_Z, BED_Z + 0.95]) add('body', arch(0.92, 0.06
 // The cover's closed front (a half disc against the cab).
 add('body', new THREE.CircleGeometry(0.9, 9, 0, Math.PI), CANVAS, 'canvas', 0, 1.5, BED_Z - BED_L / 2 + 0.05, 0, Math.PI);
 
+// --- Reinforced: iron straps along the bed, taller stakes with a top rail -------------------
+const IRON = 0x2a2c2e;
+for (const s of [-1, 1]) {
+  for (const y of [1.0, 1.42]) add('rails', bev(0.05, 0.07, BED_L + 0.06, 0.015), IRON, 'metal', s * 0.93, y, BED_Z);
+  for (const z of [BED_Z - 0.98, BED_Z, BED_Z + 0.98]) add('rails', bev(0.1, 1.05, 0.1, 0.02), 0x2e2216, 'wood', s * 0.94, 1.36, z);
+  add('rails', bev(0.09, 0.09, BED_L + 0.1, 0.02), WOOD_LIGHT, 'wood', s * 0.94, 1.9, BED_Z);
+}
+add('rails', bev(1.9, 0.07, 0.05, 0.015), IRON, 'metal', 0, 1.2, BED_Z + BED_L / 2 + 0.04);   // tailgate strap
+
 // --- Wheel (centred, axle along X) ----------------------------------------------------
 add('wheel', new THREE.TorusGeometry(R - 0.09, 0.1, 6, 16), TIRE, 'rubber', 0, 0, 0, 0, Math.PI / 2);
 add('wheel', cyl(R - 0.17, 0.14, 12), OLIVE_DARK, 'paint', 0, 0, 0, 0, 0, Math.PI / 2);
@@ -79,14 +90,14 @@ add('wheel', cyl(R * 0.3, 0.22, 8), BRASS, 'metal', 0, 0, 0, 0, 0, Math.PI / 2);
 for (let k = 0; k < 4; k++) add('wheel', bev(0.06, 0.05, (R - 0.18) * 2, 0.015), BLACK, 'metal', 0.075, 0, 0, (k * Math.PI) / 4);
 
 // --- Flatten each mesh: non-indexed, flat normals, colour and finish per vertex ---------
-function bake(list) {
+function bake(list, recolor = {}) {
   const pos = [], nor = [], col = [], surf = [];
   const c = new THREE.Color();
   for (const { geo, color, finish } of list) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     g.deleteAttribute('normal');
     g.computeVertexNormals();                                   // non-indexed: flat facets
-    c.setHex(color);                                            // linear
+    c.setHex(recolor[color] ?? color);                          // linear
     const f = FINISH[finish];
     const p = g.attributes.position, n = g.attributes.normal;
     for (let i = 0; i < p.count; i++) {
@@ -135,6 +146,8 @@ function writeGLB(meshes, extras) {
 }
 
 const body = bake(parts.body), wheel = bake(parts.wheel);
+// The reinforced body: the same truck, the extra rails, and the canvas tarred darker.
+const reinforced = bake([...parts.body, ...parts.rails], { [CANVAS]: 0x4e4a3c, [CANVAS_RIB]: 0x2e2c24 });
 const xs = body.POSITION.filter((_, i) => i % 3 === 0), ys = body.POSITION.filter((_, i) => i % 3 === 1), zs = body.POSITION.filter((_, i) => i % 3 === 2);
 const size = [Math.max(...xs) - Math.min(...xs), Math.max(...ys), Math.max(...zs) - Math.min(...zs)].map((v) => +v.toFixed(3));
 const extras = {
@@ -144,5 +157,5 @@ const extras = {
   headlights: [[-0.6, 1.24, -2.38], [0.6, 1.24, -2.38]],
   roof: +Math.max(...ys).toFixed(3),
 };
-fs.writeFileSync(OUT, writeGLB({ body, wheel }, extras));
+fs.writeFileSync(OUT, writeGLB({ body, reinforced, wheel }, extras));
 console.log(`wrote ${path.relative(root, OUT)}: ${body.POSITION.length / 9} + ${wheel.POSITION.length / 9} triangles, ${fs.statSync(OUT).size} bytes`, JSON.stringify(extras));

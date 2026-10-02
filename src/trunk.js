@@ -102,6 +102,14 @@ export class Trunk {
     this.pieces.clear();
   }
 
+  // The same pieces in the same places, in a trunk of another size (a bigger trunk always
+  // holds them; in a smaller one, pieces that no longer fit are left out).
+  resized(cols, rows) {
+    const t = new Trunk(cols, rows);
+    for (const p of this.pieces.values()) t.place(p.kind, p.x, p.y, p.rot);
+    return t;
+  }
+
   toJSON() {
     return { cols: this.cols, rows: this.rows, pieces: [...this.pieces.values()].map(({ kind, rot, x, y }) => ({ kind, rot, x, y })) };
   }

@@ -43,6 +43,14 @@ export class Vehicle {
     this.rides[name] = { model, trailer: null };
   }
 
+  // The body's look (the dredge truck: 'stock' or 'reinforced'); one mesh shows at a time.
+  setLook(name) {
+    const looks = this.model.looks || {};
+    if (!looks[name]) name = 'stock';
+    for (const [k, m] of Object.entries(looks)) m.visible = k === name;
+    this.look = name;
+  }
+
   setRide(name) {
     const r = this.rides?.[name] || this.rides?.truck;
     if (!r) return;

@@ -44,8 +44,9 @@ export function showOrders(ui, { still, options }, onPick) {
 // ---------- Town market (dredge run) ----------
 // One row per kind of loot in the trunk: how many, what the next one fetches, SELL. Prices
 // drop as you sell (the glut), so the row shows the total for selling them all.
-export function showMarket(ui, { town, trunk, career, onSell, onTrunk, onBack }) {
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, onSell, onBuy, onTrunk, onBack }) {
   const render = () => {
+    const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
     $('market-cash').textContent = money(career.cash);
     const body = $('market-body');
@@ -64,6 +65,18 @@ export function showMarket(ui, { town, trunk, career, onSell, onTrunk, onBack })
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
           el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`), el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.tier})`)), btn));
+    }
+    // Upgrades for the truck, paid from the same cash.
+    if (onBuy) {
+      body.append(el('h3', { class: 'market-head' }, 'UPGRADES'));
+      for (const [id, u] of Object.entries(CONFIG.dredge.upgrades)) {
+        const lvl = career.level(id), cost = career.nextCost(id), max = u.costs.length;
+        const pips = el('span', { class: 'pips', 'aria-label': `level ${lvl} of ${max}` }, ...u.costs.map((_, k) => el('i', { class: k < lvl ? 'on' : '' })));
+        const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `up-${id}` }, cost == null ? 'MAXED' : `BUY ${money(cost)}`);
+        if (cost == null || career.cash < cost) btn.disabled = true;
+        btn.addEventListener('click', () => { onBuy(id); render(); });
+        body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, u.desc)), btn));
+      }
     }
     const all = quote(town.id, trunk, career.market);
     const sellAll = $('market-sell-all');

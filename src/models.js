@@ -446,6 +446,14 @@ export function buildVehicle(style = 'player') {
   }
   const lampMesh = new THREE.Mesh(mergeParts(lamps), MATERIALS.glow);
   sprung.add(shell, lampMesh);
+  // A model may carry a second, upgraded body (the dredge truck's reinforced look): built
+  // now, hidden, and swapped in by toggling (setLook), so the look never costs a draw call.
+  const looks = { stock: shell };
+  if (custom?.reinforced) {
+    looks.reinforced = new THREE.Mesh(custom.reinforced, custom.material || MATERIALS.body);
+    looks.reinforced.visible = false;
+    sprung.add(looks.reinforced);
+  }
   group.add(body);
 
   // Wheels: a pivot (steer) holding the wheel (spin).
@@ -462,7 +470,7 @@ export function buildVehicle(style = 'player') {
     if (isFront) front.push(pivot);
   }
   // lamp: where the headlights are [z, y, x], for the real headlight and its beams.
-  const out = { group, body: sprung, bodyPivot: body, shell, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots, lamp: lens };
+  const out = { group, body: sprung, bodyPivot: body, shell, looks, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots, lamp: lens };
   if (style === 'player') out.trailer = buildHorseTrailer(buildWheel(0.5), 0.5);
   if (style === 'player' || style === 'rolls' || style === 'dredge') {
     out.beam = headlightBeams(lens[0], lens[1], lens[2]);

@@ -330,6 +330,8 @@ body.touch-mode #bust { bottom: 260px; }
 
 /* Garage */
 #garage-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; }
+#market-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; max-height: 52vh; overflow-y: auto; }
+.market-head { margin: 8px 0 0; font-size: calc(13px * var(--ts)); letter-spacing: 3px; color: var(--gold); }
 .upgrade { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid rgba(216, 178, 90, 0.3); border-radius: 4px; }
 .upgrade b { font-size: calc(16px * var(--ts)); color: var(--paper); }
 .upgrade small { display: block; color: var(--muted); font-size: calc(13px * var(--ts)); margin-top: 2px; }

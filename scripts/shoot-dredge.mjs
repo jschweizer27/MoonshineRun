@@ -184,6 +184,37 @@ try {
   await shoot('hud', 'HUD: cash, trunk pill, radar, "Deliver to Baltimore"');
   await count('hud');
 
+  // Upgrades: the market's list with cash to spend, then the trunk upgraded twice (6x4)
+  // and the reinforced truck.
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.dredge.data.cash = 2600;
+    g.openMarket();
+    document.querySelector('#market-body [data-id="up-trunk"]')?.scrollIntoView();
+  });
+  await shoot('upgrades', 'the market: upgrades to buy');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.dredge.buy('trunk'); g.dredge.buy('trunk'); g._applyDredgePerks();
+    g.ui.back();
+    window.shine.teleport(0, 100, 0); window.shine.step(0.1);
+    g.trunk.clear();
+    for (const [k, x, y] of [['crate', 0, 0], ['long-crate', 2, 0], ['keg', 4, 1], ['coil', 0, 2], ['strongbox', 3, 3]]) g.trunk.place(k, x, y);
+    g.openTrunk();
+  });
+  await shoot('trunk-6x4', 'the trunk after two upgrades (6x4)');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.trunkScreen.close();
+    window.shine.teleport(-88, 96, 0.5); window.shine.step(0.2);
+    g.camera.position.set(-93, 2.6, 103); g.camera.lookAt(-88, 1.1, 96);
+  });
+  await shoot('truck-reinforced', 'the reinforced truck (trunk upgrade)');
+  await count('reinforced');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 12; g.env.update(0, g.camera.position); g.camera.position.set(-81.5, 2.6, 93); g.camera.lookAt(-88.3, 1.1, 96.5); });
+  await shoot('truck-reinforced-day', 'the reinforced truck by day');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; g.env.update(0, g.camera.position); });
+
   // Contact sheet.
   const sheet = await browser.newPage({ viewport: { width: 1640, height: 400 } });
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');

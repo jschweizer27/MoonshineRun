@@ -334,14 +334,35 @@ class Game {
     this.ramResist = p.ramResist;
   }
 
-  // Dredge run: the truck without its horse box, on arcade tuning (upgrades come later).
+  // Dredge run: the truck without its horse box, on arcade tuning plus the upgrades bought
+  // at the markets (CONFIG.dredge.upgrades).
   _applyDredgePerks() {
-    const car = CONFIG.dredge.car;
+    const D = CONFIG.dredge, U = D.upgrades, lv = (id) => this.dredge.level(id);
     if (this.player.ride !== 'runner') {
       this.player.setRide('runner');
       this._mountHeadlight();
       this.feel?.reset();
     }
+    const car = {
+      ...D.car,
+      maxSpeed: D.car.maxSpeed + U.engine.step.maxSpeed * lv('engine'),
+      accel: D.car.accel + U.engine.step.accel * lv('engine'),
+      grip: D.car.grip + U.handling.step.grip * lv('handling'),
+      turnRate: D.car.turnRate + U.handling.step.turnRate * lv('handling'),
+    };
+    const [cols, rows] = U.trunk.sizes[Math.min(lv('trunk'), U.trunk.sizes.length - 1)];
+    this.dredgePerks = {
+      pickupRadius: D.loot.pickupRadius + U.magnet.step.pickupRadius * lv('magnet'),
+      mapRange: D.loot.mapRange + U.spotter.step.mapRange * lv('spotter'),
+      cols, rows,
+    };
+    // The trunk grows with its upgrade (pieces stay where they were).
+    if (this.trunk && (this.trunk.cols < cols || this.trunk.rows < rows)) {
+      this.trunk = this.trunk.resized(Math.max(cols, this.trunk.cols), Math.max(rows, this.trunk.rows));
+      this.dredge.saveTrunk(this.trunk);
+      this._updateTrunkPill();
+    }
+    this.player.setLook(lv('trunk') > 0 ? 'reinforced' : 'stock');
     this.carSuspicion = 1;
     this.chase.rideScale = CONFIG.camera.noTrailer;
     Object.assign(this.player.t, car);
@@ -833,7 +854,7 @@ class Game {
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
-    const [got] = this.loot.update(dt, this.time, this.player, { canTake: () => taken++ === 0, camera: this.camera.position });
+    const [got] = this.loot.update(dt, this.time, this.player, { radius: this.dredgePerks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
@@ -899,7 +920,7 @@ class Game {
     if (this.state !== STATE.PAUSED) return;
     const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
     this._marketRender = showMarket(this.ui, {
-      town, trunk: this.trunk, career: this.dredge,
+      town, getTrunk: () => this.trunk, career: this.dredge,
       onSell: (kind) => {
         const r = sell(town.id, this.trunk, this.dredge.market, kind);
         if (!r.count) return;
@@ -908,6 +929,13 @@ class Game {
         this.hud.cashPop(`+${money(r.total)}`);
         this.audio.cash?.();
         this._updateTrunkPill();
+      },
+      onBuy: (id) => {
+        if (!this.dredge.buy(id)) return;
+        this._applyDredgePerks();
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`−${money(CONFIG.dredge.upgrades[id].costs[this.dredge.level(id) - 1])}`);
+        this.audio.cash?.();
       },
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: close,
@@ -1102,7 +1130,7 @@ class Game {
 
   _mapMarkers() {
     if (this.mode === 'dredge') {
-      return [...this.loot.near(this.player.position, CONFIG.dredge.loot.mapRange),
+      return [...this.loot.near(this.player.position, this.dredgePerks?.mapRange ?? CONFIG.dredge.loot.mapRange),
         ...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z }))];
     }
     const out = [];
