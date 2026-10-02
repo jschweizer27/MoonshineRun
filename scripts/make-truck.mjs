@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds assets/dredge-truck.glb, the dredge run's truck: a 1920s olive flatbed with a
+// Builds assets/dredge-truck.glb, Otto's truck: a 1920s olive flatbed with a
 // wood-slat bed and a canvas cover, every part a bevelled, flat-shaded primitive (the
 // game's low-poly look). Like the baked models from optimize-models.mjs it carries vertex
 // colours and a _SURF attribute (roughness, metalness, clearcoat), so it uses the shared

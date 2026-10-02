@@ -33,6 +33,7 @@ try {
   await page.evaluate(() => window.shine.game.renderer.setAnimationLoop(null));
   await page.evaluate(({ off, wet }) => {
     const g = window.shine.game;
+    g.perks.pickupRadius = 0;             // drive past the loot: nothing stops the run
     if (off) g.toggleJuice();
     if (wet) { g.env.setWeather('rain'); g.env.wet = 1; }
     window.shine.teleport(0, 205, 0);

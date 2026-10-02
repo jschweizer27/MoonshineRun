@@ -42,9 +42,17 @@ export async function mainThread(page) {
   }
 }
 
-export async function startRun(page) {
+// START DRIVING. With `loot: false` the roads are cleared first (clearLoot).
+export async function startRun(page, { loot = true } = {}) {
   await page.click('#start-btn');
   await expect(page.locator('#hud')).toBeVisible();
+  if (!loot) await clearLoot(page);
+}
+
+// Take every piece of loot off the roads (and stop it coming back), for tests that drive
+// about and mustn't have a pickup open the trunk mid-drive.
+export function clearLoot(page) {
+  return page.evaluate(() => { const L = window.shine.game.loot; L.active.fill(0); L.timer.fill(1e9); L._writeAll(0, null); });
 }
 
 // Run the simulation deterministically for `seconds` with a fixed input.

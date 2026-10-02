@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { KINDS } from './trunk.js';
 
-// Town markets for the dredge run: what a piece fetches, and selling out of the trunk.
+// Town markets: what a piece fetches, and selling out of the trunk.
 // Pure logic. `state` is the saved market state: { sold: { 'town:kind': pieces }, clock }
 // where `clock` counts in-game hours. A price is the kind's base value x the town's rate
 // x a daily drift x a glut factor (selling lots of one kind in one town drives it down).

@@ -9,7 +9,8 @@ import { buildCounty, COUNTY } from './county.js';
 import { ATLAS, region, makePaintedAtlas, atlasMaterial, uvToRegion } from './atlas.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 
-// Named drop sites around the city (intersections), for the order board.
+// Named corners around the city, each with its sign over the door (at night there's jazz
+// from the speakeasies among them).
 export const DROPS = [
   { name: 'Highlandtown Speakeasy', sign: 'PRIVATE CLUB', x: 176, z: 44 },
   { name: 'Fells Point Docks', sign: 'PIER 5', x: 132, z: 176 },
@@ -52,7 +53,6 @@ export class World {
     this._buildBuildings();
     const county = buildCounty(this, this.rng);
     this.barns = county.barns;
-    this.hideout = county.hideout;
     this.drops = DROPS;
     this._buildLamps();
     this._buildDressing();
@@ -143,7 +143,7 @@ export class World {
     }
     this._buildAwnings(awnings);
 
-    // Each buyer's corner building carries its sign.
+    // Each named corner's building carries its sign.
     DROPS.forEach((d, k) => {
       let best = null, bestD = Infinity;
       for (const b of city) {
@@ -265,12 +265,6 @@ export class World {
     this.moon.shadow.bias = -0.0004;
     this.moon.shadow.normalBias = 0.04;
     s.add(this.moon, this.moon.target);
-
-    // One shared effects light (fires, muzzle flashes). It always exists, even at zero
-    // intensity, so the light count never changes and shaders never recompile.
-    this.fxLight = new THREE.PointLight(0xff8a3a, 0, 60, 1.6);
-    this.fxLight.position.set(0, -50, 0);
-    s.add(this.fxLight);
   }
 
   _buildGround() {
@@ -820,7 +814,7 @@ export class World {
       { text: 'MOUNT VERNON', x: 0, z: -110 }, { text: 'LITTLE ITALY', x: 60, z: 110 },
       { text: 'HAMPDEN', x: -175, z: -154 }, { text: 'FEDERAL HILL', x: -110, z: 198 },
       { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
-      { text: 'GREEN SPRING VALLEY', x: 0, z: -610 }, { text: 'MONKTON', x: 0, z: -1015 },
+      { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 },
     ];
   }
 
@@ -850,10 +844,6 @@ export class World {
       if (d > bestD) { bestD = d; best = n; }
     }
     return new THREE.Vector3(best.x, 0, best.z);
-  }
-
-  lineOfSight(a, b) {
-    return !this.collision.segmentBlocked(a.x, a.z, b.x, b.z);
   }
 
   // Graphics level: 0 = no shadows, else the shadow map size. Changing it recompiles

@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { atlasMaterial } from './atlas.js';
 import { createRng } from './rng.js';
 
-// Green Spring Valley: farm roads north of Baltimore up York Road, with barns hiding the
-// stills, Otto's hideout, woods to hide in and white steeplechase fences. North is -Z.
+// Green Spring Valley: farm roads north of Baltimore up York Road, with red barns (one of
+// them Otto's), woods, stone walls, white steeplechase fences and the village of Monkton
+// at the York Road crossroads. North is -Z.
 const NODES = {
   Y1: [0, -300], Y2: [15, -380], Y3: [0, -460], Y4: [-20, -560], Y5: [0, -660], Y6: [15, -760], Y7: [0, -860], Y8: [0, -985],
   V1: [-120, -455], V2: [-240, -470], V3: [-360, -440], V4: [120, -470], V5: [250, -450], V6: [370, -480],
@@ -82,11 +83,11 @@ export function buildCounty(world, rng) {
 
   // Barns (instanced bodies and roofs) with a lantern by each door.
   const barnSpots = BARNS.map(([lane, from, name]) => barnAt(NODES[lane], NODES[from], name));
-  const hideout = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s Hideout'), hideout: true };
+  const home = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s barn'), home: true };
   // Monkton: clapboard houses and stores round the York Road crossroads, drawn with the
-  // barns' kit (the dredge run's second market is at the crossroads).
+  // barns' kit (the second market is at the crossroads).
   const village = villageAround(VILLAGE.at, edges, createRng((world.seed ?? 0) + 31337));
-  const all = [...barnSpots, hideout, ...village];
+  const all = [...barnSpots, home, ...village];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
   const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
@@ -99,7 +100,7 @@ export function buildCounty(world, rng) {
     const w = b.w ?? 14, h = b.h ?? 8, d = b.d ?? 20;
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.rot);
     body.setMatrixAt(i, m.compose(p.set(b.x, 0, b.z), q, s.set(w, h, d)));
-    body.setColorAt(i, new THREE.Color(b.color ?? (b.hideout ? 0x4a3a2c : 0x7a2a1e)));
+    body.setColorAt(i, new THREE.Color(b.color ?? (b.home ? 0x4a3a2c : 0x7a2a1e)));
     roof.setMatrixAt(i, m.compose(p.set(b.x, h, b.z), q, s.set(w + 1.5, b.house ? h * 0.5 : 5, d + 1)));
     const dw = b.house ? 1.2 : 6, dh = b.house ? 2.3 : 5.6;
     door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * (d / 2 + 0.05), dh / 2, b.z + b.fz * (d / 2 + 0.05)), q, s.set(dw, dh, 0.2)));
@@ -116,7 +117,7 @@ export function buildCounty(world, rng) {
   const clear = (x, z, r) => {
     if (x < COUNTY.minX + 8 || x > COUNTY.maxX - 8 || z < COUNTY.minZ + 8 || z > COUNTY.maxZ - 14) return false;
     for (const [a, b, w] of edges) if (distToSegment(x, z, a, b) < w / 2 + r + 3) return false;
-    for (const b of barnSpots.concat(hideout)) if (Math.hypot(x - b.x, z - b.z) < 26) return false;
+    for (const b of barnSpots.concat(home)) if (Math.hypot(x - b.x, z - b.z) < 26) return false;
     return true;
   };
   const trees = [];
@@ -146,7 +147,7 @@ export function buildCounty(world, rng) {
     trunk.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc * k, sc * k, sc * k)));
     crown.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc * k, sc * rng.range(0.9, 1.3) * k, sc * k)));
     crown.setColorAt(i, new THREE.Color(rng.pick(greens)));
-    // Trunks stop the truck; the leafy crowns block line of sight (hide in the woods).
+    // Trunks stop the truck; a stand of leafy crowns blocks the camera's view (it pulls in).
     if (k) world.collision.addCircle(x, z, 0.6 * sc, { tag: 'tree', blocksSight: true, sightR: 2.6 * sc });
   });
   for (const im of [trunk, crown]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
@@ -190,7 +191,7 @@ export function buildCounty(world, rng) {
   wallMesh.instanceMatrix.needsUpdate = true;
   scene.add(wallMesh);
 
-  return { barns: barnSpots, hideout };
+  return { barns: barnSpots };
 }
 
 // A barn at the end of a lane, its door facing back down the lane.

@@ -4,7 +4,7 @@ import { createRng } from './rng.js';
 import { radialTexture } from './world.js';
 import { kindColors } from './trunk.js';
 
-// Loot lying along the roads for the dredge run (CONFIG.dredge.loot.kinds). Each kind is a
+// Loot lying along the roads (CONFIG.dredge.loot.kinds). Each kind is a
 // small flat-shaded primitive coloured by its value tier (CONFIG.dredge.lootTiers, from the
 // palette), drawn by its own InstancedMesh with a fixed pool. Every frame each kind draws
 // only its pieces near the truck (`count`) and its bounds are refitted, so it's culled when
@@ -112,7 +112,6 @@ export class Loot {
     this.yaw = new Float32Array(n);
     this.active = new Uint8Array(n);
     this.timer = new Float32Array(n);       // seconds until a picked-up piece returns
-    this.on = false;
     // Where pieces can lie: along every road link (city streets and county lanes).
     const nodes = world.roads.nodes;
     this.links = [];
@@ -152,13 +151,12 @@ export class Loot {
     this._o = new THREE.Object3D();
   }
 
-  // Scatter a fresh set of pieces (a new run). Off unless the dredge run is on.
-  reset(on, player = null) {
-    this.on = on;
+  // Scatter a fresh set of pieces (a new run), none within 30 m of the truck.
+  reset(player = null) {
     this.timer.fill(0);
     for (let i = 0; i < this.n; i++) {
-      this.active[i] = on ? 1 : 0;
-      if (on) this._place(i, player, 30);
+      this.active[i] = 1;
+      this._place(i, player, 30);
     }
     this._writeAll(0, player);
   }
@@ -189,28 +187,26 @@ export class Loot {
     const o = this._o, counts = this._counts, range2 = L.drawRange * L.drawRange, G = L.glow;
     counts.fill(0);
     let glows = 0;
-    if (this.on) {
-      for (let i = 0; i < this.n; i++) {
-        if (!this.active[i]) continue;
-        if (center) { const dx = this.x[i] - center.x, dz = this.z[i] - center.z; if (dx * dx + dz * dz > range2) continue; }
-        const k = this.kind[i], kind = L.kinds[k];
-        o.position.set(this.x[i], 0.05 + 0.12 * (1 + Math.sin(time * 2.2 + i)), this.z[i]);
-        o.rotation.set(0, this.yaw[i] + time * 0.6, 0);
-        o.scale.setScalar(L.scale);
-        o.updateMatrix();
-        this.meshes[k].setMatrixAt(counts[k]++, o.matrix);
-        // Glow: faces the camera, set back from the piece so it haloes rather than covers it,
-        // and grows with distance so it still reads far away.
-        let fx = 0, fz = 1, d = G.near;
-        if (camera) { fx = camera.x - this.x[i]; fz = camera.z - this.z[i]; d = Math.hypot(fx, fz) || 1; fx /= d; fz /= d; }
-        const grow = Math.min(G.maxScale, Math.max(1, d / G.near));
-        o.position.set(this.x[i] - fx * 0.7, G.height, this.z[i] - fz * 0.7);
-        o.rotation.set(0, Math.atan2(fx, fz), 0);
-        o.scale.setScalar(G.size * kindColors(kind).glow.size * grow * (0.9 + 0.1 * Math.sin(time * 3 + i)));
-        o.updateMatrix();
-        this.glow.setColorAt(glows, this._tint[k]);
-        this.glow.setMatrixAt(glows++, o.matrix);
-      }
+    for (let i = 0; i < this.n; i++) {
+      if (!this.active[i]) continue;
+      if (center) { const dx = this.x[i] - center.x, dz = this.z[i] - center.z; if (dx * dx + dz * dz > range2) continue; }
+      const k = this.kind[i], kind = L.kinds[k];
+      o.position.set(this.x[i], 0.05 + 0.12 * (1 + Math.sin(time * 2.2 + i)), this.z[i]);
+      o.rotation.set(0, this.yaw[i] + time * 0.6, 0);
+      o.scale.setScalar(L.scale);
+      o.updateMatrix();
+      this.meshes[k].setMatrixAt(counts[k]++, o.matrix);
+      // Glow: faces the camera, set back from the piece so it haloes rather than covers it,
+      // and grows with distance so it still reads far away.
+      let fx = 0, fz = 1, d = G.near;
+      if (camera) { fx = camera.x - this.x[i]; fz = camera.z - this.z[i]; d = Math.hypot(fx, fz) || 1; fx /= d; fz /= d; }
+      const grow = Math.min(G.maxScale, Math.max(1, d / G.near));
+      o.position.set(this.x[i] - fx * 0.7, G.height, this.z[i] - fz * 0.7);
+      o.rotation.set(0, Math.atan2(fx, fz), 0);
+      o.scale.setScalar(G.size * kindColors(kind).glow.size * grow * (0.9 + 0.1 * Math.sin(time * 3 + i)));
+      o.updateMatrix();
+      this.glow.setColorAt(glows, this._tint[k]);
+      this.glow.setMatrixAt(glows++, o.matrix);
     }
     this.meshes.forEach((m, k) => {
       m.count = counts[k];
@@ -229,7 +225,6 @@ export class Loot {
   // back elsewhere after a while. Returns events: { type: 'loot', kind, index, x, z }.
   update(dt, time, player, { radius = L.pickupRadius, canTake = () => true, camera = null } = {}) {
     const events = [];
-    if (!this.on) return events;
     const p = player.position;
     for (let i = 0; i < this.n; i++) {
       if (!this.active[i]) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Art-direction screenshots: `npm run shots -- <label> [--day] [--rain]` (a label starting with
-// "dredge" shoots the dredge run: see scripts/shoot-dredge.mjs). Starts the game in a
+// "dredge" shoots the full set of views instead: see scripts/shoot-dredge.mjs). Starts the game in a
 // headless browser, drives up the street, and saves a chase-camera frame, a wide street
 // view and a close-up of the truck to artifacts/shots/<label>-*.png. It also prints how long
 // a frame takes to render. Headless Chromium draws with a software GPU, so compare those
@@ -12,7 +12,7 @@ import { chromium } from '@playwright/test';
 const args = process.argv.slice(2);
 const label = args.find((a) => !a.startsWith('--')) || 'shot';
 const flags = new Set(args.filter((a) => a.startsWith('--')));
-// Labels starting with "dredge" shoot the dredge run instead (scripts/shoot-dredge.mjs).
+// Labels starting with "dredge" shoot the full set of views (scripts/shoot-dredge.mjs).
 if (label.startsWith('dredge')) {
   await import('./shoot-dredge.mjs');
   process.exit(0);
@@ -39,6 +39,7 @@ try {
   await page.evaluate(() => window.shine.game.renderer.setAnimationLoop(null));
   await page.evaluate(({ day, rain }) => {
     const g = window.shine.game;
+    g.perks.pickupRadius = 0;             // drive past the loot: it stays in shot, nothing stops the run
     if (day) g.env.hour = 12;
     if (rain) { g.env.setWeather('rain'); g.env.wet = 1; }
     g.env.update(0, g.camera.position);
@@ -47,7 +48,7 @@ try {
   const render = () => page.evaluate(() => { const g = window.shine.game; (g.renderFrame ? g.renderFrame() : g.renderer.render(g.scene, g.camera)); });
   const shoot = async (name) => { await render(); await page.screenshot({ path: `${out}/${label}-${name}.png` }); console.log(`saved ${out}/${label}-${name}.png`); };
 
-  // Down a city street from the hideout side, at speed, with a gentle weave.
+  // Down a city street at speed, with a gentle weave.
   await page.evaluate(() => { const s = window.shine; s.teleport(0, 150, 0); });
   await page.evaluate(() => window.shine.step(2.5, { throttle: 1 }));
   await page.evaluate(() => window.shine.step(0.6, { throttle: 1, steer: 0.35 }));

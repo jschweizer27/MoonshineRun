@@ -2,9 +2,9 @@ import { CONFIG } from './config.js';
 import { loadJSON, saveJSON } from './save.js';
 import { Trunk } from './trunk.js';
 
-// The dredge run's saved progress, kept apart from the bootlegging career: cash, what's in
-// the trunk, upgrade levels, the markets' memory (gluts and the in-game clock), stats and a
-// ledger.
+// Otto's saved progress: cash, what's in the trunk, upgrade levels, the markets' memory
+// (gluts and the in-game clock), stats and a ledger. (The key dates from when this run was
+// built beside the bootlegging game; old bootlegging saves are simply ignored.)
 const KEY = 'shine.dredge.v1';
 const DEFAULT = {
   version: 1,

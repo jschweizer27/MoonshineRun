@@ -1,36 +1,33 @@
 import { test, expect } from '@playwright/test';
 import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
 
-// The dredge run (?mode=dredge): free-roam driving, loot, a trunk to pack, towns to sell in.
-// Built beside the bootlegging loop; these tests cover it stage by stage.
+// The game: free-roam driving, loot along the roads, a trunk to pack, towns to sell in and
+// upgrades to buy. (It was built as "the dredge run" beside the old bootlegging game, which
+// it replaced; the code still calls it that: CONFIG.dredge, dredgecareer.js, html.dredge.)
 
-test('dredge mode boots into free roam: the truck without its horse box, no police, no heat', async ({ page }) => {
-  const problems = await openGame(page, '&mode=dredge');
+test('the game boots into free roam on York Road: no police, no heat, no story', async ({ page }) => {
+  const problems = await openGame(page);
   await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
   await startRun(page);
   const s = await snapshot(page);
-  expect(s.game).toBe('dredge');
   expect(s.state).toBe('playing');
   const setup = await page.evaluate(() => {
-    const g = window.shine.game, m = g.mission;
+    const g = window.shine.game;
     return {
-      ride: g.player.ride, trailer: !!g.player.trailer,
-      markers: [m.pickup, m.drop, m.hideoutMarker, m.goal].some((x) => x.visible),
-      heatShown: getComputedStyle(document.getElementById('heat')).display !== 'none',
+      gone: ['mission', 'police', 'career', 'tutorial', 'fire', 'waypoint'].filter((k) => k in g),
+      hud: ['heat', 'bust', 'hint', 'status-pill', 'siren-flash', 'gameover', 'orders', 'garage', 'dialog'].filter((id) => document.getElementById(id)),
       objective: document.getElementById('objective-text').textContent,
+      pill: document.getElementById('cargo').textContent,
     };
   });
-  expect(setup).toEqual({ ride: 'runner', trailer: false, markers: false, heatShown: false, objective: 'Pick up loot along the roads' });
+  expect(setup).toEqual({ gone: [], hud: [], objective: 'Pick up loot along the roads', pill: 'TRUNK 0/15' });
 
-  // Drive up York Road into the county: no one comes after you, nothing happens to the heat.
+  // Drive up York Road into the county: no one comes after you.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
-  const drove = await step(page, 20, { throttle: 1 });
+  const drove = await step(page, 20, { throttle: 1 });        // (loot on the way may stop it early)
   expect(drove.z).toBeLessThan(-150);
-  expect(drove.pursuers).toBe(0);
-  expect(drove.heat).toBe(0);
-  expect(await page.evaluate(() => window.shine.game.police.active.length)).toBe(0);
   const after = await page.evaluate(() => window.shine.renderInfo());
-  expect(after.lights).toBe(13);
+  expect(after.lights).toBe(12);
   expect(after.calls).toBeLessThan(60);
   expect(after.programs).toBe(before.programs);
   expect(after.geometries).toBe(before.geometries);
@@ -38,21 +35,13 @@ test('dredge mode boots into free roam: the truck without its horse box, no poli
   expect(problems).toEqual([]);
 });
 
-test('the bootlegging game is unchanged without ?mode=dredge', async ({ page }) => {
+test('the handling is arcade: turns sharply when slow, holds a fast corner without spinning, glances off walls', async ({ page }) => {
   await openGame(page);
-  await startRun(page);
-  const s = await page.evaluate(() => ({ game: window.shine.game.mode, ride: window.shine.game.player.ride, trailer: !!window.shine.game.player.trailer, hud: document.getElementById('hud').classList.contains('dredge') }));
-  expect(s).toEqual({ game: 'bootleg', ride: 'truck', trailer: true, hud: false });
-});
-
-test('dredge handling is arcade: turns sharply when slow, holds a fast corner without spinning, glances off walls', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
   await startRun(page);
   const r = await page.evaluate(() => {
     const g = window.shine.game, v = g.player, base = { ...v.t };
-    const truck = { ...base };
-    for (const k of ['steerRamp', 'steerFalloff', 'bounce', 'wallKeep']) delete truck[k];
-    Object.assign(truck, { maxSpeed: 38, accel: 18, brake: 42, turnRate: 2.1, grip: 12, handbrakeGrip: 1.8 });
+    // The old bootlegging truck's tuning, for comparison: a heavier, slidier ride.
+    const truck = { ...base, maxSpeed: 38, accel: 18, brake: 42, turnRate: 2.1, grip: 12, handbrakeGrip: 1.8, steerRamp: 4, steerFalloff: 0.4 };
     const open = () => v.place(160, -560, 0);                 // open pasture, nothing to hit
     const run = (t) => {
       v.t = { ...t };
@@ -84,7 +73,7 @@ test('dredge handling is arcade: turns sharply when slow, holds a fast corner wi
   expect(r.arcade.speedAfter).toBeGreaterThan(15);                        // and keeps its pace
 
   // Into a wall at a shallow angle: the arcade car glances off and keeps more of its speed
-  // than the bootleg truck does.
+  // than the old truck did.
   const wall = await page.evaluate(() => {
     const g = window.shine.game, v = g.player, base = { ...v.t };
     const run = (t) => {
@@ -106,7 +95,7 @@ test('dredge handling is arcade: turns sharply when slow, holds a fast corner wi
 });
 
 test('loot lies along the roads: drive over a piece to pick it up, and it turns up again elsewhere', async ({ page }) => {
-  const problems = await openGame(page, '&mode=dredge');
+  const problems = await openGame(page);
   await startRun(page);
   const before = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
   const r = await page.evaluate(() => {
@@ -153,18 +142,12 @@ test('loot lies along the roads: drive over a piece to pick it up, and it turns 
   expect(after.programs).toBe(before.programs);
   expect(after.geometries).toBe(before.geometries);
   expect(after.calls).toBeLessThan(60);
-  expect(after.lights).toBe(13);
+  expect(after.lights).toBe(12);
   expect(problems).toEqual([]);
 });
 
-test('no loot in the bootlegging game', async ({ page }) => {
-  await openGame(page);
-  await startRun(page);
-  expect(await page.evaluate(() => { const L = window.shine.game.loot; return L.on || L.meshes.some((m) => m.visible) || L.glow.visible; })).toBe(false);
-});
-
 test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and saves', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+  await openGame(page);
   const r = await page.evaluate(async () => {
     const { Trunk, shape, shapeSize } = await import('/src/trunk.js');
     const out = {};
@@ -211,7 +194,7 @@ test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and
 });
 
 test('picking up loot opens the trunk: turn it, move it, put it down with the keyboard', async ({ page }) => {
-  const problems = await openGame(page, '&mode=dredge');
+  const problems = await openGame(page);
   await startRun(page);
   // Drive onto a radio (the awkward T shape).
   await page.evaluate(() => {
@@ -244,7 +227,7 @@ test('picking up loot opens the trunk: turn it, move it, put it down with the ke
 });
 
 test('rearranging the trunk: lift, swap, leave a piece behind; T opens it, the gamepad and mouse work too', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+  await openGame(page);
   await startRun(page);
   await page.evaluate(() => {
     const t = window.shine.game.trunk;
@@ -299,10 +282,9 @@ test('rearranging the trunk: lift, swap, leave a piece behind; T opens it, the g
 });
 
 test('Lexington Market: stop there to sell what is in the trunk; prices sag as you sell, and it all saves', async ({ page }) => {
-  const problems = await openGame(page, '&mode=dredge');
+  const problems = await openGame(page);
   await startRun(page);
   const before = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
-  const bootlegCash = await page.evaluate(() => window.shine.game.career.cash);
   // The market sits on a street corner the roads reach.
   const where = await page.evaluate(() => {
     const g = window.shine.game, t = g.marketMarkers[0].position, n = g.world.roads.nearest(t.x, t.z);
@@ -368,16 +350,16 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   await expect(page.locator('#market')).toBeHidden();
   expect(await page.evaluate(() => { window.shine.step(0.5); return window.shine.game.state; })).toBe('playing');
 
-  // A piece left aboard and the cash survive a reload; the bootleg career is untouched.
+  // A piece left aboard and the cash survive a reload.
   await page.evaluate(() => { const g = window.shine.game; g.trunk.place('jugs', 0, 0); g.dredge.saveTrunk(g.trunk); });
   await page.reload();
   await page.waitForFunction(() => window.__shineReady === true);
   await startRun(page);
-  const reloaded = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, kinds: [...window.shine.game.trunk.pieces.values()].map((p) => p.kind), bootleg: window.shine.game.career.cash }));
-  expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['jugs'], bootleg: bootlegCash });
+  const reloaded = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, kinds: [...window.shine.game.trunk.pieces.values()].map((p) => p.kind) }));
+  expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['jugs'] });
 
   const after = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
-  expect(after.lights).toBe(13);
+  expect(after.lights).toBe(12);
   expect(after.calls).toBeLessThan(60);
   expect(after.programs).toBe(before.programs);
   expect(after.geometries).toBe(before.geometries);
@@ -385,7 +367,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
 });
 
 test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
-  const problems = await openGame(page, '&mode=dredge');
+  const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
     const { CONFIG } = await import('/src/config.js');
@@ -447,7 +429,7 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
 });
 
 test('loot drawing stays in budget: each kind draws only nearby pieces, the glow is one more call, nothing compiles', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+  await openGame(page);
   await startRun(page);
   const r = await page.evaluate(() => {
     const g = window.shine.game, L = g.loot;
@@ -469,15 +451,15 @@ test('loot drawing stays in budget: each kind draws only nearby pieces, the glow
   });
   expect(r.drawing).toBe(10);
   expect(r.all.calls).toBeLessThan(60);
-  expect(r.all.lights).toBe(13);
+  expect(r.all.lights).toBe(12);
   expect(r.all.programs).toBe(r.before.programs);
   expect(r.all.geometries).toBe(r.before.geometries);
   expect(r.idle).toBe(0);
   expect(r.none.programs).toBe(r.before.programs);
 });
 
-test('the dredge palette themes the screens: cream on teal, amber where it fits, red where it does not', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+test('the palette themes the screens: cream on teal, amber where it fits, red where it does not', async ({ page }) => {
+  await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
     const { CONFIG } = await import('/src/config.js');
@@ -518,28 +500,23 @@ test('the dredge palette themes the screens: cream on teal, amber where it fits,
   await screenshot(page, 'dredge-05-trunk-palette');
 });
 
-test('the bootlegging game keeps its own colours', async ({ page }) => {
+test('Otto drives the bevelled truck model: one body, four wheels, headlight beams, nothing towed', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  const r = await page.evaluate(() => ({ dredge: document.documentElement.classList.contains('dredge'), gold: getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() }));
-  expect(r).toEqual({ dredge: false, gold: '#d8b25a' });
-});
-
-test('the dredge run drives its own bevelled truck model, without a horse box or extra draw calls', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
-  await startRun(page);
   const r = await page.evaluate(() => {
-    const g = window.shine.game, m = g.player.model;
+    const g = window.shine.game, v = g.player, m = v.model;
     window.shine.step(0.2, { throttle: 0.5 });
     g.renderFrame();
-    return { ride: g.player.ride, model: m.shell.userData.model, trailer: !!g.player.trailer, wheels: m.wheels.length, beam: !!m.beam, shown: m.group.visible, calls: window.shine.renderInfo().calls, truckShown: g.player.rides.truck.model.group.visible };
+    let vehicles = 0;
+    g.scene.traverse((o) => { if (o.userData.model) vehicles++; });
+    return { model: m.shell.userData.model, towing: 'trailer' in v || 'rides' in v, wheels: m.wheels.length, beam: !!m.beam, shown: m.group.visible, calls: window.shine.renderInfo().calls, vehicles };
   });
-  expect(r).toMatchObject({ ride: 'runner', model: 'dredgeTruck', trailer: false, wheels: 4, beam: true, shown: true, truckShown: false });
+  expect(r).toMatchObject({ model: 'truck', towing: false, wheels: 4, beam: true, shown: true, vehicles: 1 });
   expect(r.calls).toBeLessThan(60);
 });
 
 test('upgrades bought at the market change the truck, the trunk, the magnet and the radar, and survive a reload', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+  await openGame(page);
   await startRun(page);
   const before = await page.evaluate(() => {
     const g = window.shine.game, info = window.shine.renderInfo();
@@ -549,7 +526,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     g.trunk.place('small-crate', 4, 2);                           // a piece in the far corner stays put
     g.openMarket();
     return {
-      broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.dredgePerks.pickupRadius, range: g.dredgePerks.mapRange,
+      broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.perks.pickupRadius, range: g.perks.mapRange,
       size: [g.trunk.cols, g.trunk.rows], look: g.player.look, calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
       buttons: [...document.querySelectorAll('#market-body [data-id^="up-"]')].map((b) => b.textContent),
     };
@@ -565,7 +542,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     g.renderFrame();
     const info = window.shine.renderInfo();
     return {
-      cash: g.dredge.cash, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.dredgePerks.pickupRadius, range: g.dredgePerks.mapRange,
+      cash: g.dredge.cash, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.perks.pickupRadius, range: g.perks.mapRange,
       size: [g.trunk.cols, g.trunk.rows], corner: g.trunk.pieceAt(4, 2)?.kind, look: g.player.look,
       reinforced: g.player.model.looks.reinforced.visible, stock: g.player.model.looks.stock.visible,
       calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
@@ -613,7 +590,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
 });
 
 test('two towns: Monkton in the valley has its own market and prices, on the road from Baltimore', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
+  await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
     const g = window.shine.game, w = g.world;
@@ -668,23 +645,16 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.geometries).toBe(0);
 });
 
-test('the dredge run explains itself: its own intro and How to Play; the bootleg text stays for bootleg', async ({ page }) => {
-  await openGame(page, '&mode=dredge');
-  const shown = (sel) => page.evaluate((s) => [...document.querySelectorAll(s)].some((e) => e.offsetParent !== null), sel);
-  expect(await shown('#intro .dredge-only')).toBe(true);
-  expect(await shown('#intro .bootleg-only')).toBe(false);
+test('the game explains itself: the intro and How to Play tell the loot run, not the old bootlegging one', async ({ page }) => {
+  await openGame(page);
+  await expect(page.locator('#intro .story')).toContainText('pack what you find');
   await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
   await page.click('#intro-help');
-  await expect(page.locator('#help ol.dredge-only')).toBeVisible();
-  await expect(page.locator('#help ol.bootleg-only')).toBeHidden();
-  await expect(page.locator('#help ol.dredge-only')).toContainText('Monkton General Store');
+  await expect(page.locator('#help ol.rules')).toBeVisible();
+  await expect(page.locator('#help ol.rules')).toContainText('Monkton General Store');
   await expect(page.locator('#help-keys')).toContainText('Open the trunk');
+  const text = await page.evaluate(() => document.body.innerText);
+  for (const old of [/\bthe still\b/i, /\bheat\b/i, /\bbust/i, /\bFeds\b/, /shine aboard/i, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);
+  expect(await page.locator('.bootleg-only, .dredge-only').count()).toBe(0);
   await screenshot(page, 'dredge-help');
-});
-
-test('bootleg mode keeps its own intro and rules', async ({ page }) => {
-  await openGame(page);
-  await page.click('#intro-help');
-  await expect(page.locator('#help ol.bootleg-only')).toBeVisible();
-  await expect(page.locator('#help ol.dredge-only')).toBeHidden();
 });

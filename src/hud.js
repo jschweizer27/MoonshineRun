@@ -10,35 +10,24 @@ const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.
 export class HUD {
   constructor() {
     this.el = {
-      hud: $('hud'), cash: $('cash'), stars: $('stars'), heatStatus: $('heat-status'),
-      heatMeter: $('heat-meter'), heatFill: $('heat-meter').firstElementChild,
+      hud: $('hud'), cash: $('cash'),
       objectiveText: $('objective-text'), objectiveDist: $('objective-dist'), objective: $('objective'), arrow: $('objective-arrow'),
-      cargo: $('cargo'), speed: $('speed'), toast: $('toast'), cashPop: $('cash-pop'), flash: $('flash'),
-      bust: $('bust'), bustFill: $('bust').querySelector('.meter > div'),
-      hint: $('hint'), hintText: $('hint-text'), mute: $('btn-mute'),
-      gameover: $('gameover'), gameoverMsg: $('gameover-msg'), heat: $('heat'), siren: $('siren-flash'),
-      finalCash: $('final-cash'), finalRuns: $('final-runs'), bestCash: $('best-cash'), newBest: $('new-best'),
+      cargo: $('cargo'), speed: $('speed'), toast: $('toast'), cashPop: $('cash-pop'), mute: $('btn-mute'),
     };
-    this.onHintClose = () => {};
-    $('hint-close').addEventListener('click', () => this.onHintClose());
     this._toastTimer = null;
     this._last = {};
     this._cashShown = 0;
     this._cashAnim = null;
     this._speedShown = 0;
-    this._tier = 0;
-    this._meter = 0;
+    // The palette (CONFIG.dredge.palette) on every screen, as --d-* CSS variables (e.g.
+    // --d-shadow-teal); styles.css themes everything under html.dredge.
+    const root = document.documentElement;
+    root.classList.add('dredge');
+    this.el.hud.classList.add('dredge');
+    for (const [k, v] of Object.entries(CONFIG.dredge.palette)) root.style.setProperty(`--d-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, v);
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
-  // 'bootleg' or 'dredge' (no heat, no bust bar; the dredge palette on every screen, set
-  // from CONFIG.dredge.palette as --d-* CSS variables, e.g. --d-shadow-teal).
-  setMode(mode) {
-    const on = mode === 'dredge', root = document.documentElement;
-    this.el.hud.classList.toggle('dredge', on);
-    root.classList.toggle('dredge', on);
-    if (on) for (const [k, v] of Object.entries(CONFIG.dredge.palette)) root.style.setProperty(`--d-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, v);
-  }
   hide() { this.el.hud.classList.add('hidden'); }
 
   _set(key, value, fn) {
@@ -78,31 +67,13 @@ export class HUD {
     p.classList.add('show');
   }
 
-  flash() {
-    const f = this.el.flash;
-    f.classList.remove('hit');
-    void f.offsetWidth;
-    f.classList.add('hit');
-  }
-
-  setCargo(loaded, detail = '', prefix = 'CARGO: ') {
-    this.el.cargo.classList.toggle('hidden', !loaded);
-    this.el.cargo.textContent = detail ? `${prefix}${detail}` : 'CARGO: LOADED';
+  // The trunk pill: how full the trunk is.
+  setCargo(text) {
+    this._set('cargo', text, () => { this.el.cargo.textContent = text; });
   }
 
   setClock(text) { this._set('clock', text, () => { $('clock').textContent = text; }); }
 
-  // pill: null or [kind, text] where kind is disguised | speeding | safe
-  setStatusPill(pill) {
-    const key = pill ? pill.join('|') : '';
-    this._set('pill', key, () => {
-      const p = $('status-pill');
-      p.classList.toggle('hidden', !pill);
-      if (!pill) return;
-      p.className = `pill ${pill[0]}`;
-      p.textContent = pill[1];
-    });
-  }
   // The speedometer eases toward the real speed instead of snapping (JUICE.ui.speedEase).
   setSpeed(mph, dt = 0) {
     const k = juice('ui', 'speedEase');
@@ -111,44 +82,7 @@ export class HUD {
     this._set('speed', shown, () => { this.el.speed.textContent = shown; });
   }
 
-  // The law has spotted you: red and blue flash round the screen edges.
-  sirenFlash() {
-    if (!juice('ui', 'spottedFlash')) return;
-    this.el.siren.style.setProperty('--strength', JUICE.ui.spottedFlash);
-    replay(this.el.siren, 'on');
-  }
   setMuted(m) { this.el.mute.classList.toggle('muted', m); this.el.mute.setAttribute('aria-label', m ? 'Unmute' : 'Mute'); }
-
-  // tier: whole stars. status: incoming | seen | closing | evading | ''.
-  // meter: 0..1, shown red while heat builds and blue while you're shaking them.
-  setHeat(tier, status, meter, mode) {
-    this._set('tier', tier, () => {
-      [...this.el.stars.children].forEach((s, k) => s.classList.toggle('on', k < tier));
-      this.el.stars.parentElement.classList.toggle('hot', tier > 0);
-      // A new star: the heat display jumps and shakes.
-      if (tier > this._tier && juice('ui', 'heatPulse')) replay(this.el.heat, 'bump');
-      this._tier = tier;
-    });
-    // The meter throbs while the heat builds.
-    const rising = mode === 'building' && meter > this._meter + 1e-4 && juice('ui', 'heatPulse') > 0;
-    this._meter = meter;
-    this._set('rising', rising, (on) => this.el.heatMeter.classList.toggle('rising', on));
-    const label = { incoming: 'COPS INCOMING', seen: 'THEY SEE YOU', closing: 'COPS CLOSING IN!', evading: 'LOSING THEM…' }[status] || '';
-    this._set('heatStatus', label, () => {
-      this.el.heatStatus.textContent = label;
-      this.el.heatStatus.classList.toggle('alarm', status === 'closing');
-    });
-    this._set('heatMode', mode, () => {
-      this.el.heatMeter.classList.toggle('building', mode === 'building');
-      this.el.heatMeter.classList.toggle('idle', !mode);
-    });
-    this.el.heatFill.style.transform = `scaleX(${Math.max(0, Math.min(1, meter)).toFixed(3)})`;
-  }
-
-  setBust(v) {
-    this._set('bustOn', v > 0.01, (on) => this.el.bust.classList.toggle('hidden', !on));
-    this.el.bustFill.style.transform = `scaleX(${Math.min(1, v).toFixed(3)})`;
-  }
 
   // bearing: radians from straight ahead (positive = to the right).
   setObjective(text, meters, kind, bearing = 0) {
@@ -169,20 +103,5 @@ export class HUD {
     t.className = `show ${tone}`;
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { t.className = ''; }, ms);
-  }
-
-  showHint(text) {
-    this.el.hintText.textContent = text;
-    this.el.hint.classList.remove('hidden');
-  }
-
-  hideHint() { this.el.hint.classList.add('hidden'); }
-
-  fillGameOver({ cash, runs, best, isBest, msg }) {
-    this.el.finalCash.textContent = `$${cash.toLocaleString()}`;
-    this.el.finalRuns.textContent = runs;
-    this.el.bestCash.textContent = `$${best.toLocaleString()}`;
-    this.el.newBest.classList.toggle('hidden', !isBest);
-    this.el.gameoverMsg.textContent = msg;
   }
 }

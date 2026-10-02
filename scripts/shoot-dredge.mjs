@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Dredge-run art-direction screenshots: `npm run shots -- dredge-s5 [--day] [--rain] [--plain]` (any
-// label starting with "dredge" lands here from scripts/shoot.mjs). Starts the dredge mode
+// Art-direction screenshots of the whole game (streets, skyline, county, the truck, loot,
+// the trunk, the markets, both towns): `npm run shots -- dredge-s9 [--day] [--rain] [--plain]`
+// (any label starting with "dredge" lands here from scripts/shoot.mjs). Starts the game
 // headless, sets up each view, and saves artifacts/shots/<label>-*.png, a contact sheet
 // artifacts/shots/<label>.png, and the render counts (draw calls, shadow calls, lights,
 // shader programs, geometries) to artifacts/shots/<label>-counts.json. The painterly look is on, as
@@ -26,7 +27,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (e) => console.error('pageerror:', e.message));
   for (let i = 0; i < 50; i++) {
-    try { await page.goto(`http://localhost:${port}/?test&mode=dredge${flags.has('--plain') ? '' : '&painterly'}`); break; } catch { await new Promise((r) => setTimeout(r, 200)); }
+    try { await page.goto(`http://localhost:${port}/?test${flags.has('--plain') ? '' : '&painterly'}`); break; } catch { await new Promise((r) => setTimeout(r, 200)); }
   }
   await page.waitForFunction(() => window.__shineReady === true, null, { timeout: 90_000 });
   await page.click('#start-btn');
@@ -44,7 +45,7 @@ try {
       const g = window.shine.game;
       g.loot._writeAll(g.time, g.player.position, g.camera.position);       // glows face this shot's camera
       g.renderFrame();
-      g.minimap.draw(g.player, g._mapMarkers(), g._mapPolice(), g.time);   // the stopped loop doesn't
+      g.minimap.draw(g.player, g._mapMarkers());   // the stopped loop doesn't
     });
     const path = `${out}/${label}-${name}.png`;
     const png = await page.screenshot({ path });
@@ -212,7 +213,7 @@ try {
   await shoot('upgrades', 'the market: upgrades to buy');
   await page.evaluate(() => {
     const g = window.shine.game;
-    g.dredge.buy('trunk'); g.dredge.buy('trunk'); g._applyDredgePerks();
+    g.dredge.buy('trunk'); g.dredge.buy('trunk'); g._applyPerks();
     g.ui.back();
     window.shine.teleport(0, 100, 0); window.shine.step(0.1);
     g.trunk.clear();

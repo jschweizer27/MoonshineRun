@@ -3,7 +3,7 @@ import { KINDS, shape, shapeSize, kindColors, inkFor } from './trunk.js';
 
 const $ = (id) => document.getElementById(id);
 
-// The trunk screen (dredge run): pack loot into the grid. A piece "in hand" follows the
+// The trunk screen: pack loot into the grid. A piece "in hand" follows the
 // cursor; Enter / A / click puts it down, lifts the piece under the cursor, or swaps the two
 // when the one in hand overlaps exactly one piece. R, Q / E, the shoulder buttons or a
 // right-click turn it; X / Backspace leaves it on the road. Esc / B closes the trunk (a new

@@ -187,7 +187,6 @@ export function buildSettings(container, settings, { onChange, input, extra = []
       seg('On-screen touch controls', 'touchControls', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']]),
       keyTable(settings, input, onChange)),
     section('Help',
-      toggle('Show tips', 'hints'),
       ...extra),
   );
 }

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openGame, startRun, step, screenshot } from './helpers.js';
 
-// Batch E: soundtrack and effects, the 1920s rig, particles, camera and the title screen.
+// Batch E: soundtrack and effects, particles, camera, the title screen and the city's look.
 
 test('the soundtrack plays, and R switches the radio off and on', async ({ page }) => {
   await openGame(page);
@@ -16,49 +16,11 @@ test('the soundtrack plays, and R switches the radio off and on', async ({ page 
   await expect(page.locator('#toast')).toContainText('Radio off');
   await page.keyboard.press('KeyR');
   expect(await page.evaluate(() => window.shine.game.audio.music.on)).toBe(true);
-  // Chases switch the band to hot jazz.
-  await page.evaluate(() => { const g = window.shine.game; g.mission.heat = 1; window.shine.step(0.1); });
-  expect(await page.evaluate(() => window.shine.game.audio.music.hot)).toBe(true);
-});
-
-test('the horse trailer swings behind the truck through a corner', async ({ page }) => {
-  await openGame(page);
-  await startRun(page);
-  const r = await page.evaluate(() => {
-    const g = window.shine.game, v = g.player, t = v.trailer;
-    window.shine.teleport(-44, 150, 0);
-    window.shine.step(2, { throttle: 0.8 });
-    window.shine.step(0.8, { throttle: 0.6, steer: 1 });
-    const hx = v.position.x - v.forwardX * 2.65, hz = v.position.z - v.forwardZ * 2.65;
-    return { lag: Math.abs(Math.atan2(Math.sin(v.heading - t.heading), Math.cos(v.heading - t.heading))), bar: Math.hypot(hx - t.x, hz - t.z) };
-  });
-  expect(r.lag).toBeGreaterThan(0.1);                         // articulated, not rigid
-  expect(r.bar).toBeCloseTo(3.6, 1);                          // stays hitched
-});
-
-test('pursuers bounce off the horse box instead of driving through it', async ({ page }) => {
-  await openGame(page);
-  await startRun(page);
-  const r = await page.evaluate(() => {
-    const g = window.shine.game, v = g.player, t = v.trailer, u = g.police.units[0];
-    window.shine.teleport(-44, 150, 0);
-    window.shine.step(0.2);
-    // A pursuer parked right on top of the horse box.
-    u.active = true; u.mode = 'chase'; u.car.setVisible(true);
-    const fx = Math.sin(t.heading), fz = -Math.cos(t.heading);
-    u.car.place(t.x + fx * 0.35, t.z + fz * 0.35, 0);
-    window.shine.step(1 / 60);
-    const box = [t.x + fx * 0.35, t.z + fz * 0.35];
-    const d = Math.hypot(u.car.position.x - box[0], u.car.position.z - box[1]);
-    u.active = false; u.car.setVisible(false);
-    return d;
-  });
-  expect(r).toBeGreaterThan(1.5);            // pushed clear of the box
 });
 
 test('exhaust and dust while driving, sparks on a crash, a shake on impact', async ({ page }) => {
   await openGame(page);
-  await startRun(page);
+  await startRun(page, { loot: false });
   const alive = () => page.evaluate(() => {
     const p = window.shine.game.particles;
     return { smoke: p.smoke.life.filter((l) => l > 0).length, glow: p.glow.life.filter((l) => l > 0).length };
@@ -81,7 +43,7 @@ test('exhaust and dust while driving, sparks on a crash, a shake on impact', asy
 
 test('speed widens the view, unless Reduce motion is on', async ({ page }) => {
   await openGame(page);
-  await startRun(page);
+  await startRun(page, { loot: false });
   const fov = () => page.evaluate(() => window.shine.game.camera.fov);
   await page.evaluate(() => window.shine.teleport(-44, 200, 0));
   await step(page, 4, { throttle: 1 });
@@ -108,7 +70,7 @@ test('the title screen flies over the city', async ({ page }) => {
   expect(b[1]).toBeGreaterThan(40);                           // up over the rooftops
 });
 
-test('the city is dressed: neon signs, water towers, a sign for every buyer', async ({ page }) => {
+test('the city is dressed: neon signs, water towers, a sign on every named corner', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   const r = await page.evaluate(() => {
@@ -217,7 +179,7 @@ test('the skyline varies: bay windows, rooflines, chimney stacks and water tower
 });
 
 test('the painterly look: on by default, a settings toggle, no new shaders or draw calls', async ({ page }) => {
-  await openGame(page, '&painterly&mode=dredge');
+  await openGame(page, '&painterly');
   await startRun(page);
   const r = await page.evaluate(() => {
     const g = window.shine.game, u = g.post.grade.uniforms;
@@ -235,7 +197,7 @@ test('the painterly look: on by default, a settings toggle, no new shaders or dr
   });
   expect(r.on.painterly).toBe(true);
   expect(r.on.paint).toBe(1);
-  expect(r.on.lut).toBeGreaterThan(0);            // dredge mode: pulled toward the palette
+  expect(r.on.lut).toBeGreaterThan(0);            // pulled toward the palette
   expect(r.on.depth).toBe(true);
   expect(r.off.painterly).toBe(false);
   expect(r.off.paint).toBe(0);
@@ -270,8 +232,8 @@ test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflect
   await screenshot(page, '22-wet-street');
 });
 
-// The 3D models from assets/: Otto's truck, the Bureau sedans and the arc lamps.
-test('the truck, the Bureau sedans and the street lamps are the 3D models, sharing geometry and shaders', async ({ page }) => {
+// The 3D models from assets/: Otto's truck and the arc lamps.
+test('the truck and the street lamps are the 3D models, sharing shaders', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   const r = await page.evaluate(() => {
@@ -279,35 +241,28 @@ test('the truck, the Bureau sedans and the street lamps are the 3D models, shari
     window.shine.step(0.2);
     g.renderFrame();
     const programs = g.renderer.info.programs.length;
-    g.mission.heat = 3;
-    g.police.setTarget(3, g.player, g.camera);
-    window.shine.step(2);
+    window.shine.step(2, { throttle: 0.5 });
     g.renderFrame();
-    const feds = g.police.units.filter((u) => u.kind === 'fed').map((u) => u.car.model.shell);
     let poles = null;
     g.scene.traverse((o) => { if (o.isInstancedMesh && o.material.vertexColors && o.count > 200) poles = poles || o; });
     return {
       truck: m.shell.userData.model, truckEnv: !!m.shell.material.envMap,
-      feds: feds.map((s) => s.userData.model), shared: new Set(feds.map((s) => s.geometry)).size,
-      fedCoat: feds[0].material.clearcoat > 0 && !!feds[0].geometry.attributes.surf,
+      coat: m.shell.material.clearcoat > 0 && !!m.shell.geometry.attributes.surf,
       lampModel: !!poles, programsAfter: g.renderer.info.programs.length, programs,
       beam: m.beam.visible && m.beam.material.opacity, beamOnBody: m.beam.parent === m.body,
-      lens: m.lamp,
     };
   });
   expect(r.truck).toBe('truck');
   expect(r.truckEnv).toBe(true);                       // the paint catches the street
-  expect(r.feds.every((x) => x === 'fed')).toBe(true);
-  expect(r.shared).toBe(1);                            // every sedan shares one geometry
-  expect(r.fedCoat).toBe(true);                        // baked into the clearcoat material
+  expect(r.coat).toBe(true);                           // baked into the clearcoat material
   expect(r.lampModel).toBe(true);
-  expect(r.programsAfter).toBe(r.programs);            // cops arriving compile nothing
+  expect(r.programsAfter).toBe(r.programs);            // driving on compiles nothing
   expect(r.beam).toBeGreaterThan(0.05);                // beams show at night
   expect(r.beamOnBody).toBe(true);                     // they dip with the nose
   await screenshot(page, '23-models');
 });
 
-test('with ?models=0 (or a model that won\'t load) the built-in truck, sedans and lamps stand in', async ({ page }) => {
+test('with ?models=0 (or a model that won\'t load) the built-in truck and lamps stand in', async ({ page }) => {
   await openGame(page, '&models=0');
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -368,6 +323,7 @@ test('the sky dome: stars and moon by night, blue by day, thicker cloud in rain;
     const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
     const [gx, gz] = w.grates.find(([x, z]) => Math.abs(x) < 1 && z > 100 && z < 160) || w.grates[0];
     window.shine.teleport(gx - 6, gz + 8, 0);
+    g.particles.clear();               // no steam left over from the grates by the start
     window.shine.step(2.5);
     g.renderFrame();
     const near = (x, z) => { let n = 0; for (let i = 0; i < pool.n; i++) if (pool.life[i] > 0 && Math.hypot(pool.pos[i * 3] - x, pool.pos[i * 3 + 2] - z) < 3 && pool.pos[i * 3 + 1] < 6) n++; return n; };
@@ -386,7 +342,7 @@ test('the sky dome: stars and moon by night, blue by day, thicker cloud in rain;
   expect(r.chimneys).toBeGreaterThan(20);
   expect(r.programs).toBe(0);
   expect(r.geometries).toBe(0);
-  expect(r.lights).toBe(13);
+  expect(r.lights).toBe(12);
   expect(r.calls).toBeLessThan(60);
   await screenshot(page, '25-steam');
 });

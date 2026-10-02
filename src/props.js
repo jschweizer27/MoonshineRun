@@ -102,7 +102,7 @@ export class Props {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  // Vehicles (the player and the police) knock props flying; flying props tumble and land.
+  // Vehicles (the truck) knock props flying; flying props tumble and land.
   update(dt, cars) {
     if (!dt || !this.n) return;
     const kick = juice('impacts', 'props');

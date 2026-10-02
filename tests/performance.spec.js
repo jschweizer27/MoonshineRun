@@ -1,25 +1,25 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun } from './helpers.js';
+import { openGame, startRun, snapshot } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   await openGame(page);
   await startRun(page);
 });
 
-test('the light count is fixed and no shaders compile when police spawn or the lamps change', async ({ page }) => {
+test('the light count is fixed and no shaders compile as loot, the markets and the lamps come and go', async ({ page }) => {
   const before = await page.evaluate(() => window.shine.renderInfo());
   const after = await page.evaluate(() => {
     const g = window.shine.game;
-    g.mission.heat = 3;
-    g.police.setTarget(3, g.player, g.camera);
-    window.shine.step(1);
-    // Drive down the avenue: the lamp lights hop from lamp to lamp.
+    g.perks.pickupRadius = 0;            // drive past the loot rather than stopping for it
+    // Drive down the avenue: the lamp lights hop from lamp to lamp, loot comes and goes.
     window.shine.teleport(0, 200, 0);
     for (let i = 0; i < 6; i++) { window.shine.step(0.5, { throttle: 1 }); g.renderFrame(); }
+    // Up to each market: its marker comes into view (the other one hides).
+    for (const [x, z] of [[-44, 70], [0, -620]]) { window.shine.teleport(x, z, 0); window.shine.step(0.1); g.renderFrame(); }
     return window.shine.renderInfo();
   });
   expect(after.lights).toBe(before.lights);
-  expect(after.lights).toBeLessThanOrEqual(13);    // sky, moon, headlight, fx + 8 lamps + 1 lamp spot
+  expect(after.lights).toBeLessThanOrEqual(12);    // sky, moon, headlight + 8 lamps + 1 lamp spot
   expect(after.programs).toBe(before.programs);
 });
 
@@ -45,13 +45,14 @@ test('the whole city draws in a small number of draw calls', async ({ page }) =>
   expect(info.postCalls).toBeLessThan(20);          // bloom mips, tone mapping, grade
 });
 
-test('every wheel in the city draws through one instanced mesh per wheel shape, spinning and steering', async ({ page }) => {
+test('the truck\'s wheels draw through one instanced mesh, spinning and steering', async ({ page }) => {
   const r = await page.evaluate(() => {
     const g = window.shine.game, out = { batches: 0 };
     const meshes = [];
     g.scene.traverse((o) => { if (o.isInstancedMesh && o.userData.wheels) meshes.push(o); });
     out.batches = meshes.length;
     const front = g.player.model.wheels[0], m = front.matrixWorld.clone();
+    g.perks.pickupRadius = 0;
     window.shine.teleport(0, 205, 0);
     window.shine.step(0.3, { throttle: 1 });
     g.renderFrame();
@@ -63,20 +64,13 @@ test('every wheel in the city draws through one instanced mesh per wheel shape, 
     let found = false;
     for (const b of meshes) for (let i = 0; i < b.count; i++) { b.getMatrixAt(i, m); if (m.elements.every((e, k) => Math.abs(e - front.matrixWorld.elements[k]) < 1e-3)) found = true; }
     out.found = found;
-    // A full chase: each pursuer costs its body, lamps and sirens; its wheels cost nothing.
-    const calls0 = window.shine.renderInfo().calls;
-    g.mission.heat = 3;
-    g.police.setTarget(3, g.player, g.camera);
-    window.shine.step(1);
-    out.cops = g.police.units.filter((u) => u.active).length;
-    out.added = window.shine.renderInfo().calls - calls0;
+    out.count = meshes.reduce((n, b) => n + b.count, 0);
     return out;
   });
-  expect(r.batches).toBeLessThanOrEqual(5);           // truck, horse box, Rolls, sedan, pickup wheels
+  expect(r.batches).toBe(1);
+  expect(r.count).toBe(4);
   expect(r.spun).toBe(true);
-  expect(r.cops).toBeGreaterThan(1);
   expect(r.found).toBe(true);
-  expect(r.added).toBeLessThanOrEqual(r.cops * 4);
 });
 
 test('post-processing: bloom and grade on High, skipped on Low, no new shaders mid-game', async ({ page }) => {
@@ -124,4 +118,21 @@ test('reports frame rate (informational)', async ({ page }, testInfo) => {
   }));
   testInfo.annotations.push({ type: 'fps (software renderer)', description: fps.toFixed(1) });
   expect(fps).toBeGreaterThan(0.2);   // only checks it isn't stuck (software GPU)
+});
+
+test('quitting and starting again reuses the world (GPU memory stays flat)', async ({ page }) => {
+  // The old build leaked ~210 geometries per restart; nothing may grow from round to round.
+  const counts = [];
+  for (let k = 0; k < 4; k++) {
+    await page.evaluate(() => {
+      const g = window.shine.game;
+      g.perks.pickupRadius = 0;
+      window.shine.step(0.5, { throttle: 1 });
+      g.quitToTitle();
+    });
+    await page.click('#start-btn');
+    counts.push(await page.evaluate(() => { window.shine.game.renderFrame(); const i = window.shine.renderInfo(); return [i.geometries, i.textures, i.programs].join(','); }));
+  }
+  expect(new Set(counts).size).toBe(1);
+  expect((await snapshot(page)).state).toBe('playing');
 });

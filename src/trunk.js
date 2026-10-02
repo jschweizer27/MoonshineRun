@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 
-// The dredge run's trunk: a grid you pack loot into, Tetris-style. Pure logic (no DOM, no
+// The trunk: a grid you pack loot into, Tetris-style. Pure logic (no DOM, no
 // Three.js) so it can be tested on its own. A piece's shape is a list of [col, row] cells
 // (CONFIG.dredge.loot.kinds); rotation turns it a quarter clockwise at a time.
 export const KINDS = Object.fromEntries(CONFIG.dredge.loot.kinds.map((k) => [k.id, k]));

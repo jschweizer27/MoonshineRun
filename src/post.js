@@ -15,8 +15,8 @@ import { CONFIG } from './config.js';
 // so it costs no extra pass and switching it compiles nothing: a light Kuwahara filter
 // (each pixel takes the average of its calmest neighbourhood, which flattens texture into
 // brush-like patches), depth fog from the scene's depth buffer (thicker low down, rose
-// toward the horizon at night), and a palette LUT that pulls colours toward the dredge
-// palette (dredge mode only). The bloom is softer and wider while it's on.
+// toward the horizon at night), and a palette LUT that pulls colours toward the palette
+// (CONFIG.dredge.palette). The bloom is softer and wider while it's on.
 const LUT = 32;   // the palette LUT: LUT slices of LUT x LUT, side by side (blue picks the slice)
 const GRADE = {
   uniforms: {
@@ -190,23 +190,16 @@ export class PostFX {
     this.lut = makePaletteLut(CONFIG.dredge.palette);
     u.tLut.value = this.lut;
     this.painterly = false;
-    this.paletteOn = false;
     this._day = 0;
   }
 
-  // The painterly look on or off (a uniform: nothing recompiles), and whether colours are
-  // pulled toward the dredge palette.
+  // The painterly look on or off (a uniform: nothing recompiles).
   setPainterly(on) {
     const P = CONFIG.look.post;
     this.painterly = !!on;
     this.grade.uniforms.uPaint.value = on ? 1 : 0;
     this.bloom.radius = on ? P.paint.bloomRadius : P.bloomRadius;
     this.setDaylight(this._day);
-  }
-
-  setPalette(on) {
-    this.paletteOn = !!on;
-    this.setDaylight(this._day ?? 0);
   }
 
   setQuality(level) {
@@ -232,7 +225,7 @@ export class PostFX {
     this.bloom.strength = P.bloomStrength * (1 - 0.6 * d) * (this.painterly ? P.paint.bloomBoost : 1);
     this.grade.uniforms.uHorizon.value = P.paint.horizon * (1 - d);
     // The palette is a night palette: by day it only tints a little.
-    this.grade.uniforms.uLut.value = this.paletteOn ? P.paint.lut * (1 - 0.6 * d) : 0;
+    this.grade.uniforms.uLut.value = P.paint.lut * (1 - 0.6 * d);
   }
 
   // 0..1 near top speed (JUICE.cinematic.speedPulse).

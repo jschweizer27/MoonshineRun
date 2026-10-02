@@ -21,7 +21,6 @@ export const JUICE = {
 
   body: {
     roll: 0.07,           // radians of lean per g of cornering (the body leans out of turns)
-    trailerSway: 1.3,     // the tall horse box leans this much more, and a beat later
     pitch: 0.05,          // radians per g: nose dives under braking, squats under throttle
     stiffness: 60,        // suspension spring
     damping: 6,           // suspension damping (lower = bouncier)
@@ -46,9 +45,7 @@ export const JUICE = {
   ui: {
     cashPop: 1,           // the cash counter swells and glows as it rolls up (x the bump)
     cashRoll: 0.9,        // seconds the counter takes to roll up to the new total
-    floatText: 1,         // the "+$50" that floats up on a delivery
-    heatPulse: 1,         // the stars and heat meter pulse and shake as the heat rises
-    spottedFlash: 1,      // red/blue flash round the screen edges when the law spots you
+    floatText: 1,         // the "+$50" that floats up on a sale
     bannerSlide: 0.35,    // seconds the objective banner takes to slide in when it changes
     speedEase: 9,         // how fast the speedometer catches up (0 = it snaps)
   },
@@ -57,19 +54,14 @@ export const JUICE = {
     engineLoad: 1,        // the engine growls louder and brighter under throttle
     squeal: 1,            // tyre squeal when the tyres slide (x the volume)
     crunch: 1,            // the crunch of a crash (x the volume)
-    siren: 1,             // sirens: faint and muffled when the heat rises, loud and clear up close
     wind: 1,              // wind rushing past at speed
     nightBed: 1,          // the night: distant jazz from the speakeasies, crickets in the county
-    duck: 0.65,           // how far the radio drops when sirens are close (0-1)
   },
 
   cinematic: {
-    slowMo: 0.3,          // seconds of slow motion on near-misses and big crashes (real time)
+    slowMo: 0.3,          // seconds of slow motion after a big crash (real time)
     slowMoScale: 0.3,     // how fast the game runs during it
     slowMoFrom: 0.6,      // crash strength (0-1) that earns slow motion
-    nearMiss: 2.5,        // metres between bodies: a pursuer this close at speed is a near-miss
-    nearMissSpeed: 14,    // m/s of closing speed that makes it count
-    sirenSweep: 1,        // the pursuers' red beacon light sweeps across the buildings
     speedPulse: 1,        // vignette pulse and speed lines near top speed
   },
 
@@ -111,11 +103,9 @@ export class VehicleFeel {
     this.particles = particles;
     this.headlight = headlight;
     this.headlightBase = headlight ? headlight.intensity : 0;
-    // The player's lamp lenses (on each car Otto owns) get their own material so they can
-    // flicker alone.
-    for (const { model } of vehicle.rides ? Object.values(vehicle.rides) : [vehicle]) {
-      const lens = model.lampMesh;
-      if (!lens) continue;
+    // The truck's lamp lenses get their own material so they can flicker alone.
+    const lens = vehicle.model.lampMesh;
+    if (lens) {
       lens.material = lens.material.clone();
       lens.userData.base = lens.material.color.clone();
     }
@@ -123,8 +113,6 @@ export class VehicleFeel {
     this.roll = new Spring();
     this.pitch = new Spring();
     this.heave = new Spring();
-    this.trailerRoll = new Spring();
-    this.trailerHeave = new Spring();
     this.dent = new Spring();            // squash on impact, springing back
     this.rattle = 0;                     // decaying shudder after a hit
     this._rumble = 0;
@@ -136,9 +124,7 @@ export class VehicleFeel {
   reset() {
     this._prevHeading = this.v.heading;
     this._prevSpeed = this.v.speed;
-    this._prevTrailer = this.v.trailer ? this.v.trailer.heading : 0;
-    this._aLat = this._aLong = this._tLat = 0;
-    this.trailerRoll.reset(); this.trailerHeave.reset();
+    this._aLat = this._aLong = 0;
     this.dent.reset();
     this.rattle = 0;
     this.accel01 = 0;
@@ -174,11 +160,6 @@ export class VehicleFeel {
     this._prevHeading = v.heading;
     this._prevSpeed = v.speed;
     this.accel01 = clamp(this._aLong / 14, 0, 1);
-    if (v.trailer) {
-      const tRate = wrap(v.trailer.heading - this._prevTrailer) / dt;
-      this._tLat += (v.speed * tRate - this._tLat) * k;
-      this._prevTrailer = v.trailer.heading;
-    }
 
     // Body on its springs: leans out of turns, dives under braking, buzzes over the road.
     const on = JUICE.enabled;
@@ -194,14 +175,10 @@ export class VehicleFeel {
     this.roll.step(rollTarget, kk, c, dt);
     this.pitch.step(pitchTarget, kk, c, dt);
     this.heave.step(this._rumble, kk * 2.2, c * 1.3, dt);
-    // The horse box: softer springs, so it sways and settles after the truck does.
-    const swayTarget = on ? clamp((B.roll * B.trailerSway * this._tLat) / G, -0.18, 0.18) : 0;
-    this.trailerRoll.step(swayTarget, kk * 0.6, c * 0.6, dt);
-    this.trailerHeave.step(this.heave.x * 0.8, kk * 1.4, c, dt);
     this.dent.step(0, 420, 9, dt);
     this.rattle *= Math.exp(-7 * dt);
     this._t = (this._t || 0) + dt;
-    if (!on) { this.roll.reset(); this.pitch.reset(); this.heave.reset(); this.trailerRoll.reset(); this.trailerHeave.reset(); this.dent.reset(); this.rattle = 0; }
+    if (!on) { this.roll.reset(); this.pitch.reset(); this.heave.reset(); this.dent.reset(); this.rattle = 0; }
     this._apply();
 
     this._wheels(dt, ctx, speed, speed01);
@@ -217,12 +194,6 @@ export class VehicleFeel {
     body.rotation.y = Math.sin(t * 53) * r;
     body.scale.set(1 - d * 0.6, 1 + d, 1 - d * 0.4);       // d < 0: squashed down and out
     body.position.y = body.userData.pivot + clamp(this.heave.x, -0.25, 0.25);
-    const box = this.v.trailer?.bodyPivot;
-    if (box) {
-      box.rotation.z = this.trailerRoll.x;
-      box.rotation.x = -this.pitch.x * 0.4;        // the drawbar tips it the other way
-      box.position.y = box.userData.pivot + clamp(this.trailerHeave.x, -0.25, 0.25);
-    }
   }
 
   // Tyre smoke and skid marks when sliding or braking hard, spray on wet roads.
@@ -235,16 +206,9 @@ export class VehicleFeel {
     const front = Math.max(slide * 0.5, braking);
     const on = JUICE.enabled;
     const f = [v.forwardX, v.forwardZ], r = [Math.cos(v.heading), Math.sin(v.heading)];
-    // The truck's wheels, then the horse box's (it slides with the rig, and it's what the
-    // chase camera sees).
     const wheels = this._wheelSpots;
     wheels.length = 0;
     for (const [lx, lz, isFront] of v.model.wheelSpots) wheels.push([v.position.x + r[0] * lx - f[0] * lz, v.position.z + r[1] * lx - f[1] * lz, isFront ? front : rear, !isFront]);
-    const t = v.trailer;
-    if (t) {
-      const cx = Math.cos(t.heading), cz = Math.sin(t.heading);
-      for (const lx of [-1.02, 1.02]) wheels.push([t.x + cx * lx, t.z + cz * lx, Math.max(slide, handbrake * 0.7, braking * 0.8), true]);
-    }
     for (let i = 0; i < wheels.length; i++) {
       const [x, z, amount, smokes] = wheels[i];
       const isFront = !smokes;

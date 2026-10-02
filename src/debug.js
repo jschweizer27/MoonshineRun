@@ -7,7 +7,8 @@ export function installDebug(game, { overlay }) {
   const idle = { throttle: 0, steer: 0, handbrake: false };
   const api = {
     game,
-    // Simulate `seconds` of play at 60 Hz with a fixed input. Stops early if the run ends.
+    // Simulate `seconds` of play at 60 Hz with a fixed input. Stops early if the game
+    // pauses (a pickup opens the trunk, stopping in a market opens it).
     step(seconds, input = {}) {
       const n = Math.round(seconds * 60);
       for (let i = 0; i < n && game.state === 'playing'; i++) game.step(1 / 60, { ...idle, ...input });
@@ -17,20 +18,10 @@ export function installDebug(game, { overlay }) {
       game.player.place(x, z, heading);
       game.chase.snap(game.player);
     },
-    // Drive onto the still and pick an order (0 = small). Leaves the game playing.
-    loadShine(order = 0) {
-      const m = game.mission;
-      api.teleport(m.pickup.position.x, m.pickup.position.z);
-      game.step(1 / 60, idle);
-      document.querySelectorAll('#orders-body .order')[order]?.click();
-      return api.snapshot();
-    },
     snapshot() {
-      const m = game.mission, p = game.player;
+      const p = game.player;
       return {
-        state: game.state, game: game.mode, loot: game.trunk.count, cash: game.mode === 'dredge' ? game.dredge.cash : game.career.cash, streak: m.streakEarned, runs: m.streakRuns, carrying: m.carrying, mode: m.mode,
-        heat: +m.heat.toFixed(3), tier: m.tier, evade: +m.evade.toFixed(3),
-        pursuers: game.police.pursuing, contact: game.police.contact,
+        state: game.state, loot: game.trunk.count, cash: game.dredge.cash,
         x: +p.position.x.toFixed(2), z: +p.position.z.toFixed(2), heading: +p.heading.toFixed(3), speed: +p.speed.toFixed(2),
       };
     },
@@ -74,7 +65,7 @@ export function installDebug(game, { overlay }) {
         el.textContent = [
           `${fps.toFixed(0)} fps  ${(1000 / fps).toFixed(1)} ms  build ${game.buildId}`,
           `calls ${i.render.calls}  tris ${(i.render.triangles / 1000).toFixed(0)}k  programs ${i.programs.length}  geo ${i.memory.geometries}`,
-          `state ${s.state}  heat ${s.heat} (tier ${s.tier})  evade ${s.evade}  cops ${s.pursuers}${s.contact ? ' seen' : ''}`,
+          `state ${s.state}  trunk ${s.loot} pieces  cash $${s.cash}`,
           `pos ${s.x}, ${s.z}  heading ${s.heading}  speed ${s.speed}`,
         ].join('\n');
       }

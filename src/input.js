@@ -84,7 +84,7 @@ export class Input {
     edge(PAD.BACK, 'map');
     edge(PAD.B, 'back', 'horn');
     edge(PAD.A, 'confirm');
-    // The dredge run's trunk: X opens it while driving (and leaves a piece behind inside it);
+    // The trunk: X opens it while driving (and leaves a piece behind inside it);
     // the shoulder buttons turn a piece.
     edge(PAD.X, 'trunk');
     edge(PAD.LB, 'rotate');
