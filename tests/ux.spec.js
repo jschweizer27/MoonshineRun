@@ -134,17 +134,34 @@ test('the minimap and full map draw the route to the objective', async ({ page }
   await openGame(page);
   await startRun(page);
   // The minimap draws once per rendered frame. Draw it here rather than waiting on real
-  // frames, which can crawl on software-rendered CI machines.
-  await expect.poll(() => page.evaluate(() => {
-    const g = window.shine.game;
-    g.minimap.updateRoute(1, g.player.position, g.mission.target, g.police.blocked);
-    g.minimap.draw(g.player, g._mapMarkers(), g._mapPolice(), g.time);
-    const cv = document.getElementById('minimap');
-    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-    let lit = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 120) lit++;
-    return lit;
-  }), { timeout: 30_000 }).toBeGreaterThan(200);
+  // frames, which can crawl on software-rendered CI machines. Each check reports what it
+  // saw, so a failure says why (a page that didn't answer, an error, or a blank radar).
+  const checks = [];
+  const look = () => page.evaluate(() => {
+    const t0 = performance.now();
+    try {
+      const g = window.shine.game;
+      g.minimap.updateRoute(1, g.player.position, g.mission.target, g.police.blocked);
+      g.minimap.draw(g.player, g._mapMarkers(), g._mapPolice(), g.time);
+      const cv = document.getElementById('minimap');
+      const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      let lit = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 120) lit++;
+      return { lit, size: cv.width, shown: !!cv.offsetParent, state: g.state, route: g.minimap.route.length, ms: Math.round(performance.now() - t0) };
+    } catch (e) {
+      return { lit: -1, error: String(e && e.stack || e), ms: Math.round(performance.now() - t0) };
+    }
+  });
+  let lit = -1;
+  const deadline = Date.now() + 45_000;
+  while (lit <= 200 && Date.now() < deadline) {
+    const t0 = Date.now();
+    const r = await Promise.race([look(), new Promise((res) => setTimeout(() => res({ lit: -1, error: 'no answer within 15 s' }), 15_000))]);
+    checks.push({ ...r, waited: Date.now() - t0 });
+    lit = r.lit;
+    if (lit <= 200) await page.waitForTimeout(250);
+  }
+  expect(lit, `the radar never drew; checks: ${JSON.stringify(checks.slice(-4))}`).toBeGreaterThan(200);
   expect(await page.evaluate(() => window.shine.game.minimap.route.length)).toBeGreaterThan(1);
   await page.keyboard.press('Tab');
   await expect(page.locator('#map')).toBeVisible();
