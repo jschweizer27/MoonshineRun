@@ -524,3 +524,16 @@ test('the bootlegging game keeps its own colours', async ({ page }) => {
   const r = await page.evaluate(() => ({ dredge: document.documentElement.classList.contains('dredge'), gold: getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() }));
   expect(r).toEqual({ dredge: false, gold: '#d8b25a' });
 });
+
+test('the dredge run drives its own bevelled truck model, without a horse box or extra draw calls', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, m = g.player.model;
+    window.shine.step(0.2, { throttle: 0.5 });
+    g.renderFrame();
+    return { ride: g.player.ride, model: m.shell.userData.model, trailer: !!g.player.trailer, wheels: m.wheels.length, beam: !!m.beam, shown: m.group.visible, calls: window.shine.renderInfo().calls, truckShown: g.player.rides.truck.model.group.visible };
+  });
+  expect(r).toMatchObject({ ride: 'runner', model: 'dredgeTruck', trailer: false, wheels: 4, beam: true, shown: true, truckShown: false });
+  expect(r.calls).toBeLessThan(60);
+});

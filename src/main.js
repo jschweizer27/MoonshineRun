@@ -98,8 +98,10 @@ class Game {
     this.env = new Environment(this.world, { frozen: !OPTIONS.time });
     this.player = new Vehicle(this.scene, this.world.collision, { style: 'player' });
     this.player.addRide('rolls', 'rolls');   // the garage's Rolls-Royce, built up front
-    // Dredge run: the same truck without the horse box (shares the truck's model).
-    this.player.rides.runner = { model: this.player.rides.truck.model, trailer: null };
+    // Dredge run: its own bevelled flatbed (assets/dredge-truck.glb), no horse box. Without
+    // that model it's the bootleg truck, unhitched.
+    if (this.mode === 'dredge' && MODELS.dredgeTruck) this.player.addRide('runner', 'dredge');
+    else this.player.rides.runner = { model: this.player.rides.truck.model, trailer: null };
     this._addHeadlight();
     this.police = new Police(this.scene, this.world);
     WHEELS.attach(this.scene);    // every vehicle exists now: one instanced mesh per wheel shape

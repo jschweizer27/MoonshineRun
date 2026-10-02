@@ -139,6 +139,7 @@ export const CONFIG = {
       fed: 'assets/bureau-sedan.glb',      // Prohibition Bureau sedans
       lamp: 'assets/arc-lamp.glb',         // street lamps
       rolls: 'assets/rolls-royce.glb',     // the garage's Rolls-Royce
+      dredgeTruck: 'assets/dredge-truck.glb',   // the dredge run's truck (scripts/make-truck.mjs)
     },
     modelReflections: 0.35,          // how much a textured model (the truck) mirrors the street
     // The sky dome (src/sky.js): its horizon is always the fog colour, so the city melts in.

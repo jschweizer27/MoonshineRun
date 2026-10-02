@@ -10,7 +10,11 @@ don't (or with `?models=0`). They're listed in `CONFIG.look.models` (`src/config
 | `rolls-royce.glb` | The garage's Rolls-Royce | "1925 Rolls Royce Phantom I Jonckheere Coupe" by Antonio Sagistiano — sketchfab.com/3d-models/1925-rolls-royce-phantom-i-jonckheere-coupe-1043f7cdbe1146df828a047dcbf42cc2 |
 | `arc-lamp.glb` | Street lamps | "Arc Lamp - Victorian Street Lamp" by i-m-a-kitty-cat — sketchfab.com/3d-models/arc-lamp-victorian-street-lamp-41e1be71fdaf430d9d91c871cf153f0d |
 
-All are licensed CC BY 4.0 (creativecommons.org/licenses/by/4.0/). They were reduced
+`dredge-truck.glb` (the dredge run's truck) is made here, not downloaded: `node scripts/make-truck.mjs`
+builds it from bevelled, flat-shaded primitives in the dredge palette (no textures; it
+shares the game's vehicle material).
+
+The downloaded ones are licensed CC BY 4.0 (creativecommons.org/licenses/by/4.0/). They were reduced
 (fewer triangles, smaller or baked textures), re-oriented and split into body and wheel
 for the game. The credits also appear on the in-game How to play screen.
 

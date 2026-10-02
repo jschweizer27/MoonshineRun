@@ -361,6 +361,10 @@ export function buildVehicle(style = 'player') {
     group.add(beacon);
     sirens.push(beacon);
     wheelSpots = [[-0.93, -1.75, true], [0.93, -1.75, true], [-0.93, 1.45], [0.93, 1.45]];
+  } else if (style === 'dredge') {
+    // The dredge run's truck comes only from assets/dredge-truck.glb (main.js checks it loaded).
+    r = 0.45;
+    wheelSpots = [];
   } else if (style === 'rolls') {
     // The garage's Rolls-Royce (stand-in when its model isn't loaded): a long black coupe.
     const body = 0x101114;
@@ -460,7 +464,7 @@ export function buildVehicle(style = 'player') {
   // lamp: where the headlights are [z, y, x], for the real headlight and its beams.
   const out = { group, body: sprung, bodyPivot: body, shell, lampMesh, wheels, frontPivots: front, sirens, torches, wheelRadius: r, wheelSpots, lamp: lens };
   if (style === 'player') out.trailer = buildHorseTrailer(buildWheel(0.5), 0.5);
-  if (style === 'player' || style === 'rolls') {
+  if (style === 'player' || style === 'rolls' || style === 'dredge') {
     out.beam = headlightBeams(lens[0], lens[1], lens[2]);
     sprung.add(out.beam);
   }
@@ -468,9 +472,9 @@ export function buildVehicle(style = 'player') {
 }
 
 // Which assets/ model stands in for each kind of vehicle.
-const MODEL_FOR = { player: 'truck', fed: 'fed', rolls: 'rolls' };
+const MODEL_FOR = { player: 'truck', fed: 'fed', rolls: 'rolls', dredge: 'dredgeTruck' };
 // The built-in vehicles' headlamps: [z, y, x].
-const DEFAULT_LENS = { player: [-2.2, 1.6, 0.62], fed: [-2.15, 1.55, 0.6], zealot: [-2.05, 1.5, 0.58], rolls: [-2.3, 1.45, 0.6] };
+const DEFAULT_LENS = { player: [-2.2, 1.6, 0.62], fed: [-2.15, 1.55, 0.6], zealot: [-2.05, 1.5, 0.58], rolls: [-2.3, 1.45, 0.6], dredge: [-2.4, 1.24, 0.6] };
 
 // Otto's retrofitted steeplechase horse box: planked sides, curved roof, a ramp door, and
 // a thoroughbred looking out of the window (the best disguise in the county).

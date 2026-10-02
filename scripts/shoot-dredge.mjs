@@ -103,6 +103,20 @@ try {
   await shoot('skyline-day', 'the same skyline by day');
   await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; g.env.update(0, g.camera.position); });
 
+  // The truck itself, three-quarter front and rear, under a street lamp.
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    window.shine.teleport(-88, 96, 0.5);
+    window.shine.step(0.2);
+    g.camera.position.set(-85, 2.4, 89); g.camera.lookAt(-88, 1.1, 96);
+  });
+  await shoot('truck', 'the truck, front three-quarter');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(-93, 2.6, 103); g.camera.lookAt(-88, 1.1, 96); });
+  await shoot('truck-rear', 'the truck from behind: bed and canvas cover');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 12; g.env.update(0, g.camera.position); g.camera.position.set(-81.5, 2.6, 93); g.camera.lookAt(-88.3, 1.1, 96.5); });
+  await shoot('truck-day', 'the truck by day');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; g.env.update(0, g.camera.position); });
+
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot, K = 10;
