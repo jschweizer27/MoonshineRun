@@ -175,6 +175,17 @@ export const CONFIG = {
       contrast: 1.06,
       vignette: 0.38,                // darkening at the corners
       grain: 0.045,                  // film grain
+      // The painterly look (Settings → Painterly look; Medium and High graphics).
+      paint: {
+        kuwahara: 0.75,              // how much of the brush-patch filter shows (0-1)
+        lut: 0.35,                   // pull toward the dredge palette (dredge mode only)
+        fog: 0.4,                    // extra depth fog at most
+        fogNear: 45, fogFar: 420,    // metres: where it starts and where it's full
+        fogFalloff: 0.035,           // thinner with height (per metre)
+        horizon: 0.55,               // rose toward the horizon at night
+        bloomRadius: 0.75,           // softer, wider glow
+        bloomBoost: 1.12,
+      },
     },
   },
 

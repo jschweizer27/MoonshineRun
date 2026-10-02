@@ -216,6 +216,37 @@ test('the skyline varies: bay windows, rooflines, chimney stacks and water tower
   expect(r.calls).toBeLessThan(60);
 });
 
+test('the painterly look: on by default, a settings toggle, no new shaders or draw calls', async ({ page }) => {
+  await openGame(page, '&painterly&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, u = g.post.grade.uniforms;
+    const frame = () => { g.renderFrame(); return { ...window.shine.renderInfo(), programs: g.renderer.info.programs.length }; };
+    const on = { painterly: g.post.painterly, paint: u.uPaint.value, lut: u.uLut.value, depth: !!u.tDepth.value, ...frame() };
+    g.settings.painterly = false;
+    g.applySettings();
+    const off = { painterly: g.post.painterly, paint: u.uPaint.value, ...frame() };
+    g.settings.painterly = true;
+    g.applySettings();
+    // The palette LUT leaves palette colours close to themselves.
+    const lut = g.post.lut.image.data, N = 32, at = (r, gg, b) => (gg * N * N + b * N + r) * 4;
+    const amberish = [...lut.slice(at(29, 20, 9), at(29, 20, 9) + 3)];
+    return { on, off, back: g.post.painterly, amberish };
+  });
+  expect(r.on.painterly).toBe(true);
+  expect(r.on.paint).toBe(1);
+  expect(r.on.lut).toBeGreaterThan(0);            // dredge mode: pulled toward the palette
+  expect(r.on.depth).toBe(true);
+  expect(r.off.painterly).toBe(false);
+  expect(r.off.paint).toBe(0);
+  expect(r.off.programs).toBe(r.on.programs);     // switching compiles nothing
+  expect(r.off.calls).toBe(r.on.calls);
+  expect(r.off.postCalls).toBe(r.on.postCalls);   // no extra pass
+  expect(r.on.calls).toBeLessThan(60);
+  expect(r.back).toBe(true);
+  expect(r.amberish[0]).toBeGreaterThan(r.amberish[2] + 60);   // amber stays warm
+});
+
 test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflections that grow in the rain', async ({ page }) => {
   await openGame(page);
   await startRun(page);

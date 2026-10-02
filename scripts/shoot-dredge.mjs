@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Dredge-run art-direction screenshots: `npm run shots -- dredge-s5 [--day] [--rain]` (any
+// Dredge-run art-direction screenshots: `npm run shots -- dredge-s5 [--day] [--rain] [--plain]` (any
 // label starting with "dredge" lands here from scripts/shoot.mjs). Starts the dredge mode
 // headless, sets up each view, and saves artifacts/shots/<label>-*.png, a contact sheet
 // artifacts/shots/<label>.png, and the render counts (draw calls, shadow calls, lights,
-// shader programs, geometries) to artifacts/shots/<label>-counts.json.
+// shader programs, geometries) to artifacts/shots/<label>-counts.json. The painterly look is on, as
+// players see it by default; --plain turns it off.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
@@ -25,7 +26,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (e) => console.error('pageerror:', e.message));
   for (let i = 0; i < 50; i++) {
-    try { await page.goto(`http://localhost:${port}/?test&mode=dredge`); break; } catch { await new Promise((r) => setTimeout(r, 200)); }
+    try { await page.goto(`http://localhost:${port}/?test&mode=dredge${flags.has('--plain') ? '' : '&painterly'}`); break; } catch { await new Promise((r) => setTimeout(r, 200)); }
   }
   await page.waitForFunction(() => window.__shineReady === true, null, { timeout: 90_000 });
   await page.click('#start-btn');

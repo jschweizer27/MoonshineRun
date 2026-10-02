@@ -178,6 +178,7 @@ export function buildSettings(container, settings, { onChange, input, extra = []
       toggle('Mute everything', 'muted')),
     section('Display',
       seg('Graphics quality', 'quality', [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], detected),
+      toggle('Painterly look', 'painterly'),
       seg('Camera distance', 'cameraDistance', [['near', 'Near'], ['normal', 'Normal'], ['far', 'Far']]),
       seg('Minimap', 'minimapRotate', [[true, 'Turns with you'], [false, 'North up']]),
       toggle('Large text', 'largeText'),

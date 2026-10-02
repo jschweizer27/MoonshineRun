@@ -86,7 +86,9 @@ touch controls and key bindings. Everything is remembered between visits.
 
 Graphics quality: **High** has shadows from the moon and the nearest lamp, 8 real lamp
 lights and full bloom; **Medium** fewer lamp lights and half-resolution bloom; **Low** skips
-shadows and post-processing for older machines.
+shadows and post-processing for older machines. **Painterly look** (on by default, Medium and
+High) softens the picture into brush-like patches with a light depth haze; switch it off in
+Settings for the plain image.
 
 ### Install it like an app
 

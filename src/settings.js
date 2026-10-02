@@ -51,6 +51,7 @@ export const DEFAULT_SETTINGS = {
   cameraDistance: 'normal', // near | normal | far
   reducedMotion: null,      // null = follow the operating system setting
   largeText: false,
+  painterly: true,          // the painterly post pass (Medium and High graphics)
   minimapRotate: true,
   touchControls: 'auto',    // auto | on | off
   hints: true,

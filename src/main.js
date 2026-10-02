@@ -52,6 +52,7 @@ export const OPTIONS = {
   time: !params.has('test') || params.has('time'),
   models: params.get('models') !== '0',   // ?models=0: the built-in procedural models only
   mode: params.get('mode') === 'dredge' ? 'dredge' : 'bootleg',
+  painterly: !params.has('test') || params.has('painterly'),   // under ?test it's off unless asked for
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -88,6 +89,7 @@ class Game {
     this.citySeed = OPTIONS.seed ?? this.settings.citySeed ?? CONFIG.seed;
     this.world = new World(this.scene, { seed: this.citySeed });
     this.post = new PostFX(this.renderer, this.scene, this.camera);
+    this.post.setPalette(this.mode === 'dredge');
     this.world.buildReflections(this.renderer);
     // Glossy paint and chrome catch the street (the shared vehicle material, and any model's own).
     MATERIALS.body.envMap = this.world.reflections;
@@ -276,6 +278,7 @@ class Game {
     this.world.setShadows({ low: 0, medium: 1024, high: 2048 }[q] ?? 2048);
     this.world.setLampDetail(q);
     this.post.setQuality(q);
+    this.post.setPainterly(this.settings.painterly !== false && OPTIONS.painterly);
     this.env.rainDetail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
     this.particles.detail = { low: 0, medium: 0.5, high: 1 }[q] ?? 1;
   }
