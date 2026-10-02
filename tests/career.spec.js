@@ -290,6 +290,7 @@ test('lying low at the hideout clears the heat and opens the garage', async ({ p
 });
 
 test('story: a new game plays the prologue, the Act I escape, then the valley', async ({ page }) => {
+  test.setTimeout(300_000);   // the whole prologue and Act I, played out
   await openGame(page, '&story');
   await page.click('#start-btn');
   await expect(page.locator('#dialog')).toBeVisible();
@@ -356,6 +357,7 @@ test('day follows night, and rain makes the roads slick', async ({ page }) => {
 });
 
 test('city layouts are seeded: same seed, same city; new seed, new city', async ({ browser }) => {
+  test.setTimeout(420_000);   // three full boots, each up to a minute on software-rendered CI
   const layout = async (q) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
