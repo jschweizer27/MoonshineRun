@@ -68,6 +68,27 @@ Enter, the D-pad and A/B, or touch.
 7. Night runs are safer than daylight; rain makes the cobbles slick; fog hides you. **Otto's
    Ledger** keeps your books. Everything is saved: **Continue** picks up where you left off.
 
+### The dredge run (preview)
+
+A second way to play, being built to replace the bootlegging run: open the game with
+**`?mode=dredge`** on the end of its address (for example `index.html?mode=dredge`).
+
+1. Drive the night roads between Baltimore and Green Spring Valley. **Glowing loot** lies
+   beside them (crates, bottle cases, sacks, barrels, kegs, copper coils, a strongbox); the
+   radar shows what's near. Its colour tells you what it's worth: olive is cheap, brick and
+   cream middling, copper good, amber best.
+2. Drive over a piece to pick it up. The **trunk** opens: move the piece with the arrows,
+   turn it with **R** (or LB/RB), put it down with **Enter**, or leave it on the road with
+   **X**. Press **T** (gamepad X) any time to rearrange.
+3. Stop at a **market** to sell: **Lexington Market** in the city, or the **Monkton General
+   Store** at the crossroads up York Road. Each town pays differently, prices drift day to
+   day, and selling a lot of one thing in one place drives its price down.
+4. Spend your cash at either market on **upgrades**: a bigger bed (the trunk grows and the
+   truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
+   and a spotter for the radar.
+
+The dredge run keeps its own save; your bootlegging career is untouched.
+
 Tips pop up the first time you need them (turn them off or replay them in Settings).
 Settings → Help also lets you **roll a new city layout** or **copy a link** to share yours.
 
@@ -158,10 +179,11 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
 ```
 index.html, styles.css   page, HUD, menus (loading/error screens, responsive overlays)
 src/
-  main.js       boot, game loop, state machine, career flow
+  main.js       boot, game loop, state machine, career flow (and the dredge run, ?mode=dredge)
   config.js     all tuning numbers
   world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, drops
-  county.js     Green Spring Valley: farm roads, barns, woods, fences
+  atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
+  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton village
   environment.js  day/night cycle and weather
   career.js     saved progress: cash, upgrades, story, stats, ledger
   story.js      story beats from the treatment
@@ -175,6 +197,9 @@ src/
   models.js     procedural 1920s trucks, sedans and pickups
   police.js     pursuer AI (pooled cars, road navigation, search, give up)
   mission.js    bootlegger loop + heat / evasion
+  loot.js       dredge run: loot along the roads (pooled, instanced per kind)
+  trunk.js, trunkscreen.js   dredge run: the trunk grid and its screen
+  market.js, dredgecareer.js dredge run: prices and selling; its save and upgrades
   camera.js     chase camera (+ look back)
   input.js      keyboard (remappable), gamepad, touch controls
   ui.js         menu screens, focus navigation, settings panel
@@ -185,7 +210,7 @@ src/
 sw.js, manifest.webmanifest, favicon.svg, icons/   installable, offline-capable app
 assets/         3D models (truck, Rolls-Royce, Bureau sedans, street lamps) and their credits
 vendor/three/   Three.js r160 (bundled; no CDN needed)
-scripts/        dev server, build, checks, CI summary
+scripts/        dev server, build, checks, CI summary, screenshots, make-truck.mjs (the dredge truck)
 tests/          Playwright playtests
 ue5/            Unreal Engine 5 C++ project (open MoonshineRun.uproject; see CHECKLIST.md)
 ```

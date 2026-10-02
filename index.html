@@ -99,13 +99,20 @@
     <div class="overlay-card">
       <h1 class="title" id="intro-title">SHINE</h1>
       <p class="subtitle">Baltimore, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
-      <p class="story">
+      <p class="story dredge-only">
+        You are <strong>Otto Braun</strong>, and the roads out of Baltimore are littered with what
+        other people lost: crates, kegs, copper. Work the night roads between the city and the
+        Green Spring Valley, pack what you find into the truck, and sell it where it pays best.
+      </p>
+      <p class="hint dredge-only">Drive over <span class="gold">glowing loot</span> to pick it up, fit it into the
+        trunk, then stop at a <span class="gold">&#11042; market</span> to sell and upgrade the truck.</p>
+      <p class="story bootleg-only">
         You are <strong>Otto Braun</strong>, a brewer turned bootlegger out of Highlandtown.
         The legitimate breweries are shuttered, but your stills run hot in the barns of the
         Green Spring Valley. Tonight you run your first batch &mdash; load the shine, beat the
         heat, and get paid before the Feds and the Temperance Alliance run you down.
       </p>
-      <p class="hint">Follow the <span class="gold">gold arrow</span> to the <span class="amber">&#9679; still</span>, then
+      <p class="hint bootleg-only">Follow the <span class="gold">gold arrow</span> to the <span class="amber">&#9679; still</span>, then
         deliver to the <span class="blue">&#9670; drop</span>. Hauling shine draws the law &mdash; break their line of sight to lose them.</p>
       <p class="hint" id="intro-best"></p>
       <div class="btn-col">
@@ -152,7 +159,13 @@
   <div id="help" class="overlay hidden" role="dialog" aria-labelledby="help-title">
     <div class="overlay-card wide">
       <h1 class="title small" id="help-title">HOW TO PLAY</h1>
-      <ol class="rules">
+      <ol class="rules dredge-only">
+        <li>Drive the roads: <span class="gold">glowing loot</span> turns up beside them, and the radar shows what's near.</li>
+        <li>Picking a piece up opens the <b>trunk</b>. Move it, turn it (R, or LB/RB) and fit it in; pieces can't overlap. Leave behind what won't fit.</li>
+        <li>Stop at a <span class="gold">&#11042; market</span> to sell: <b>Lexington Market</b> in Baltimore, or the <b>Monkton General Store</b> up York Road. Each pays differently, and the price drops as you sell more of one thing.</li>
+        <li>Spend the cash on <b>upgrades</b> at either market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
+      </ol>
+      <ol class="rules bootleg-only">
         <li>Follow the <span class="gold">gold arrow</span> to the <span class="amber">&#9679; still</span> and drive into its ring to load shine.</li>
         <li>Deliver it to the <span class="blue">&#9670; drop</span> to get paid.</li>
         <li>Hauling shine gets you <b>tipped off</b>. Heat stars send Feds and Temperance zealots after you.</li>
@@ -168,6 +181,8 @@
           <tr><td>B</td><td>Horn</td></tr>
           <tr><td>Y</td><td>Look back</td></tr>
           <tr><td>View / Back</td><td>Map</td></tr>
+          <tr class="dredge-only"><td>X</td><td>Open the trunk</td></tr>
+          <tr class="dredge-only"><td>LB / RB</td><td>Turn a piece</td></tr>
           <tr><td>Start</td><td>Pause</td></tr>
         </table></div>
         <div><h3>Touch</h3><table>
@@ -179,7 +194,8 @@
       </div>
       <p class="credits">3D models from Sketchfab, CC&nbsp;BY&nbsp;4.0: &ldquo;Moonshine Runner&rdquo; by car-go &middot;
         &ldquo;Volvo PV4 V2&rdquo; by Libau Media &middot; &ldquo;Arc Lamp &ndash; Victorian Street Lamp&rdquo; by i-m-a-kitty-cat &middot;
-        &ldquo;1925 Rolls Royce Phantom I Jonckheere Coupe&rdquo; by Antonio Sagistiano.</p>
+        &ldquo;1925 Rolls Royce Phantom I Jonckheere Coupe&rdquo; by Antonio Sagistiano.
+        <span class="dredge-only">The dredge run's truck is made in code.</span></p>
       <button id="help-done" class="btn" data-autofocus>GOT IT</button>
     </div>
   </div>

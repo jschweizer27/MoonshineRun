@@ -496,3 +496,6 @@ html.dredge #objective-arrow { fill: var(--d-amber); filter: drop-shadow(0 0 4px
 html.dredge #minimap { border-color: var(--d-copper); background: color-mix(in srgb, var(--d-shadow-teal) 80%, transparent); }
 html.dredge #toast { color: var(--d-cream); }
 html.dredge #toast.gold { color: var(--d-amber); }
+
+/* Text for one mode only (html.dredge is set in the dredge run). */
+html.dredge .bootleg-only, html:not(.dredge) .dredge-only { display: none; }

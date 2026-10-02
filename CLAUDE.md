@@ -55,6 +55,15 @@ Design sources: the "Shine Game Treatment" (story/factions) and "Moonshine Run D
   emits actions; `ui.js` is a screen stack with arrow/D-pad focus navigation. Every new
   overlay must be opened through `game.ui.open(id)` so keyboard/controller users can reach
   it. Preferences live in `settings.js` (localStorage).
+- Dredge run (`?mode=dredge`, `game.mode`; being built to replace the bootleg loop): free
+  roam, loot (`loot.js`), the trunk grid (`trunk.js`, `trunkscreen.js`), markets
+  (`market.js`) and upgrades, saved apart under `shine.dredge.v1` (`dredgecareer.js`). All
+  tuning is in `CONFIG.dredge` (palette, car, towns, prices, market, trunk, upgrades, loot);
+  the palette themes the HUD through `html.dredge` CSS variables, and `.dredge-only` /
+  `.bootleg-only` text switches with the mode. A market's marker costs four draw calls, so
+  it only shows within `market.markerRange`. Everything seeded after the city layout (the
+  atlas, rooflines, the village) draws from its own random stream, so the layout of every
+  seed stays put. `?test` turns the painterly pass off unless `&painterly`.
 - States: `intro` → `playing` ⇄ `paused` → `gameover`. Pausing stops simulation and
   rendering and suspends audio.
 - Career (`career.js`, localStorage) holds cash, upgrades, story flags, stats, ledger, and

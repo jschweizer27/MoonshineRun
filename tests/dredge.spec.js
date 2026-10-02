@@ -667,3 +667,24 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.programs).toBe(0);
   expect(r.geometries).toBe(0);
 });
+
+test('the dredge run explains itself: its own intro and How to Play; the bootleg text stays for bootleg', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  const shown = (sel) => page.evaluate((s) => [...document.querySelectorAll(s)].some((e) => e.offsetParent !== null), sel);
+  expect(await shown('#intro .dredge-only')).toBe(true);
+  expect(await shown('#intro .bootleg-only')).toBe(false);
+  await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
+  await page.click('#intro-help');
+  await expect(page.locator('#help ol.dredge-only')).toBeVisible();
+  await expect(page.locator('#help ol.bootleg-only')).toBeHidden();
+  await expect(page.locator('#help ol.dredge-only')).toContainText('Monkton General Store');
+  await expect(page.locator('#help-keys')).toContainText('Open the trunk');
+  await screenshot(page, 'dredge-help');
+});
+
+test('bootleg mode keeps its own intro and rules', async ({ page }) => {
+  await openGame(page);
+  await page.click('#intro-help');
+  await expect(page.locator('#help ol.bootleg-only')).toBeVisible();
+  await expect(page.locator('#help ol.dredge-only')).toBeHidden();
+});
