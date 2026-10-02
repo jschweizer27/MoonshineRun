@@ -5,6 +5,20 @@ import { CONFIG } from './config.js';
 // (CONFIG.dredge.loot.kinds); rotation turns it a quarter clockwise at a time.
 export const KINDS = Object.fromEntries(CONFIG.dredge.loot.kinds.map((k) => [k.id, k]));
 
+// A kind's colours, from its value tier (or its own override), as palette hex.
+export function kindColors(kindId) {
+  const kind = typeof kindId === 'string' ? KINDS[kindId] : kindId;
+  const tier = CONFIG.dredge.lootTiers[kind.tier], P = CONFIG.dredge.palette;
+  return { main: P[kind.color || tier.color], accent: P[kind.accent || tier.accent], glow: { ...tier.glow, color: P[tier.glow.color] } };
+}
+
+// Cream or shadow-teal text, whichever reads on `hex`.
+export function inkFor(hex) {
+  const c = parseInt(hex.slice(1), 16), lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const l = 0.2126 * lin(c >> 16) + 0.7152 * lin((c >> 8) & 255) + 0.0722 * lin(c & 255);
+  return l > 0.18 ? CONFIG.dredge.palette.shadowTeal : CONFIG.dredge.palette.cream;
+}
+
 // The cells of `kindId` turned `rot` quarter-turns clockwise, shifted to start at 0, 0.
 export function shape(kindId, rot = 0) {
   let cells = KINDS[kindId].cells.map(([c, r]) => [c, r]);

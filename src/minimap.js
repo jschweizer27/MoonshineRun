@@ -1,8 +1,12 @@
+import { CONFIG } from './config.js';
+
 // Corner radar (heading-up or north-up) and the full-screen map. The static map (roads,
 // buildings) is drawn once into an offscreen canvas; each frame only draws the visible
 // slice plus the route and icons. Markers use distinct shapes, not just colours.
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
-const COLORS = { still: '#e0a83a', drop: '#5aa7d8', hideout: '#8fd18a', goal: '#f2c55c', gold: '#f2c55c', loot: '#f0d070', market: '#f2b84a', me: '#ece3cf', fed: ['#ff3b30', '#3b82ff'], zealot: '#ff8a2a' };
+const COLORS = { still: '#e0a83a', drop: '#5aa7d8', hideout: '#8fd18a', goal: '#f2c55c', gold: '#f2c55c',
+  // Dredge run glyphs, from its palette.
+  loot: CONFIG.dredge.palette.amber, 'loot-premium': CONFIG.dredge.palette.amber, market: CONFIG.dredge.palette.cream, me: '#ece3cf', fed: ['#ff3b30', '#3b82ff'], zealot: '#ff8a2a' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -174,6 +178,9 @@ function drawMarker(g, kind, x, y, r) {
     // Market: a hexagon.
     for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); }
     g.closePath();
+  } else if (kind === 'loot-premium') {
+    // Premium loot: a bigger diamond.
+    g.moveTo(x, y - r * 1.05); g.lineTo(x + r * 1.05, y); g.lineTo(x, y + r * 1.05); g.lineTo(x - r * 1.05, y); g.closePath();
   } else if (kind === 'loot') {
     // Loot: a small square, smaller than the places you drive to.
     g.rect(x - r * 0.55, y - r * 0.55, r * 1.1, r * 1.1);

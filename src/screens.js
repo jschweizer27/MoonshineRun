@@ -3,6 +3,7 @@ import { UPGRADES, BRIBE_COST } from './career.js';
 import { CAST } from './story.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote } from './market.js';
+import { kindColors } from './trunk.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -61,7 +62,8 @@ export function showMarket(ui, { town, trunk, career, onSell, onTrunk, onBack })
         n === 1 ? `SELL ${money(q.total)}` : `SELL ${n} FOR ${money(q.total)}`);
       btn.addEventListener('click', () => { onSell(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
-        el('div', {}, el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`), el('small', {}, `${money(each)} each today (base ${money(k.value)})`)), btn));
+        el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
+          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`), el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.tier})`)), btn));
     }
     const all = quote(town.id, trunk, career.market);
     const sellAll = $('market-sell-all');

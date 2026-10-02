@@ -1,6 +1,7 @@
 // Thin wrapper over the DOM HUD and overlay screens. Keeps Three.js code free of
 // document lookups.
 import { JUICE, juice } from './juice.js';
+import { CONFIG } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 // Restart a CSS animation class on an element (remove, force a reflow, add).
@@ -30,8 +31,14 @@ export class HUD {
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
-  // 'bootleg' or 'dredge' (no heat, no bust bar).
-  setMode(mode) { this.el.hud.classList.toggle('dredge', mode === 'dredge'); }
+  // 'bootleg' or 'dredge' (no heat, no bust bar; the dredge palette on every screen, set
+  // from CONFIG.dredge.palette as --d-* CSS variables, e.g. --d-shadow-teal).
+  setMode(mode) {
+    const on = mode === 'dredge', root = document.documentElement;
+    this.el.hud.classList.toggle('dredge', on);
+    root.classList.toggle('dredge', on);
+    if (on) for (const [k, v] of Object.entries(CONFIG.dredge.palette)) root.style.setProperty(`--d-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, v);
+  }
   hide() { this.el.hud.classList.add('hidden'); }
 
   _set(key, value, fn) {
@@ -78,9 +85,9 @@ export class HUD {
     f.classList.add('hit');
   }
 
-  setCargo(loaded, detail = '') {
+  setCargo(loaded, detail = '', prefix = 'CARGO: ') {
     this.el.cargo.classList.toggle('hidden', !loaded);
-    this.el.cargo.textContent = detail ? `CARGO: ${detail}` : 'CARGO: LOADED';
+    this.el.cargo.textContent = detail ? `${prefix}${detail}` : 'CARGO: LOADED';
   }
 
   setClock(text) { this._set('clock', text, () => { $('clock').textContent = text; }); }
@@ -152,7 +159,7 @@ export class HUD {
       const t = juice('ui', 'bannerSlide');
       if (t) { this.el.objective.style.setProperty('--slide', `${t}s`); replay(this.el.objective, 'slide'); }
     });
-    this._set('dist', meters, () => { this.el.objectiveDist.textContent = meters == null ? '' : `${meters} m`; });
+    this._set('dist', meters, () => { this.el.objectiveDist.textContent = meters == null ? '' : typeof meters === 'string' ? meters : `${meters} m`; });
     this._set('kind', kind, () => { this.el.objective.dataset.kind = kind; });
   }
 

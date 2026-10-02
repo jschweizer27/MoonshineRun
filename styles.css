@@ -426,19 +426,19 @@ html.reduced-motion #siren-flash { display: none; }
   margin: 10px auto;
   padding: 8px;
   width: max-content;
-  background: #1b130c;
-  border: 2px solid #5a4028;
+  background: var(--d-shadow-teal, #1b2530);
+  border: 2px solid var(--d-slate, #2f3b47);
   border-radius: 6px;
   outline: none;
   touch-action: none;
 }
-#trunk-grid:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+#trunk-grid:focus-visible { box-shadow: 0 0 0 2px var(--d-amber, var(--gold)); }
 #trunk-grid.nope { animation: trunk-nope 0.3s; }
 @keyframes trunk-nope { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
 #trunk-grid .cell {
-  border: 2px solid rgba(255, 255, 255, 0.06);
-  background: #2a1e14;
-  color: #1b130c;
+  border: 2px solid color-mix(in srgb, var(--d-cream, #efe6d0) 6%, transparent);
+  background: var(--d-slate, #2f3b47);
+  color: var(--d-cream, #efe6d0);
   font-size: 10px;
   font-weight: bold;
   letter-spacing: 1px;
@@ -449,15 +449,48 @@ html.reduced-motion #siren-flash { display: none; }
   user-select: none;
   cursor: pointer;
 }
-#trunk-grid .cell.filled { border-color: #120c07; }
-#trunk-grid .cell.cursor { box-shadow: inset 0 0 0 3px var(--gold); }
-#trunk-grid .cell.ghost { opacity: 0.85; box-shadow: inset 0 0 0 3px #8fd18a; }
-#trunk-grid .cell.ghost.bad { box-shadow: inset 0 0 0 3px #ff6a5a; }
-#trunk-grid .k-case { background: #c89a5a; }
-#trunk-grid .k-barrel { background: #8a5a32; }
-#trunk-grid .k-crate { background: #b48a52; }
-#trunk-grid .k-sack { background: #b7a274; }
-#trunk-grid .k-radio { background: #e8c070; }
-#trunk-grid .ghost.k-case, #trunk-grid .ghost.k-barrel, #trunk-grid .ghost.k-crate, #trunk-grid .ghost.k-sack, #trunk-grid .ghost.k-radio { background-image: linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)); }
+/* Selected cell and a valid placement: amber outline; an invalid one: taillight red. */
+#trunk-grid .cell.cursor { box-shadow: inset 0 0 0 3px var(--d-amber, var(--gold)); }
+#trunk-grid .cell.ghost { box-shadow: inset 0 0 0 3px var(--d-amber, var(--gold)); }
+#trunk-grid .cell.ghost.bad { box-shadow: inset 0 0 0 3px var(--d-taillight, #d8402f); }
 #trunk .hint.small { font-size: calc(12px * var(--ts)); opacity: 0.75; }
 @media (prefers-reduced-motion: reduce) { #trunk-grid.nope { animation: none; } }
+
+/* ---------- Dredge run palette (CONFIG.dredge.palette, set on <html> as --d-*) ----------
+   Cream text on dark teal panels; amber is the accent; copper edges; taillight red only for
+   "no". The bootlegging game keeps its own look (none of this applies without html.dredge). */
+html.dredge {
+  --gold: var(--d-amber);
+  --amber: var(--d-amber);
+  --red: var(--d-taillight);
+  --paper: var(--d-cream);
+  --ink: var(--d-shadow-teal);
+  --muted: color-mix(in srgb, var(--d-cream) 72%, var(--d-shadow-teal));
+}
+html.dredge, html.dredge body { background: var(--d-shadow-teal); }
+html.dredge .overlay { background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--d-slate) 55%, transparent), color-mix(in srgb, var(--d-shadow-teal) 94%, black)); }
+html.dredge .overlay-card,
+html.dredge #pause .overlay-card, html.dredge #settings .overlay-card, html.dredge #help .overlay-card, html.dredge #map .overlay-card,
+html.dredge #confirm .overlay-card, html.dredge #trunk .overlay-card, html.dredge #market .overlay-card {
+  background: var(--d-shadow-teal);
+  border-color: var(--d-copper);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--d-amber) 12%, transparent);
+}
+html.dredge .title { text-shadow: 0 4px 24px color-mix(in srgb, var(--d-amber) 35%, transparent); }
+html.dredge .story { color: var(--d-cream); }
+html.dredge .btn:hover { background: color-mix(in srgb, var(--d-amber) 80%, var(--d-cream)); }
+html.dredge .btn.secondary { border-color: var(--d-copper); }
+html.dredge .btn.secondary:hover, html.dredge .btn.secondary:focus-visible { background: color-mix(in srgb, var(--d-copper) 24%, transparent); color: var(--d-cream); }
+html.dredge .btn:focus-visible, html.dredge .text-btn:focus-visible { outline-color: var(--d-cream); }
+html.dredge .upgrade { border-color: var(--d-slate); background: color-mix(in srgb, var(--d-slate) 40%, transparent); }
+html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: -1px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-cream) 30%, transparent); }
+html.dredge .hud-banner, html.dredge .pill {
+  background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);
+  border-color: color-mix(in srgb, var(--d-copper) 70%, transparent);
+}
+html.dredge .hud-banner[data-kind="market"] { border-color: var(--d-amber); }
+html.dredge #market .btn-row .btn { font-size: calc(14px * var(--ts)); letter-spacing: 1.5px; padding: 10px 12px; }
+html.dredge #objective-arrow { fill: var(--d-amber); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--d-amber) 60%, transparent)); }
+html.dredge #minimap { border-color: var(--d-copper); background: color-mix(in srgb, var(--d-shadow-teal) 80%, transparent); }
+html.dredge #toast { color: var(--d-cream); }
+html.dredge #toast.gold { color: var(--d-amber); }

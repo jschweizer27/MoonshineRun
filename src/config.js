@@ -1,5 +1,20 @@
 // Every gameplay number lives here so balance can be tuned without touching game code.
 // Units: distances in metres, speeds in metres/second (x 2.237 = mph), times in seconds.
+// The dredge run's palette (VISUAL DIRECTION). Everything in dredge mode takes its colours
+// from here: loot, markers, the radar and the UI (set as --d-* CSS variables).
+// Cool and dark by default; warm colour only where something matters.
+const PALETTE = {
+  shadowTeal: '#1B2530',   // sky, shadows, asphalt; UI panels
+  slate: '#2F3B47',        // wet street, building shadow sides; trunk cells
+  amber: '#E8A548',        // windows, lamps, headlights: the main accent
+  copper: '#B8733A',       // the still, pipes, high-value loot
+  brick: '#8A3B2E',        // buildings, barns; mid-value loot
+  olive: '#4A5240',        // the truck; low-value loot
+  taillight: '#D8402F',    // taillights, "won't fit": sparingly
+  duskRose: '#C0655A',     // the horizon glow only
+  cream: '#EFE6D0',        // UI text, crate labels
+};
+
 export const CONFIG = {
   // Same seed = same city layout every visit.
   seed: 1922,
@@ -166,6 +181,7 @@ export const CONFIG = {
   // Dredge run (?mode=dredge): free-roam driving between towns, picking up loot, packing it
   // into the trunk and selling it. Built beside the bootlegging loop until it replaces it.
   dredge: {
+    palette: PALETTE,
     spawn: { x: 0, z: 100, heading: 0 },   // York Road, just inside the city
     // Arcade handling: sticks to the road, turns sharply even when slow, keeps turning at
     // speed, and glances off walls instead of bouncing back. (Fields not listed here keep
@@ -185,11 +201,14 @@ export const CONFIG = {
     // Towns with a market (stop inside the radius to sell). One for now; the second town
     // comes later.
     towns: [
-      { id: 'baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
+      { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
     ],
     // What each town pays, as a multiple of each kind's base value.
     prices: {
-      baltimore: { case: 1.0, barrel: 0.95, crate: 1.25, sack: 0.85, radio: 1.1 },
+      baltimore: {
+        'small-crate': 1.0, 'bottle-case': 1.1, sack: 0.85, barrel: 0.95, jugs: 1.0,
+        crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
+      },
     },
     market: {
       drift: 0.15,          // prices wander up to ±15% from one in-game day to the next
@@ -200,20 +219,43 @@ export const CONFIG = {
     },
     // The trunk: a grid to pack loot into (upgrades will grow it).
     trunk: { cols: 5, rows: 3 },
+    // Loot value tiers show through colour (palette names): low = olive, mid = brick and
+    // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
+    // cream for low and mid, copper for high, and a strong amber for premium.
+    lootTiers: {
+      low: { color: 'olive', accent: 'cream', glow: { color: 'cream', strength: 0.32, size: 0.9 } },
+      mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
+      high: { color: 'copper', accent: 'amber', glow: { color: 'copper', strength: 0.9, size: 1.2 } },
+      premium: { color: 'amber', accent: 'brick', glow: { color: 'amber', strength: 1.6, size: 1.9 } },
+    },
     // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]
-    // per cell, before rotation); `value` is its base price in dollars.
+    // per cell, before rotation). VALUES AND WEIGHTS ARE PLACEHOLDERS: tune after
+    // playtesting. `value` is the base price in dollars; `weight` how often it turns up;
+    // `color` / `accent` (palette names) override the tier's colours; `short` labels the piece
+    // in the trunk.
     loot: {
       count: 36,            // pieces lying out at once (a fixed pool)
       pickupRadius: 3.4,    // metres from the truck's centre
       respawn: 25,          // seconds before a picked-up piece turns up somewhere else
       respawnMin: 90,       // ... at least this far from the truck
       mapRange: 160,        // the radar shows pieces this close
+      drawRange: 220,       // pieces further than this from the truck aren't drawn (fog hides them)
+      scale: 1.25,          // a touch larger than life, to read at a distance
+      emissive: 0.06,       // a faint neutral lift (x cream) so dark pieces don't vanish at night
+      // The pickup glow sprite behind each piece: `size` metres up close, growing with
+      // distance (x distance / `near`, up to `maxScale`) so loot still reads far down a road.
+      glow: { size: 1.6, height: 0.6, opacity: 0.5, near: 25, maxScale: 3.5 },
       kinds: [
-        { id: 'case', name: 'Case of rye', value: 25, weight: 0.3, cells: [[0, 0]] },
-        { id: 'barrel', name: 'Cask', value: 40, weight: 0.22, cells: [[0, 0], [0, 1]] },
-        { id: 'crate', name: 'Crate of oysters', value: 70, weight: 0.18, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-        { id: 'sack', name: 'Sack of coffee', value: 45, weight: 0.18, cells: [[0, 0], [0, 1], [1, 1]] },
-        { id: 'radio', name: 'Cathedral radio', value: 90, weight: 0.12, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+        { id: 'small-crate', name: 'Small crate', short: 'Small', tier: 'low', value: 20, weight: 0.18, cells: [[0, 0]] },
+        { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.14, cells: [[0, 0], [1, 0]] },
+        { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.12, cells: [[0, 0], [0, 1], [1, 1]] },
+        { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.12, cells: [[0, 0], [0, 1]] },
+        { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.1, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+        { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.1, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.08, cells: [[0, 0], [1, 0], [2, 0]] },
+        { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.07, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'keg', name: 'Aged keg', short: 'Keg', tier: 'high', value: 110, weight: 0.05, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
+        { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
       ],
     },
   },

@@ -109,7 +109,7 @@ class Game {
     this.dredge = new DredgeCareer();                                // the dredge run's save
     // Town markets: a marker each, built now and shown only in the dredge run.
     this.marketMarkers = CONFIG.dredge.towns.map((t) => {
-      const m = makeMarker(this.scene, 0xf2b84a, 'market');
+      const m = makeMarker(this.scene, CONFIG.dredge.palette.amber, 'market');
       m.position.set(t.x, 0, t.z);
       m.visible = false;
       return m;
@@ -183,14 +183,22 @@ class Game {
   // cars, roadblocks, the spare car, debris), so their buffers are on the GPU before they
   // first appear mid-chase. Lights stay as they are: the light count must not change.
   _warmUp() {
-    const shown = [], unculled = [];
-    const reveal = (o) => {
+    // Everything, hidden or not, and wherever it is: an object that's visible but off
+    // screen at boot (loot behind the truck, a barn up the county) would otherwise upload
+    // the first time it comes into view.
+    const shown = [], unculled = [], casters = [];
+    // Shadow depth shaders: three.js draws every shadow caster with one shared depth
+    // material and only rebuilds its shader when instancing changes between casters, so
+    // which depth variants (instanced or not, textured or not, which side) get built would
+    // depend on draw order, and a new order mid-game (a police car after a building) could
+    // compile one. Here each caster asks for its own variant, so they all exist up front.
+    const ownVariant = (r, o, cam, sc, geo, depthMaterial) => { depthMaterial.needsUpdate = true; };
+    this.scene.traverse((o) => {
       if (o.isLight) return;
       if (!o.visible) { shown.push(o); o.visible = true; }
-      if (o.frustumCulled) { unculled.push(o); o.frustumCulled = false; }   // wherever it's parked
-      for (const c of o.children) reveal(c);
-    };
-    this.scene.traverse((o) => { if (!o.visible && !o.isLight && !shown.includes(o)) reveal(o); });
+      if (o.frustumCulled) { unculled.push(o); o.frustumCulled = false; }
+      if (o.castShadow) { casters.push(o); o.onBeforeShadow = ownVariant; }
+    });
     // One pass into the same kind of target the game draws to, clipped to a single pixel:
     // everything is processed and uploaded, almost nothing filled. The shadow pass runs too,
     // so every caster's depth shader is built now rather than when it first casts a shadow.
@@ -204,6 +212,7 @@ class Game {
     if (target) target.scissorTest = false; else r.setScissorTest(false);
     for (const o of shown) o.visible = false;
     for (const o of unculled) o.frustumCulled = true;
+    for (const o of casters) delete o.onBeforeShadow;      // back to three.js' no-op
   }
 
   _addHeadlight() {
@@ -819,7 +828,7 @@ class Game {
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
-    const [got] = this.loot.update(dt, this.time, this.player, { canTake: () => taken++ === 0 });
+    const [got] = this.loot.update(dt, this.time, this.player, { canTake: () => taken++ === 0, camera: this.camera.position });
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
@@ -903,15 +912,15 @@ class Game {
   // The banner: where to sell (with the arrow) once there's something aboard.
   _updateDredgeObjective() {
     const { town, dist } = this._nearestMarket();
-    if (!town || !this.trunk.count) { this.hud.setObjective('Free roam: pick up what you find', null, 'roam'); return; }
+    if (!town || !this.trunk.count) { this.hud.setObjective('Pick up loot along the roads', null, 'roam'); return; }
     const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
-    this.hud.setObjective(`Sell at ${town.name}`, Math.round(dist / 10) * 10, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
+    this.hud.setObjective(`Deliver to ${town.town}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
   }
 
   _updateTrunkPill() {
     const t = this.trunk;
-    this.hud.setCargo(true, `TRUNK ${t.used}/${t.size}`);
+    this.hud.setCargo(true, `TRUNK ${t.used}/${t.size}`, '');
   }
 
   // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.

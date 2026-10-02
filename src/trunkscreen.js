@@ -1,5 +1,5 @@
 import { el } from './ui.js';
-import { KINDS, shape, shapeSize } from './trunk.js';
+import { KINDS, shape, shapeSize, kindColors, inkFor } from './trunk.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -173,7 +173,7 @@ export class TrunkScreen {
       g.textContent = '';
       for (let y = 0; y < t.rows; y++) for (let x = 0; x < t.cols; x++) g.append(el('div', { class: 'cell', 'data-x': x, 'data-y': y }));
     }
-    const ghost = new Map();
+    const ghost = new Map(), handCol = this.hand ? kindColors(this.hand.kind) : null;
     if (this.hand) {
       const ok = t.canPlace(this.hand.kind, this.cursor.x, this.cursor.y, this.hand.rot);
       for (const [c, r] of shape(this.hand.kind, this.hand.rot)) ghost.set(`${this.cursor.x + c},${this.cursor.y + r}`, ok ? 'ok' : 'bad');
@@ -181,17 +181,22 @@ export class TrunkScreen {
     for (const cell of g.children) {
       const x = +cell.dataset.x, y = +cell.dataset.y, p = t.pieceAt(x, y);
       const gh = ghost.get(`${x},${y}`);
-      cell.className = `cell${p ? ` filled k-${p.kind}` : ''}${gh ? ` ghost ${gh} k-${this.hand.kind}` : ''}${!this.hand && this.cursor.x === x && this.cursor.y === y ? ' cursor' : ''}`;
-      // Piece edges: a border where the neighbour belongs to another piece.
+      cell.className = `cell${p ? ' filled' : ''}${gh ? ` ghost ${gh}` : ''}${!this.hand && this.cursor.x === x && this.cursor.y === y ? ' cursor' : ''}`;
+      cell.dataset.kind = p ? p.kind : '';
+      // Pieces in their palette colours, edged in their accent where the neighbour is
+      // another piece; the piece in hand shows through where it would go.
+      const col = p ? kindColors(p.kind) : null;
+      cell.style.background = gh ? `color-mix(in srgb, ${handCol.main} 72%, ${col ? col.main : 'transparent'})` : col ? col.main : '';
+      cell.style.color = col ? inkFor(col.main) : '';
       if (p) {
-        const same = (dx, dy) => t.pieceAt(x + dx, y + dy)?.id === p.id;
-        cell.style.borderTopColor = same(0, -1) ? 'transparent' : '';
-        cell.style.borderBottomColor = same(0, 1) ? 'transparent' : '';
-        cell.style.borderLeftColor = same(-1, 0) ? 'transparent' : '';
-        cell.style.borderRightColor = same(1, 0) ? 'transparent' : '';
+        const edge = (dx, dy) => (t.pieceAt(x + dx, y + dy)?.id === p.id ? 'transparent' : col.accent);
+        cell.style.borderTopColor = edge(0, -1);
+        cell.style.borderBottomColor = edge(0, 1);
+        cell.style.borderLeftColor = edge(-1, 0);
+        cell.style.borderRightColor = edge(1, 0);
       } else cell.style.borderColor = '';
       const first = p && p.cells[0][0] === x && p.cells[0][1] === y;
-      cell.textContent = first ? KINDS[p.kind].name.split(' ').pop() : '';
+      cell.textContent = first ? KINDS[p.kind].short : '';
     }
     $('trunk-hand').textContent = this.hand
       ? `In hand: ${KINDS[this.hand.kind].name} ($${KINDS[this.hand.kind].value})`

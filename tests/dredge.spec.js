@@ -20,7 +20,7 @@ test('dredge mode boots into free roam: the truck without its horse box, no poli
       objective: document.getElementById('objective-text').textContent,
     };
   });
-  expect(setup).toEqual({ ride: 'runner', trailer: false, markers: false, heatShown: false, objective: 'Free roam: pick up what you find' });
+  expect(setup).toEqual({ ride: 'runner', trailer: false, markers: false, heatShown: false, objective: 'Pick up loot along the roads' });
 
   // Drive up York Road into the county: no one comes after you, nothing happens to the heat.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
@@ -144,7 +144,7 @@ test('loot lies along the roads: drive over a piece to pick it up, and it turns 
   expect(r.taken).toBe(true);
   expect(r.opened).toBe(true);
   expect(r.held).toBe(1);
-  expect(r.pill).toMatch(/^CARGO: TRUNK [1-4]\/15$/);
+  expect(r.pill).toMatch(/^TRUNK [1-6]\/15$/);
   expect(r.back).toBe(true);
   expect(r.moved).toBeGreaterThan(10);
   expect(r.fromTruck).toBeGreaterThan(85);
@@ -160,7 +160,7 @@ test('loot lies along the roads: drive over a piece to pick it up, and it turns 
 test('no loot in the bootlegging game', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  expect(await page.evaluate(() => window.shine.game.loot.mesh.visible)).toBe(false);
+  expect(await page.evaluate(() => { const L = window.shine.game.loot; return L.on || L.meshes.some((m) => m.visible) || L.glow.visible; })).toBe(false);
 });
 
 test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and saves', async ({ page }) => {
@@ -168,23 +168,25 @@ test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and
   const r = await page.evaluate(async () => {
     const { Trunk, shape, shapeSize } = await import('/src/trunk.js');
     const out = {};
-    // The radio is a T: four different orientations, 3x2 then 2x3.
-    const turns = [0, 1, 2, 3].map((k) => JSON.stringify(shape('radio', k).sort()));
+    // The jug cluster is a T: four different orientations, 3x2 then 2x3.
+    const turns = [0, 1, 2, 3].map((k) => JSON.stringify(shape('jugs', k).sort()));
     out.radioTurns = new Set(turns).size;
-    out.radioSizes = [0, 1].map((k) => shapeSize(shape('radio', k)));
+    out.radioSizes = [0, 1].map((k) => shapeSize(shape('jugs', k)));
     out.fullCircle = JSON.stringify(shape('sack', 4).sort()) === JSON.stringify(shape('sack', 0).sort());
     const t = new Trunk(5, 3);
     out.crate = !!t.place('crate', 0, 0);            // 2x2 in the corner
-    out.overlap = t.canPlace('case', 1, 1);           // on top of the crate
+    out.overlap = t.canPlace('small-crate', 1, 1);    // on top of the crate
     out.edge = t.canPlace('barrel', 4, 2);            // a cask on end sticks out the bottom
     out.edgeTurned = t.canPlace('barrel', 3, 2, 1);   // laid flat it fits
     out.used = t.used;
-    // Fill it with cases: 15 - 4 = 11 more.
+    // Fill it with small crates: 15 - 4 = 11 more.
     let n = 0;
-    for (;;) { const s = t.findSpot('case'); if (!s) break; t.place('case', s.x, s.y, s.rot); n++; }
+    for (;;) { const s = t.findSpot('small-crate'); if (!s) break; t.place('small-crate', s.x, s.y, s.rot); n++; }
     out.cases = n;
-    out.full = t.used === t.size && t.findSpot('case') === null;
+    out.full = t.used === t.size && t.findSpot('small-crate') === null;
     out.value = t.value;
+    const { KINDS } = await import('/src/trunk.js');
+    out.expectValue = KINDS.crate.value + 11 * KINDS['small-crate'].value;
     const copy = Trunk.fromJSON(JSON.parse(JSON.stringify(t.toJSON())));
     out.roundTrip = copy.used === t.used && copy.count === t.count && copy.value === t.value;
     // Lift a piece out and the space is free again.
@@ -203,7 +205,7 @@ test('the trunk grid: shapes turn, pieces fit or overlap, the trunk fills up and
   expect(r.used).toBe(4);
   expect(r.cases).toBe(11);
   expect(r.full).toBe(true);
-  expect(r.value).toBe(70 + 11 * 25);
+  expect(r.value).toBe(r.expectValue);
   expect(r.roundTrip).toBe(true);
   expect(r.afterRemove).toBe(14);
 });
@@ -214,12 +216,12 @@ test('picking up loot opens the trunk: turn it, move it, put it down with the ke
   // Drive onto a radio (the awkward T shape).
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot;
-    L.kind[0] = 4; L.kindAttr.setX(0, 4); L.x[0] = 0; L.z[0] = 70; L.active[0] = 1;
+    L.kind[0] = L.meshes.findIndex((m) => m.name === 'loot-jugs'); L.x[0] = 0; L.z[0] = 70; L.active[0] = 1;
     window.shine.teleport(0, 76, 0);
     window.shine.step(1, { throttle: 0.4 });
   });
   await expect(page.locator('#trunk')).toBeVisible();
-  await expect(page.locator('#trunk-hand')).toContainText('Cathedral radio');
+  await expect(page.locator('#trunk-hand')).toContainText('Jug cluster');
   expect(await page.evaluate(() => window.shine.game.state)).toBe('paused');
   const rot0 = await page.evaluate(() => window.shine.game.trunkScreen.hand.rot);
   await page.keyboard.press('KeyR');
@@ -237,7 +239,7 @@ test('picking up loot opens the trunk: turn it, move it, put it down with the ke
   await page.keyboard.press('Escape');
   await expect(page.locator('#trunk')).toBeHidden();
   const s = await page.evaluate(() => ({ state: window.shine.game.state, count: window.shine.game.trunk.count, pill: document.getElementById('cargo').textContent }));
-  expect(s).toEqual({ state: 'playing', count: 1, pill: 'CARGO: TRUNK 4/15' });
+  expect(s).toEqual({ state: 'playing', count: 1, pill: 'TRUNK 4/15' });
   expect(problems).toEqual([]);
 });
 
@@ -246,27 +248,27 @@ test('rearranging the trunk: lift, swap, leave a piece behind; T opens it, the g
   await startRun(page);
   await page.evaluate(() => {
     const t = window.shine.game.trunk;
-    t.place('case', 0, 0);
+    t.place('small-crate', 0, 0);
     t.place('crate', 3, 0);
   });
   // T opens it empty-handed; lift the case, Esc puts it back where it was.
   await page.keyboard.press('KeyT');
   await expect(page.locator('#trunk')).toBeVisible();
   await page.keyboard.press('Enter');
-  expect(await page.evaluate(() => window.shine.game.trunkScreen.hand?.kind)).toBe('case');
+  expect(await page.evaluate(() => window.shine.game.trunkScreen.hand?.kind)).toBe('small-crate');
   await page.keyboard.press('Escape');
   await expect(page.locator('#trunk')).toBeHidden();
-  expect(await page.evaluate(() => { const p = window.shine.game.trunk.pieceAt(0, 0); return p && p.kind; })).toBe('case');
+  expect(await page.evaluate(() => { const p = window.shine.game.trunk.pieceAt(0, 0); return p && p.kind; })).toBe('small-crate');
 
-  // A new cask in hand over the case: Enter swaps them (the cask goes in, the case comes out).
+  // A new barrel in hand over the small crate: Enter swaps them.
   await page.evaluate(() => window.shine.game.openTrunk('barrel'));
   await page.evaluate(() => { const s = window.shine.game.trunkScreen; s.hand.rot = 0; s.cursor = { x: 0, y: 0 }; s._render(); });
   await page.keyboard.press('Enter');
   const swapped = await page.evaluate(() => ({ at: window.shine.game.trunk.pieceAt(0, 0)?.kind, hand: window.shine.game.trunkScreen.hand?.kind }));
-  expect(swapped).toEqual({ at: 'barrel', hand: 'case' });
-  // X leaves the case on the road.
+  expect(swapped).toEqual({ at: 'barrel', hand: 'small-crate' });
+  // X leaves the small crate on the road.
   await page.keyboard.press('KeyX');
-  await expect(page.locator('#trunk-msg')).toContainText('Left the case of rye behind');
+  await expect(page.locator('#trunk-msg')).toContainText('Left the small crate behind');
   expect(await page.evaluate(() => window.shine.game.trunk.count)).toBe(2);
 
   // Gamepad: d-pad moves, RB turns, A puts down, X leaves a piece behind, B closes.
@@ -310,15 +312,17 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(where.blocked).toBe(false);
   expect(where.visible).toBe(true);
 
-  // Load the trunk: two cases, a cask, a crate. The banner now points to the market.
+  // Load the trunk: two small crates, a barrel, a wooden crate. The banner now points to
+  // the market, in miles.
   await page.evaluate(() => {
     const g = window.shine.game, t = g.trunk;
-    t.place('case', 0, 0); t.place('case', 1, 0); t.place('barrel', 2, 0); t.place('crate', 3, 0);
+    t.place('small-crate', 0, 0); t.place('small-crate', 1, 0); t.place('barrel', 2, 0); t.place('crate', 3, 0);
     g.dredge.saveTrunk(t);
     g._updateTrunkPill();
     window.shine.step(0.1);
   });
-  await expect(page.locator('#objective-text')).toHaveText('Sell at Lexington Market');
+  await expect(page.locator('#objective-text')).toHaveText('Deliver to Baltimore');
+  await expect(page.locator('#objective-dist')).toHaveText(/^\d+\.\d mi$/);
 
   // Roll in and stop: the market opens and the drive pauses.
   const rolled = await page.evaluate(() => {
@@ -340,23 +344,23 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   await expect(page.locator('#market-title')).toHaveText('LEXINGTON MARKET');
   await screenshot(page, 'dredge-05-market');
 
-  // Sell the cases: cash goes up by exactly the total shown, and the second case fetched less.
-  const caseRow = page.locator('#market-body [data-id="case"]');
+  // Sell the small crates: cash goes up by exactly the total shown, and the second fetched less.
+  const caseRow = page.locator('#market-body [data-id="small-crate"]');
   const shown = Number(await caseRow.getAttribute('data-total'));
-  const first = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); const g = window.shine.game; return priceOf('baltimore', 'case', g.dredge.market); });
+  const first = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); const g = window.shine.game; return priceOf('baltimore', 'small-crate', g.dredge.market); });
   await caseRow.click();
-  const afterCases = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, cases: [...window.shine.game.trunk.pieces.values()].filter((p) => p.kind === 'case').length }));
+  const afterCases = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, cases: [...window.shine.game.trunk.pieces.values()].filter((p) => p.kind === 'small-crate').length }));
   expect(afterCases.cash).toBe(shown);
   expect(afterCases.cases).toBe(0);
   expect(shown).toBeLessThan(first * 2);                    // the glut: the second one sold for less
-  const next = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); return priceOf('baltimore', 'case', window.shine.game.dredge.market); });
+  const next = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); return priceOf('baltimore', 'small-crate', window.shine.game.dredge.market); });
   expect(next).toBeLessThan(first);
 
   // Sell everything that's left.
   const allShown = Number(await page.locator('#market-sell-all').getAttribute('data-total'));
   await page.locator('#market-sell-all').click();
   const done = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, count: window.shine.game.trunk.count, ledger: window.shine.game.dredge.data.ledger.length, pill: document.getElementById('cargo').textContent }));
-  expect(done).toEqual({ cash: shown + allShown, count: 0, ledger: 2, pill: 'CARGO: TRUNK 0/15' });
+  expect(done).toEqual({ cash: shown + allShown, count: 0, ledger: 2, pill: 'TRUNK 0/15' });
   await expect(page.locator('#cash')).toHaveText(`$${(shown + allShown).toLocaleString()}`, { timeout: 5000 });
 
   // Back on the road; it doesn't reopen until you've driven out and back.
@@ -365,12 +369,12 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(await page.evaluate(() => { window.shine.step(0.5); return window.shine.game.state; })).toBe('playing');
 
   // A piece left aboard and the cash survive a reload; the bootleg career is untouched.
-  await page.evaluate(() => { const g = window.shine.game; g.trunk.place('radio', 0, 0); g.dredge.saveTrunk(g.trunk); });
+  await page.evaluate(() => { const g = window.shine.game; g.trunk.place('jugs', 0, 0); g.dredge.saveTrunk(g.trunk); });
   await page.reload();
   await page.waitForFunction(() => window.__shineReady === true);
   await startRun(page);
   const reloaded = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, kinds: [...window.shine.game.trunk.pieces.values()].map((p) => p.kind), bootleg: window.shine.game.career.cash }));
-  expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['radio'], bootleg: bootlegCash });
+  expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['jugs'], bootleg: bootlegCash });
 
   const after = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
   expect(after.lights).toBe(13);
@@ -378,4 +382,145 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(after.programs).toBe(before.programs);
   expect(after.geometries).toBe(before.geometries);
   expect(problems).toEqual([]);
+});
+
+test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
+  const problems = await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(async () => {
+    const { CONFIG } = await import('/src/config.js');
+    const { shape, shapeSize, kindColors } = await import('/src/trunk.js');
+    const g = window.shine.game, L = g.loot, P = CONFIG.dredge.palette;
+    const kinds = CONFIG.dredge.loot.kinds.map((k) => {
+      const s = shape(k.id), size = shapeSize(s);
+      return { id: k.id, cells: s.length, w: size.w, h: size.h, tier: k.tier, value: k.value, cellsJSON: JSON.stringify(s.slice().sort()) };
+    });
+    const mats = new Set(L.meshes.map((m) => m.material));
+    return {
+      kinds,
+      meshes: L.meshes.map((m) => ({ name: m.name, instanced: m.isInstancedMesh })),
+      oneMaterial: mats.size === 1, flat: L.material.flatShading, vertexColors: L.material.vertexColors,
+      paletteKeys: Object.keys(P).sort(),
+      tierColours: Object.fromEntries(CONFIG.dredge.loot.kinds.map((k) => [k.id, kindColors(k.id).main])),
+      palette: P,
+    };
+  });
+  const by = Object.fromEntries(r.kinds.map((k) => [k.id, k]));
+  // The shapes asked for: small crate 1x1, bottle case 2x1, burlap sack an L of 3, barrel 1x2,
+  // jug cluster a T of 4, wooden crate 2x2, long crate 3x1, copper coil an S of 4, aged keg 2x3,
+  // strongbox 1x1 (premium).
+  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'barrel', 'jugs', 'crate', 'long-crate', 'coil', 'keg', 'strongbox']);
+  const dims = (id) => [by[id].cells, by[id].w, by[id].h];
+  expect(dims('small-crate')).toEqual([1, 1, 1]);
+  expect(dims('bottle-case')).toEqual([2, 2, 1]);
+  expect(dims('sack')).toEqual([3, 2, 2]);
+  expect(dims('barrel')).toEqual([2, 1, 2]);
+  expect(dims('jugs')).toEqual([4, 3, 2]);
+  expect(by.jugs.cellsJSON).toBe(JSON.stringify([[0, 0], [1, 0], [1, 1], [2, 0]]));          // T
+  expect(dims('crate')).toEqual([4, 2, 2]);
+  expect(dims('long-crate')).toEqual([3, 3, 1]);
+  expect(dims('coil')).toEqual([4, 3, 2]);
+  expect(by.coil.cellsJSON).toBe(JSON.stringify([[0, 1], [1, 0], [1, 1], [2, 0]]));          // S
+  expect(dims('keg')).toEqual([6, 2, 3]);
+  expect(dims('strongbox')).toEqual([1, 1, 1]);
+  expect(by.strongbox.tier).toBe('premium');
+  // One instanced mesh per kind, one shared flat-shaded material.
+  expect(r.meshes).toEqual(r.kinds.map((k) => ({ name: `loot-${k.id}`, instanced: true })));
+  expect(r.oneMaterial).toBe(true);
+  expect(r.flat).toBe(true);
+  expect(r.vertexColors).toBe(true);
+  // Tier colours: low olive, mid brick (the jugs are cream stoneware), high copper, premium amber.
+  expect(r.paletteKeys).toEqual(['amber', 'brick', 'copper', 'cream', 'duskRose', 'olive', 'shadowTeal', 'slate', 'taillight']);
+  const P = r.palette;
+  expect(r.tierColours).toEqual({
+    'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive,
+    barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick,
+    coil: P.copper, keg: P.copper, strongbox: P.amber,
+  });
+  // Value rises with the tier.
+  const tierMax = (t) => Math.max(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));
+  const tierMin = (t) => Math.min(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));
+  expect(tierMax('low')).toBeLessThanOrEqual(tierMin('mid'));
+  expect(tierMax('mid')).toBeLessThanOrEqual(tierMin('high'));
+  expect(tierMax('high')).toBeLessThanOrEqual(tierMin('premium'));
+  expect(problems).toEqual([]);
+});
+
+test('loot drawing stays in budget: each kind draws only nearby pieces, the glow is one more call, nothing compiles', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot;
+    g.renderer.setAnimationLoop(null);
+    const before = window.shine.renderInfo();
+    // Every kind in view at once, just ahead of the truck.
+    for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
+    for (let k = 0; k < L.meshes.length; k++) { L.kind[k] = k; L.active[k] = 1; L.x[k] = -9 + (k % 5) * 4.5; L.z[k] = 48 - Math.floor(k / 5) * 5; }
+    window.shine.teleport(0, 100, 0);
+    window.shine.step(0.2);
+    const all = window.shine.renderInfo();
+    const drawing = L.meshes.filter((m) => m.visible && m.count > 0).length;
+    // Far away from all of them: no loot draws at all.
+    window.shine.teleport(0, -900, 0);
+    window.shine.step(0.2);
+    const none = window.shine.renderInfo();
+    const idle = L.meshes.filter((m) => m.visible).length + (L.glow.visible ? 1 : 0);
+    return { before, all, none, drawing, idle, glow: L.glow.count };
+  });
+  expect(r.drawing).toBe(10);
+  expect(r.all.calls).toBeLessThan(60);
+  expect(r.all.lights).toBe(13);
+  expect(r.all.programs).toBe(r.before.programs);
+  expect(r.all.geometries).toBe(r.before.geometries);
+  expect(r.idle).toBe(0);
+  expect(r.none.programs).toBe(r.before.programs);
+});
+
+test('the dredge palette themes the screens: cream on teal, amber where it fits, red where it does not', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(async () => {
+    const { CONFIG } = await import('/src/config.js');
+    const P = CONFIG.dredge.palette, g = window.shine.game;
+    const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
+    const root = getComputedStyle(document.documentElement);
+    g.trunk.place('coil', 0, 0);
+    g.openTrunk('strongbox');
+    const s = g.trunkScreen;
+    s.cursor = { x: 4, y: 2 }; s._render();
+    const okCell = document.querySelector('#trunk-grid .cell.ghost');
+    const ok = { cls: okCell.className, shadow: getComputedStyle(okCell).boxShadow };
+    s.cursor = { x: 1, y: 0 }; s._render();                     // on top of the coil
+    const badCell = document.querySelector('#trunk-grid .cell.ghost');
+    const bad = { cls: badCell.className, shadow: getComputedStyle(badCell).boxShadow };
+    const coilCell = document.querySelector('#trunk-grid .cell[data-kind="coil"]:not(.ghost)');
+    const card = getComputedStyle(document.querySelector('#trunk .overlay-card'));
+    return {
+      dredge: document.documentElement.classList.contains('dredge'),
+      vars: { amber: root.getPropertyValue('--d-amber').trim(), teal: root.getPropertyValue('--d-shadow-teal').trim(), cream: root.getPropertyValue('--d-cream').trim() },
+      want: { amber: P.amber, teal: P.shadowTeal, cream: P.cream },
+      card: { bg: card.backgroundColor, color: card.color },
+      teal: rgb(P.shadowTeal), cream: rgb(P.cream), amberRGB: rgb(P.amber), redRGB: rgb(P.taillight), copperRGB: rgb(P.copper),
+      ok, bad, coilBg: getComputedStyle(coilCell).backgroundColor,
+      emptyBg: getComputedStyle(document.querySelector('#trunk-grid .cell:not(.filled):not(.ghost)')).backgroundColor, slate: rgb(P.slate),
+    };
+  });
+  expect(r.dredge).toBe(true);
+  expect(r.vars).toEqual(r.want);
+  expect(r.card.bg).toBe(r.teal);
+  expect(r.card.color).toBe(r.cream);
+  expect(r.ok.cls).not.toContain('bad');
+  expect(r.ok.shadow).toContain(r.amberRGB);
+  expect(r.bad.cls).toContain('bad');
+  expect(r.bad.shadow).toContain(r.redRGB);
+  expect(r.coilBg).toBe(r.copperRGB);
+  expect(r.emptyBg).toBe(r.slate);
+  await screenshot(page, 'dredge-05-trunk-palette');
+});
+
+test('the bootlegging game keeps its own colours', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => ({ dredge: document.documentElement.classList.contains('dredge'), gold: getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() }));
+  expect(r).toEqual({ dredge: false, gold: '#d8b25a' });
 });

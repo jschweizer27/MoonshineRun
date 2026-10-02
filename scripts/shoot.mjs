@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Art-direction screenshots: `npm run shots -- <label> [--day] [--rain]`. Starts the game in a
+// Art-direction screenshots: `npm run shots -- <label> [--day] [--rain]` (a label starting with
+// "dredge" shoots the dredge run: see scripts/shoot-dredge.mjs). Starts the game in a
 // headless browser, drives up the street, and saves a chase-camera frame, a wide street
 // view and a close-up of the truck to artifacts/shots/<label>-*.png. It also prints how long
 // a frame takes to render. Headless Chromium draws with a software GPU, so compare those
@@ -11,6 +12,11 @@ import { chromium } from '@playwright/test';
 const args = process.argv.slice(2);
 const label = args.find((a) => !a.startsWith('--')) || 'shot';
 const flags = new Set(args.filter((a) => a.startsWith('--')));
+// Labels starting with "dredge" shoot the dredge run instead (scripts/shoot-dredge.mjs).
+if (label.startsWith('dredge')) {
+  await import('./shoot-dredge.mjs');
+  process.exit(0);
+}
 const port = 4190 + Math.floor(Math.random() * 50);
 const out = 'artifacts/shots';
 fs.mkdirSync(out, { recursive: true });
