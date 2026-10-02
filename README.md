@@ -62,6 +62,8 @@ Enter, the D-pad and A/B, or touch.
    nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, or
    the **Monkton General Store** at the crossroads up York Road. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
+   From the second day on, one town each day pays **double** for one kind of loot: the
+   banner and the market say which.
 5. Spend your cash at either market on **upgrades**: a bigger bed (the trunk grows and the
    truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
    and a spotter for the radar.

@@ -1,6 +1,6 @@
 import { el } from './ui.js';
 import { CONFIG } from './config.js';
-import { priceOf, quote } from './market.js';
+import { priceOf, quote, dayOf, eventFor, eventText } from './market.js';
 import { kindColors } from './trunk.js';
 
 const $ = (id) => document.getElementById(id);
@@ -19,6 +19,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     body.textContent = '';
     const counts = {};
     for (const p of trunk.pieces.values()) counts[p.kind] = (counts[p.kind] || 0) + 1;
+    const ev = eventFor(dayOf(career.market));
     for (const k of CONFIG.dredge.loot.kinds) {
       const n = counts[k.id];
       if (!n) continue;
@@ -29,7 +30,9 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       btn.addEventListener('click', () => { onSell(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
-          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`), el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.tier})`)), btn));
+          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`),
+          ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
+          el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.tier})`)), btn));
     }
     // Upgrades for the truck, paid from the same cash.
     if (onBuy) {
@@ -48,9 +51,9 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     sellAll.textContent = all.count ? `SELL EVERYTHING (${money(all.total)})` : 'SELL EVERYTHING';
     sellAll.dataset.total = all.total;
     sellAll.disabled = !all.count;
-    $('market-note').textContent = all.count
+    $('market-note').textContent = (all.count
       ? 'Prices change day to day, and drop as you sell more of the same thing here.'
-      : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.';
+      : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.') + (ev ? ` ${eventText(ev)}.` : '');
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
     if (again && !again.disabled) again.focus();
     else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('market')) ui.focusFirst();

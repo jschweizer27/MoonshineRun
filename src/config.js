@@ -169,6 +169,9 @@ export const CONFIG = {
       stopSpeed: 3,         // m/s: slow to this inside a market to open it
       markerRange: 450,     // metres: a market's marker shows within this (the radar always does);
                             // each costs four draw calls, so a far town's stays hidden
+      // Each in-game day from the second on, one town pays this multiple for one kind of
+      // loot (rolled from the day, so it's the same for everyone). PLACEHOLDER: tune.
+      event: { multiplier: 2 },
     },
     // The trunk: a grid to pack loot into (the trunk upgrade grows it).
     trunk: { cols: 5, rows: 3 },

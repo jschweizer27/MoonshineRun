@@ -18,7 +18,7 @@ import { Props } from './props.js';
 import { Loot } from './loot.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime } from './market.js';
+import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -409,6 +409,7 @@ class Game {
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
     this.place = this._placeName();
+    this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -553,6 +554,7 @@ class Game {
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
+    this._checkEvent();
     this._updateMarkers();
     this._checkMarket();
     this._checkPlace();
@@ -662,10 +664,24 @@ class Game {
     });
   }
 
-  // The banner: where to sell (with the arrow) once there's something aboard.
+  // A new in-game day posts a new market event: say so.
+  _checkEvent() {
+    const day = dayOf(this.dredge.market);
+    if (day === this._eventDay) return;
+    this._eventDay = day;
+    const ev = eventFor(day);
+    if (ev) this.hud.toast(eventText(ev), 'gold', 4000);
+  }
+
+  // The banner: where to sell (with the arrow) once there's something aboard; before that,
+  // the day's market event if there is one.
   _updateObjective() {
     const { town, dist } = this._nearestMarket();
-    if (!town || !this.trunk.count) { this.hud.setObjective('Pick up loot along the roads', null, 'roam'); return; }
+    if (!town || !this.trunk.count) {
+      const ev = eventFor(dayOf(this.dredge.market));
+      this.hud.setObjective(ev ? `Pick up loot · ${eventText(ev).replace(' today', '')}` : 'Pick up loot along the roads', null, 'roam');
+      return;
+    }
     const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
     this.hud.setObjective(`Deliver to ${town.town}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));

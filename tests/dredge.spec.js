@@ -683,3 +683,45 @@ test('gluts ease as the in-game hours pass: five sold knock 30% off, ten hours l
   expect(r.recovered).toBe(r.fresh);
   expect(r.left).toEqual({});
 });
+
+test('market events: from day 1 a town pays double for one kind, announced when the day turns and badged at its market', async ({ page }) => {
+  await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const { eventFor, priceOf, eventText } = await import('/src/market.js');
+    const { CONFIG } = await import('/src/config.js');
+    const g = window.shine.game, M = CONFIG.dredge.market;
+    const none = eventFor(0);
+    const ev = eventFor(2), again = eventFor(2);
+    const days = new Set(Array.from({ length: 12 }, (_, d) => { const e = eventFor(d + 1); return `${e.town}:${e.kind}`; })).size;
+    // The multiplier is in the price: the same day's price with and without it.
+    const at = { sold: {}, clock: 2 * 24 + 1 };
+    const doubled = priceOf(ev.town, ev.kind, at);
+    M.event.multiplier = 1;
+    const plain = priceOf(ev.town, ev.kind, at);
+    M.event.multiplier = 2;
+    // The day turns from 1 to 2: a toast, and the empty-trunk banner names the demand.
+    g.dredge.market.clock = 47.99; g._eventDay = 1;
+    window.shine.step(1 / 60);
+    g.dredge.market.clock = 48.01;
+    window.shine.step(1 / 60);
+    const toast = document.getElementById('toast').textContent, banner = document.getElementById('objective-text').textContent;
+    // At that town's market, a piece of that kind is badged.
+    g.trunk.place(ev.kind, 0, 0);
+    g.openMarket(CONFIG.dredge.towns.find((t) => t.id === ev.town));
+    const badge = document.querySelector(`#market-body [data-id="${ev.kind}"]`)?.closest('.upgrade')?.querySelector('.event-badge')?.textContent;
+    return { none, same: JSON.stringify(ev) === JSON.stringify(again), days, ratio: doubled / plain, toast, banner, badge, text: eventText(ev), note: document.getElementById('market-note').textContent };
+  });
+  expect(r.none).toBe(null);                        // a new game (and ?test, clock stopped) has none
+  expect(r.same).toBe(true);
+  expect(r.days).toBeGreaterThan(4);                // it changes from day to day
+  expect(r.ratio).toBeGreaterThan(1.9);
+  expect(r.ratio).toBeLessThan(2.1);
+  expect(r.toast).toBe(r.text);
+  expect(r.text).toMatch(/pays double for every .+ today/);
+  expect(r.banner).toContain('Pick up loot');
+  expect(r.banner).toContain('pays double');
+  expect(r.badge).toBe('2× TODAY');
+  expect(r.note).toContain(r.text);
+  await screenshot(page, 'dredge-event-market');
+});
