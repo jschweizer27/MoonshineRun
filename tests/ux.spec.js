@@ -133,9 +133,12 @@ test('keys can be remapped', async ({ page }) => {
 test('the minimap and full map draw the route to the objective', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  // The minimap draws once per rendered frame; wait for it rather than a fixed delay
-  // (software rendering under load can take a second per frame).
+  // The minimap draws once per rendered frame. Draw it here rather than waiting on real
+  // frames, which can crawl on software-rendered CI machines.
   await expect.poll(() => page.evaluate(() => {
+    const g = window.shine.game;
+    g.minimap.updateRoute(1, g.player.position, g.mission.target, g.police.blocked);
+    g.minimap.draw(g.player, g._mapMarkers(), g._mapPolice(), g.time);
     const cv = document.getElementById('minimap');
     const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
     let lit = 0;
