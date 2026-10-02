@@ -611,3 +611,59 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
   expect(reloaded.maxSpeed).toBe(after.maxSpeed);
   expect(reloaded.look).toBe('reinforced');
 });
+
+test('two towns: Monkton in the valley has its own market and prices, on the road from Baltimore', async ({ page }) => {
+  await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const r = await page.evaluate(async () => {
+    const g = window.shine.game, w = g.world;
+    const { CONFIG } = await import('/src/config.js');
+    const { priceOf } = await import('/src/market.js');
+    const [city, village] = CONFIG.dredge.towns;
+    // Both markets sit on the road network, joined by a drivable path.
+    const a = w.roads.nearest(city.x, city.z), b = w.roads.nearest(village.x, village.z);
+    const path = w.roads.path(a.id, b.id) || [];
+    // The village: houses clear of every road, and of the crossroads.
+    const seg = (x, z, p, q) => { const dx = q.x - p.x, dz = q.z - p.z, t = Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - p.x - dx * t, z - p.z - dz * t); };
+    const houses = w.buildings.filter((h) => h.barn && Math.hypot((h.minX + h.maxX) / 2 - village.x, (h.minZ + h.maxZ) / 2 - village.z) < 90);
+    // No house reaches a road: its centre is further from every road than half the road plus
+    // half its own shorter side.
+    const onRoad = houses.filter((h) => w.countyEdges.some(([p, q, rw]) => seg((h.minX + h.maxX) / 2, (h.minZ + h.maxZ) / 2, p, q) < rw / 2 + Math.min(h.maxX - h.minX, h.maxZ - h.minZ) / 2));
+    const state = g.dredge.market;
+    const prices = {};
+    for (const k of ['keg', 'sack', 'bottle-case']) prices[k] = [priceOf('baltimore', k, state), priceOf('monkton', k, state)];
+    const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
+    // Drive into the valley: the village's name shows on arrival; stop at its store to trade.
+    window.shine.teleport(0, -560, Math.PI);
+    window.shine.step(0.2);
+    window.shine.teleport(0, -590, Math.PI);
+    window.shine.step(0.3);
+    const toast = document.getElementById('toast').textContent;
+    g.renderFrame();
+    const calls = window.shine.renderInfo().calls;
+    g.trunk.place('keg', 0, 0);
+    window.shine.teleport(village.x, village.z + 4, Math.PI);
+    window.shine.step(0.5);
+    return {
+      roadA: Math.hypot(a.x - city.x, a.z - city.z), roadB: Math.hypot(b.x - village.x, b.z - village.z), path: path.length,
+      houses: houses.length, onRoad: onRoad.length, prices, toast, calls, state: g.state,
+      market: document.getElementById('market-title').textContent, marketOpen: g.ui.isOpen('market'),
+      programs: g.renderer.info.programs.length - programs, geometries: g.renderer.info.memory.geometries - geometries,
+      markers: g.marketMarkers.length,
+    };
+  });
+  expect(r.roadA).toBeLessThan(1);
+  expect(r.roadB).toBeLessThan(1);
+  expect(r.path).toBeGreaterThan(2);
+  expect(r.houses).toBeGreaterThan(8);
+  expect(r.onRoad).toBe(0);
+  expect(r.prices.keg[1]).toBeGreaterThan(r.prices.keg[0]);          // kegs pay more in the valley
+  expect(r.prices.sack[1]).toBeLessThan(r.prices.sack[0]);           // farm goods less
+  expect(r.toast).toContain('Monkton');
+  expect(r.calls).toBeLessThan(60);
+  expect(r.markers).toBe(2);
+  expect(r.marketOpen).toBe(true);
+  expect(r.market).toBe('MONKTON GENERAL STORE');
+  expect(r.programs).toBe(0);
+  expect(r.geometries).toBe(0);
+});

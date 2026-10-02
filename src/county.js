@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { atlasMaterial } from './atlas.js';
+import { createRng } from './rng.js';
 
 // Green Spring Valley: farm roads north of Baltimore up York Road, with barns hiding the
 // stills, Otto's hideout, woods to hide in and white steeplechase fences. North is -Z.
@@ -33,6 +34,8 @@ const BARNS = [
 const FENCED = [['V1', 'V2'], ['V4', 'V5'], ['M1', 'M2'], ['M4', 'M5'], ['Y4', 'Y5'], ['K1', 'K2']];
 
 export const COUNTY = { minX: -440, maxX: 440, minZ: -1040, maxZ: -247 };
+// The village at the York Road crossroads (node Y5).
+export const VILLAGE = { name: 'Monkton', at: NODES.Y5 };
 const ROAD_W = 10;
 
 export function buildCounty(world, rng) {
@@ -80,7 +83,10 @@ export function buildCounty(world, rng) {
   // Barns (instanced bodies and roofs) with a lantern by each door.
   const barnSpots = BARNS.map(([lane, from, name]) => barnAt(NODES[lane], NODES[from], name));
   const hideout = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s Hideout'), hideout: true };
-  const all = [...barnSpots, hideout];
+  // Monkton: clapboard houses and stores round the York Road crossroads, drawn with the
+  // barns' kit (the dredge run's second market is at the crossroads).
+  const village = villageAround(VILLAGE.at, edges, createRng((world.seed ?? 0) + 31337));
+  const all = [...barnSpots, hideout, ...village];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
   const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
@@ -89,16 +95,20 @@ export function buildCounty(world, rng) {
   const door = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), atlasMaterial(A, { side: 'boards', tile: 4, color: 0x36221a, roughness: 1 }), all.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
   all.forEach((b, i) => {
+    // Barns are 14 x 8 x 20 (deep along the door's axis); village houses carry their own size.
+    const w = b.w ?? 14, h = b.h ?? 8, d = b.d ?? 20;
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.rot);
-    body.setMatrixAt(i, m.compose(p.set(b.x, 0, b.z), q, s.set(14, 8, 20)));
-    body.setColorAt(i, new THREE.Color(b.hideout ? 0x4a3a2c : 0x7a2a1e));
-    roof.setMatrixAt(i, m.compose(p.set(b.x, 8, b.z), q, s.set(15.5, 5, 21)));
-    door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * 10.05, 2.8, b.z + b.fz * 10.05), q, s.set(6, 5.6, 0.2)));
-    const half = b.rot === 0 ? [7, 10] : [10, 7];
+    body.setMatrixAt(i, m.compose(p.set(b.x, 0, b.z), q, s.set(w, h, d)));
+    body.setColorAt(i, new THREE.Color(b.color ?? (b.hideout ? 0x4a3a2c : 0x7a2a1e)));
+    roof.setMatrixAt(i, m.compose(p.set(b.x, h, b.z), q, s.set(w + 1.5, b.house ? h * 0.5 : 5, d + 1)));
+    const dw = b.house ? 1.2 : 6, dh = b.house ? 2.3 : 5.6;
+    door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * (d / 2 + 0.05), dh / 2, b.z + b.fz * (d / 2 + 0.05)), q, s.set(dw, dh, 0.2)));
+    const half = b.rot === 0 ? [w / 2, d / 2] : [d / 2, w / 2];
     world.collision.addBox(b.x - half[0], b.z - half[1], b.x + half[0], b.z + half[1], { tag: 'barn' });
-    world.buildings.push({ minX: b.x - half[0], minZ: b.z - half[1], maxX: b.x + half[0], maxZ: b.z + half[1], h: 8, barn: true });
-    world.extraLights.push({ x: b.x + b.fx * 11.5 + b.fz * 4, z: b.z + b.fz * 11.5 - b.fx * 4, tx: b.fx, tz: b.fz, pole: false });
+    world.buildings.push({ minX: b.x - half[0], minZ: b.z - half[1], maxX: b.x + half[0], maxZ: b.z + half[1], h, barn: true });
+    if (!b.house || b.lantern) world.extraLights.push({ x: b.x + b.fx * (d / 2 + 1.5) + b.fz * (w / 2 - 1), z: b.z + b.fz * (d / 2 + 1.5) - b.fx * (w / 2 - 1), tx: b.fx, tz: b.fz, pole: false });
   });
+  world.village = { name: VILLAGE.name, x: VILLAGE.at[0], z: VILLAGE.at[1], houses: village.length };
   for (const im of [body, roof, door]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   body.instanceColor.needsUpdate = true;
 
@@ -106,7 +116,7 @@ export function buildCounty(world, rng) {
   const clear = (x, z, r) => {
     if (x < COUNTY.minX + 8 || x > COUNTY.maxX - 8 || z < COUNTY.minZ + 8 || z > COUNTY.maxZ - 14) return false;
     for (const [a, b, w] of edges) if (distToSegment(x, z, a, b) < w / 2 + r + 3) return false;
-    for (const b of all) if (Math.hypot(x - b.x, z - b.z) < 26) return false;
+    for (const b of barnSpots.concat(hideout)) if (Math.hypot(x - b.x, z - b.z) < 26) return false;
     return true;
   };
   const trees = [];
@@ -127,17 +137,21 @@ export function buildCounty(world, rng) {
   const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(3.2, 0).translate(0, 6.2, 0),
     new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), trees.length);
   const greens = [0x24381f, 0x2c4424, 0x1f3019, 0x34502a, 0x2a3b1c];
+  // A tree standing on a village house is left out (scaled to nothing, no collider). It
+  // still draws its random numbers, so everything built after the woods stays put.
+  const onHouse = ([x, z]) => village.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3);
   trees.forEach(([x, z, sc], i) => {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * Math.PI * 2);
-    trunk.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc, sc, sc)));
-    crown.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc, sc * rng.range(0.9, 1.3), sc)));
+    const k = onHouse([x, z]) ? 0 : 1;
+    trunk.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc * k, sc * k, sc * k)));
+    crown.setMatrixAt(i, m.compose(p.set(x, 0, z), q, s.set(sc * k, sc * rng.range(0.9, 1.3) * k, sc * k)));
     crown.setColorAt(i, new THREE.Color(rng.pick(greens)));
     // Trunks stop the truck; the leafy crowns block line of sight (hide in the woods).
-    world.collision.addCircle(x, z, 0.6 * sc, { tag: 'tree', blocksSight: true, sightR: 2.6 * sc });
+    if (k) world.collision.addCircle(x, z, 0.6 * sc, { tag: 'tree', blocksSight: true, sightR: 2.6 * sc });
   });
   for (const im of [trunk, crown]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   crown.instanceColor.needsUpdate = true;
-  world.trees = trees;
+  world.trees = trees.filter((t) => !onHouse(t));
 
   // White post-and-rail fences along the valley roads (steeplechase country).
   const posts = [], rails = [];
@@ -180,6 +194,32 @@ export function buildCounty(world, rng) {
 }
 
 // A barn at the end of a lane, its door facing back down the lane.
+// Houses and stores along the four roads out of a crossroads, set back behind the verge,
+// fronts to the road (snapped to an axis, like the barns), clear of every road.
+function villageAround([cx, cz], edges, rng) {
+  const COLORS = [0xd8d2c4, 0xc9bfa6, 0x8a3b2e, 0x5f6a72, 0x6b6e52, 0xb8a684];
+  const arms = edges.filter(([a, b]) => (a.x === cx && a.z === cz) || (b.x === cx && b.z === cz))
+    .map(([a, b]) => { const o = a.x === cx && a.z === cz ? b : a, len = Math.hypot(o.x - cx, o.z - cz); return [(o.x - cx) / len, (o.z - cz) / len]; });
+  const out = [];
+  for (const [ux, uz] of arms) {
+    for (const along of [24, 40, 56]) {
+      for (const side of [-1, 1]) {
+        if (rng() < 0.2) continue;
+        const w = 7 + rng() * 4, d = 7 + rng() * 3, h = 4 + rng() * 2.5;
+        const x = cx + ux * along - uz * side * 15, z = cz + uz * along + ux * side * 15;
+        const r = Math.hypot(w, d) / 2 + 1;
+        if (edges.some(([a, b, rw]) => distToSegment(x, z, a, b) < r + rw / 2)) continue;
+        if (out.some((o) => Math.hypot(o.x - x, o.z - z) < r + Math.hypot(o.w, o.d) / 2)) continue;
+        // The front faces the road: toward the crossroads arm, snapped to an axis.
+        const tx = uz * side, tz = -ux * side, alongX = Math.abs(tx) > Math.abs(tz);
+        const fx = alongX ? Math.sign(tx) : 0, fz = alongX ? 0 : Math.sign(tz);
+        out.push({ x, z, w, d, h, fx, fz, rot: alongX ? Math.PI / 2 : 0, house: true, color: COLORS[Math.floor(rng() * COLORS.length)], lantern: rng() < 0.5 });
+      }
+    }
+  }
+  return out;
+}
+
 function barnAt(lane, from, name) {
   const dx = lane[0] - from[0], dz = lane[1] - from[1];
   const len = Math.hypot(dx, dz);

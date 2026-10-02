@@ -210,16 +210,24 @@ export const CONFIG = {
       bounce: 1.05,         // walls deflect rather than throw you back
       wallKeep: 0.99,       // and cost little speed
     },
-    // Towns with a market (stop inside the radius to sell). One for now; the second town
-    // comes later.
+    // Towns with a market (stop inside the radius to sell): the city, and Monkton, a village
+    // at the York Road crossroads in the valley (county.js VILLAGE). `area` is how far out
+    // the town's name shows when you arrive.
     towns: [
       { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
+      { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95 },
     ],
     // What each town pays, as a multiple of each kind's base value.
     prices: {
       baltimore: {
         'small-crate': 1.0, 'bottle-case': 1.1, sack: 0.85, barrel: 0.95, jugs: 1.0,
         crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
+      },
+      // The village pays well for what's scarce out there (bottled goods, kegs, cash) and
+      // little for farm goods it has plenty of. PLACEHOLDERS: tune after playtesting.
+      monkton: {
+        'small-crate': 1.1, 'bottle-case': 1.35, sack: 0.7, barrel: 0.8, jugs: 1.3,
+        crate: 1.0, 'long-crate': 1.2, coil: 0.85, keg: 1.4, strongbox: 1.15,
       },
     },
     market: {
@@ -228,6 +236,8 @@ export const CONFIG = {
       glutFloor: 0.5,       // ... down to half price at worst
       recoverPerHour: 0.01, // and the price creeps back 1% per in-game hour
       stopSpeed: 3,         // m/s: slow to this inside a market to open it
+      markerRange: 450,     // metres: a market's marker shows within this (the radar always does);
+                            // each costs four draw calls, so a far town's stays hidden
     },
     // The trunk: a grid to pack loot into (the trunk upgrade grows it).
     trunk: { cols: 5, rows: 3 },

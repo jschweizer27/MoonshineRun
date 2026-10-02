@@ -556,6 +556,7 @@ class Game {
     this.trunk = this.dredge.loadTrunk();
     for (const m of this.marketMarkers) m.visible = true;
     this._marketLeft = true;
+    this.place = this._placeName();
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -858,8 +859,13 @@ class Game {
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
-    this.marketMarkers.forEach((m) => animateMarker(m, this.time, this.camera.position));
+    const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
+    this.marketMarkers.forEach((m) => {
+      m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < range;
+      animateMarker(m, this.time, cam);
+    });
     this._checkMarket();
+    this._checkPlace();
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -903,6 +909,21 @@ class Game {
       if (d < bd) { bd = d; best = t; }
     }
     return { town: best, dist: bd, inside: best && bd < best.radius };
+  }
+
+  // Where the truck is: a town, or the valley between. Arriving somewhere new shows its name.
+  _placeName(p = this.player.position) {
+    if (!this.world.inCounty(p)) return 'Baltimore';
+    const t = CONFIG.dredge.towns.find((x) => x.area && Math.hypot(p.x - x.x, p.z - x.z) < x.area);
+    return t ? t.town : 'Green Spring Valley';
+  }
+
+  _checkPlace() {
+    const place = this._placeName();
+    if (place !== this.place) {
+      if (this.place) this.hud.toast(place, 'gold', 2200);
+      this.place = place;
+    }
   }
 
   // Stop in a market to open it; it won't open again until you've driven out.

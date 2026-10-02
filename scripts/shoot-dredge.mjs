@@ -184,6 +184,23 @@ try {
   await shoot('hud', 'HUD: cash, trunk pill, radar, "Deliver to Baltimore"');
   await count('hud');
 
+  // Monkton, the valley village: driving in at night, from above, by day, and its store.
+  await page.evaluate(() => { window.shine.teleport(0, -600, 0); window.shine.step(0.4); });
+  await shoot('monkton', 'Monkton at night, up York Road');
+  await count('monkton');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(60, 38, -600); g.camera.lookAt(0, 0, -665); });
+  await shoot('monkton-above', 'Monkton from above: houses round the crossroads');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 12; g.env.update(0, g.camera.position); g.camera.position.set(-10, 4.5, -606); g.camera.lookAt(4, 2.5, -668); });
+  await shoot('monkton-day', 'Monkton by day');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.env.hour = 21.5; g.env.update(0, g.camera.position);
+    g.trunk.clear(); g.trunk.place('keg', 0, 0); g.trunk.place('bottle-case', 2, 0); g.trunk.place('sack', 3, 1);
+    g.openMarket(g._nearestMarket({ x: 0, z: -660 }).town);
+  });
+  await shoot('monkton-market', 'Monkton General Store: its own prices');
+  await page.evaluate(() => { window.shine.game.ui.back(); });
+
   // Upgrades: the market's list with cash to spend, then the trunk upgraded twice (6x4)
   // and the reinforced truck.
   await page.evaluate(() => {
