@@ -56,6 +56,35 @@ try {
     console.log(`${name.padEnd(10)} ${c.calls} draw calls · ${c.shadowCalls} shadow · ${c.postCalls} post · ${c.lights} lights · ${c.programs} programs · ${c.geometries} geometries`);
   };
 
+  // Buildings: a street of shopfronts, one facade up close, the rooftops, a county barn,
+  // and the same facade by day (the paint without the night).
+  await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot;
+    for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
+    window.shine.teleport(-88, 70, 0);
+    window.shine.step(0.4);
+  });
+  await shoot('street', 'a city street: shopfronts, awnings, lit windows');
+  await count('street');
+  const facade = () => page.evaluate(() => { const g = window.shine.game; g.camera.position.set(-84, 1.8, 44); g.camera.lookAt(-97, 4.5, 30); });
+  await facade();
+  await shoot('facade', 'a facade up close: brick, sash and shop windows');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(40, 50, 70); g.camera.lookAt(110, 16, 10); });
+  await shoot('roofs', 'rooftops: tar paper, cornices, chimneys, tanks');
+  await count('roofs');
+  await page.evaluate(() => {
+    const g = window.shine.game, b = g.world.barns[0];
+    window.shine.teleport(b.x + b.fx * 24, b.z + b.fz * 24, Math.atan2(-b.fx, b.fz));
+    window.shine.step(0.2);
+    g.camera.position.set(b.x + b.fx * 30 + b.fz * 14, 4.5, b.z + b.fz * 30 - b.fx * 14);
+    g.camera.lookAt(b.x, 4, b.z);
+  });
+  await shoot('barn', 'a county barn: boards, tar paper, fieldstone');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 12; g.env.update(0, g.camera.position); });
+  await facade();
+  await shoot('facade-day', 'the same facade by day');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; g.env.update(0, g.camera.position); });
+
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot, K = 10;

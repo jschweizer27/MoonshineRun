@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { atlasMaterial } from './atlas.js';
 
 // Green Spring Valley: farm roads north of Baltimore up York Road, with barns hiding the
 // stills, Otto's hideout, woods to hide in and white steeplechase fences. North is -Z.
@@ -80,10 +81,12 @@ export function buildCounty(world, rng) {
   const barnSpots = BARNS.map(([lane, from, name]) => barnAt(NODES[lane], NODES[from], name));
   const hideout = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s Hideout'), hideout: true };
   const all = [...barnSpots, hideout];
+  // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
+  const A = world.atlas;
   const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
-    new THREE.MeshStandardMaterial({ roughness: 0.9 }), all.length);
-  const roof = new THREE.InstancedMesh(roofGeometry(), new THREE.MeshStandardMaterial({ color: 0x3a3a3e, roughness: 0.8 }), all.length);
-  const door = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x2a1a12, roughness: 1 }), all.length);
+    atlasMaterial(A, { side: 'boards', top: 'roof', tile: 4 }), all.length);
+  const roof = new THREE.InstancedMesh(roofGeometry(), atlasMaterial(A, { side: 'roof', tile: 4, color: 0x9c9c9c, roughness: 0.8 }), all.length);
+  const door = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), atlasMaterial(A, { side: 'boards', tile: 4, color: 0x36221a, roughness: 1 }), all.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
   all.forEach((b, i) => {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.rot);
@@ -165,7 +168,7 @@ export function buildCounty(world, rng) {
   const { minX, maxX, minZ, maxZ } = COUNTY;
   const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], [maxX, minZ, maxX, maxZ], [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
   const wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.2, 1).translate(0, 0.6, 0),
-    new THREE.MeshStandardMaterial({ color: 0x5e5a52, roughness: 1 }), walls.length);
+    atlasMaterial(world.atlas, { side: 'fieldstone', tile: 2.5, color: 0xb8b8b8, roughness: 1 }), walls.length);
   walls.forEach(([x0, z0, x1, z1], i) => {
     const w = Math.max(1, Math.abs(x1 - x0)), d = Math.max(1, Math.abs(z1 - z0));
     wallMesh.setMatrixAt(i, m.compose(p.set((x0 + x1) / 2, 0, (z0 + z1) / 2), q.identity(), s.set(w, 1, d)));

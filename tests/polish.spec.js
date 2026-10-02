@@ -138,12 +138,51 @@ test('buildings have brick and stone facades, cornices, awnings and shop signs',
     };
   });
   expect(r.atlas).toBe(2);                     // colour + glass mask
-  expect(r.width).toBe(1024);                  // 4 facade styles
+  expect(r.width).toBe(2048);                  // 4 facade styles, then the painted regions
   expect(r.cornices).toBeGreaterThan(300);
   expect(r.awnings).toBeGreaterThan(20);
   expect(r.calls).toBeLessThan(60);
   await page.evaluate(() => window.shine.teleport(-88, 60, Math.PI / 2));
   await screenshot(page, '21-facades');
+});
+
+test('one painted atlas dresses the facades, trims, rooftops, awnings and barns', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world, A = w.atlas, img = A.color.image, mask = A.mask.image;
+    // Which meshes paint from the atlas, and with which regions.
+    const regions = new Set();
+    g.scene.traverse((o) => { const a = o.isMesh && o.material.userData.atlas; if (a) { regions.add(a.side); regions.add(a.top); } });
+    // Painted, not flat: colours vary inside one brick bay; the mask has glass in every
+    // style's four bays, and the arched window's corners stay wall.
+    const px = (c, x, y) => c.getContext('2d').getImageData(x, y, 1, 1).data;
+    const bay = img.getContext('2d').getImageData(20, 700, 40, 40).data;
+    let sum = 0, sq = 0;
+    for (let i = 0; i < bay.length; i += 4) { sum += bay[i]; sq += bay[i] * bay[i]; }
+    const n = bay.length / 4, spread = Math.sqrt(sq / n - (sum / n) ** 2);
+    const glass = [];
+    for (let style = 0; style < 4; style++) for (let row = 0; row < 4; row++) {
+      let lit = 0;
+      const d = mask.getContext('2d').getImageData(style * 256, row * 336, 256, 336).data;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 128) lit++;
+      glass.push(lit);
+    }
+    // The arched window (style 0, row 3): its bounding box's corner, and its lower left pane.
+    const wx = 256 * 0.3, wy = 336 * 3 + 0.55 * 336 / 3.4, ww = 256 * 0.4, wh = 1.95 * 336 / 3.4, rr = ww / 2;
+    return {
+      regions: [...regions].sort(), awningMap: w.awnings.material.map === A.color,
+      facade: w.buildingMesh.material.customProgramCacheKey(), spread, glass,
+      archCorner: px(mask, wx + 3, wy + 3)[0], archPane: px(mask, wx + ww * 0.25, wy + rr + (wh - rr) * 0.25)[0],
+    };
+  });
+  expect(r.regions).toEqual(['boards', 'brick', 'fieldstone', 'roof', 'staves', 'stone']);
+  expect(r.awningMap).toBe(true);
+  expect(r.facade).toBe('shine-facades');
+  expect(r.spread).toBeGreaterThan(6);          // brush strokes and bricks, not a flat fill
+  for (const lit of r.glass) expect(lit).toBeGreaterThan(2000);
+  expect(r.archCorner).toBe(0);
+  expect(r.archPane).toBeGreaterThan(128);
 });
 
 test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflections that grow in the rain', async ({ page }) => {
