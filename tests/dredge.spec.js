@@ -20,7 +20,7 @@ test('dredge mode boots into free roam: the truck without its horse box, no poli
       objective: document.getElementById('objective-text').textContent,
     };
   });
-  expect(setup).toEqual({ ride: 'runner', trailer: false, markers: false, heatShown: false, objective: 'Free roam' });
+  expect(setup).toEqual({ ride: 'runner', trailer: false, markers: false, heatShown: false, objective: 'Free roam: pick up what you find' });
 
   // Drive up York Road into the county: no one comes after you, nothing happens to the heat.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
@@ -294,4 +294,88 @@ test('rearranging the trunk: lift, swap, leave a piece behind; T opens it, the g
   await page.evaluate(() => window.shine.game._onAction('back', 'gamepad'));
   await expect(page.locator('#trunk')).toBeHidden();
   expect(await page.evaluate(() => window.shine.game.state)).toBe('playing');
+});
+
+test('Lexington Market: stop there to sell what is in the trunk; prices sag as you sell, and it all saves', async ({ page }) => {
+  const problems = await openGame(page, '&mode=dredge');
+  await startRun(page);
+  const before = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
+  const bootlegCash = await page.evaluate(() => window.shine.game.career.cash);
+  // The market sits on a street corner the roads reach.
+  const where = await page.evaluate(() => {
+    const g = window.shine.game, t = g.marketMarkers[0].position, n = g.world.roads.nearest(t.x, t.z);
+    return { dist: Math.hypot(n.x - t.x, n.z - t.z), blocked: g.world.collision.resolveCircle(t.x, t.z, 2).hit, visible: g.marketMarkers[0].visible };
+  });
+  expect(where.dist).toBeLessThan(1);
+  expect(where.blocked).toBe(false);
+  expect(where.visible).toBe(true);
+
+  // Load the trunk: two cases, a cask, a crate. The banner now points to the market.
+  await page.evaluate(() => {
+    const g = window.shine.game, t = g.trunk;
+    t.place('case', 0, 0); t.place('case', 1, 0); t.place('barrel', 2, 0); t.place('crate', 3, 0);
+    g.dredge.saveTrunk(t);
+    g._updateTrunkPill();
+    window.shine.step(0.1);
+  });
+  await expect(page.locator('#objective-text')).toHaveText('Sell at Lexington Market');
+
+  // Roll in and stop: the market opens and the drive pauses.
+  const rolled = await page.evaluate(() => {
+    const g = window.shine.game, t = g.marketMarkers[0].position, L = g.loot;
+    for (let i = 0; i < L.n; i++) if (Math.hypot(L.x[i] - t.x, L.z[i] - t.z) < 40) L.active[i] = 0;   // nothing to pick up on the way
+    // Driving through at speed doesn't open it ...
+    window.shine.teleport(t.x, t.z + 25, 0);
+    let opened = false;
+    for (let k = 0; k < 120; k++) { window.shine.step(1 / 60, { throttle: 1 }); if (g.state !== 'playing') { opened = true; break; } }
+    const passedAtSpeed = !opened;
+    // ... stopping inside does.
+    window.shine.teleport(t.x, t.z + 6, 0);
+    window.shine.step(0.5);
+    return { passedAtSpeed };
+  });
+  expect(rolled.passedAtSpeed).toBe(true);
+  await expect(page.locator('#market')).toBeVisible();
+  expect(await page.evaluate(() => window.shine.game.state)).toBe('paused');
+  await expect(page.locator('#market-title')).toHaveText('LEXINGTON MARKET');
+  await screenshot(page, 'dredge-05-market');
+
+  // Sell the cases: cash goes up by exactly the total shown, and the second case fetched less.
+  const caseRow = page.locator('#market-body [data-id="case"]');
+  const shown = Number(await caseRow.getAttribute('data-total'));
+  const first = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); const g = window.shine.game; return priceOf('baltimore', 'case', g.dredge.market); });
+  await caseRow.click();
+  const afterCases = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, cases: [...window.shine.game.trunk.pieces.values()].filter((p) => p.kind === 'case').length }));
+  expect(afterCases.cash).toBe(shown);
+  expect(afterCases.cases).toBe(0);
+  expect(shown).toBeLessThan(first * 2);                    // the glut: the second one sold for less
+  const next = await page.evaluate(async () => { const { priceOf } = await import('/src/market.js'); return priceOf('baltimore', 'case', window.shine.game.dredge.market); });
+  expect(next).toBeLessThan(first);
+
+  // Sell everything that's left.
+  const allShown = Number(await page.locator('#market-sell-all').getAttribute('data-total'));
+  await page.locator('#market-sell-all').click();
+  const done = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, count: window.shine.game.trunk.count, ledger: window.shine.game.dredge.data.ledger.length, pill: document.getElementById('cargo').textContent }));
+  expect(done).toEqual({ cash: shown + allShown, count: 0, ledger: 2, pill: 'CARGO: TRUNK 0/15' });
+  await expect(page.locator('#cash')).toHaveText(`$${(shown + allShown).toLocaleString()}`, { timeout: 5000 });
+
+  // Back on the road; it doesn't reopen until you've driven out and back.
+  await page.locator('#market-done').click();
+  await expect(page.locator('#market')).toBeHidden();
+  expect(await page.evaluate(() => { window.shine.step(0.5); return window.shine.game.state; })).toBe('playing');
+
+  // A piece left aboard and the cash survive a reload; the bootleg career is untouched.
+  await page.evaluate(() => { const g = window.shine.game; g.trunk.place('radio', 0, 0); g.dredge.saveTrunk(g.trunk); });
+  await page.reload();
+  await page.waitForFunction(() => window.__shineReady === true);
+  await startRun(page);
+  const reloaded = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, kinds: [...window.shine.game.trunk.pieces.values()].map((p) => p.kind), bootleg: window.shine.game.career.cash }));
+  expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['radio'], bootleg: bootlegCash });
+
+  const after = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
+  expect(after.lights).toBe(13);
+  expect(after.calls).toBeLessThan(60);
+  expect(after.programs).toBe(before.programs);
+  expect(after.geometries).toBe(before.geometries);
+  expect(problems).toEqual([]);
 });

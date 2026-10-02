@@ -226,6 +226,21 @@
     </div>
   </div>
 
+  <!-- A town market (dredge run): sell what's in the trunk -->
+  <div id="market" class="overlay hidden" role="dialog" aria-labelledby="market-title">
+    <div class="overlay-card wide">
+      <h1 class="title small" id="market-title">THE MARKET</h1>
+      <p class="story">Cash on hand: <strong id="market-cash" class="gold">$0</strong></p>
+      <p id="market-note" class="hint"></p>
+      <div id="market-body"></div>
+      <div class="btn-row">
+        <button id="market-sell-all" class="btn secondary">SELL EVERYTHING</button>
+        <button id="market-trunk" class="btn secondary">OPEN THE TRUNK</button>
+        <button id="market-done" class="btn" data-autofocus>BACK ON THE ROAD</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Order book at the still -->
   <div id="orders" class="overlay hidden" role="dialog" aria-labelledby="orders-title">
     <div class="overlay-card wide">

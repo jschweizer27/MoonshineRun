@@ -201,9 +201,10 @@ function flatDist(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
 let glowTex = null;
 // Markers differ in shape as well as colour (colour-blind friendly): the still has a
 // round ring and a jug icon; the drop a diamond ring, striped beam and down-arrow; the
-// hideout a square ring and house; the York Road goal a gold flag. All carry a label.
-const SHAPES = { still: 40, drop: 4, hideout: 4, goal: 40 };
-function makeMarker(scene, color, kind) {
+// hideout a square ring and house; the York Road goal a gold flag; the dredge run's market
+// a hexagon ring and a market-stall awning. All carry a label.
+const SHAPES = { still: 40, drop: 4, hideout: 4, goal: 40, market: 6 };
+export function makeMarker(scene, color, kind) {
   const group = new THREE.Group();
   const beamMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   if (kind === 'drop') {
@@ -263,6 +264,12 @@ function labelTexture(kind, color) {
     g.beginPath(); g.moveTo(-26, 0); g.lineTo(26, 0); g.lineTo(0, 30); g.closePath(); g.fill();
   } else if (kind === 'hideout') {
     g.beginPath(); g.moveTo(0, -30); g.lineTo(30, -4); g.lineTo(22, -4); g.lineTo(22, 28); g.lineTo(-22, 28); g.lineTo(-22, -4); g.lineTo(-30, -4); g.closePath(); g.fill();
+  } else if (kind === 'market') {
+    // A stall: a scalloped awning over a counter.
+    g.beginPath(); g.moveTo(-30, -14); g.lineTo(-22, -30); g.lineTo(22, -30); g.lineTo(30, -14); g.closePath(); g.fill();
+    for (let k = -3; k <= 3; k += 2) { g.beginPath(); g.arc(k * 7.5, -14, 7.5, 0, Math.PI); g.fill(); }
+    g.fillRect(-26, 6, 52, 8);
+    g.fillRect(-24, -6, 5, 34); g.fillRect(19, -6, 5, 34);
   } else if (kind === 'goal') {
     g.fillRect(-16, -30, 6, 60);
     g.beginPath(); g.moveTo(-10, -30); g.lineTo(26, -18); g.lineTo(-10, -4); g.closePath(); g.fill();
@@ -272,7 +279,7 @@ function labelTexture(kind, color) {
     g.lineWidth = 6; g.beginPath(); g.arc(22, -2, 12, -Math.PI / 2, Math.PI / 2); g.stroke();
   }
   g.restore();
-  const word = { drop: 'DROP', still: 'STILL', hideout: 'HIDEOUT', goal: 'YORK RD' }[kind];
+  const word = { drop: 'DROP', still: 'STILL', hideout: 'HIDEOUT', goal: 'YORK RD', market: 'MARKET' }[kind];
   g.font = `bold ${word.length > 5 ? 38 : 50}px Georgia, serif`;
   g.textBaseline = 'middle';
   g.fillText(word, 94, 66);
@@ -281,7 +288,7 @@ function labelTexture(kind, color) {
   return t;
 }
 
-function animateMarker(m, time, camera) {
+export function animateMarker(m, time, camera) {
   if (!m.visible) return;
   // Don't let the glowing beam fill the screen when the camera passes through it.
   if (camera) m.userData.beam.visible = Math.hypot(camera.x - m.position.x, camera.z - m.position.z) > 3;

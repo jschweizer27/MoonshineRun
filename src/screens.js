@@ -2,6 +2,7 @@ import { el } from './ui.js';
 import { UPGRADES, BRIBE_COST } from './career.js';
 import { CAST } from './story.js';
 import { CONFIG } from './config.js';
+import { priceOf, quote } from './market.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -37,6 +38,49 @@ export function showOrders(ui, { still, options }, onPick) {
   window.addEventListener('keydown', onKey, true);
   // Leaving without an order just drops you back in the truck.
   ui.open('orders', { onBack: () => finish(-1) });
+}
+
+// ---------- Town market (dredge run) ----------
+// One row per kind of loot in the trunk: how many, what the next one fetches, SELL. Prices
+// drop as you sell (the glut), so the row shows the total for selling them all.
+export function showMarket(ui, { town, trunk, career, onSell, onTrunk, onBack }) {
+  const render = () => {
+    $('market-title').textContent = town.name.toUpperCase();
+    $('market-cash').textContent = money(career.cash);
+    const body = $('market-body');
+    const focusedId = document.activeElement?.dataset?.id;
+    body.textContent = '';
+    const counts = {};
+    for (const p of trunk.pieces.values()) counts[p.kind] = (counts[p.kind] || 0) + 1;
+    for (const k of CONFIG.dredge.loot.kinds) {
+      const n = counts[k.id];
+      if (!n) continue;
+      const each = priceOf(town.id, k.id, career.market);
+      const q = quote(town.id, trunk, career.market, k.id);
+      const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': k.id, 'data-total': q.total },
+        n === 1 ? `SELL ${money(q.total)}` : `SELL ${n} FOR ${money(q.total)}`);
+      btn.addEventListener('click', () => { onSell(k.id); render(); });
+      body.append(el('div', { class: 'upgrade' },
+        el('div', {}, el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`), el('small', {}, `${money(each)} each today (base ${money(k.value)})`)), btn));
+    }
+    const all = quote(town.id, trunk, career.market);
+    const sellAll = $('market-sell-all');
+    sellAll.textContent = all.count ? `SELL EVERYTHING (${money(all.total)})` : 'SELL EVERYTHING';
+    sellAll.dataset.total = all.total;
+    sellAll.disabled = !all.count;
+    $('market-note').textContent = all.count
+      ? 'Prices change day to day, and drop as you sell more of the same thing here.'
+      : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.';
+    const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
+    if (again && !again.disabled) again.focus();
+    else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('market')) ui.focusFirst();
+  };
+  $('market-sell-all').onclick = () => { onSell(null); render(); };
+  $('market-trunk').onclick = () => onTrunk();
+  $('market-done').onclick = () => onBack();
+  ui.open('market', { onBack });
+  render();
+  return render;
 }
 
 // ---------- Garage (County Specialists) ----------

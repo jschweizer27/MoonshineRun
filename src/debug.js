@@ -28,7 +28,7 @@ export function installDebug(game, { overlay }) {
     snapshot() {
       const m = game.mission, p = game.player;
       return {
-        state: game.state, game: game.mode, loot: game.trunk.count, cash: game.career.cash, streak: m.streakEarned, runs: m.streakRuns, carrying: m.carrying, mode: m.mode,
+        state: game.state, game: game.mode, loot: game.trunk.count, cash: game.mode === 'dredge' ? game.dredge.cash : game.career.cash, streak: m.streakEarned, runs: m.streakRuns, carrying: m.carrying, mode: m.mode,
         heat: +m.heat.toFixed(3), tier: m.tier, evade: +m.evade.toFixed(3),
         pursuers: game.police.pursuing, contact: game.police.contact,
         x: +p.position.x.toFixed(2), z: +p.position.z.toFixed(2), heading: +p.heading.toFixed(3), speed: +p.speed.toFixed(2),

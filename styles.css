@@ -64,7 +64,8 @@ html, body {
 #heat.hot .heat-label { color: var(--red); }
 #heat-status { min-height: 18px; margin-top: 2px; font-size: calc(13px * var(--ts)); letter-spacing: 2px; color: var(--paper); text-shadow: 0 1px 4px #000; }
 /* Dredge run: no heat, no bust bar, no objective arrow (free roam). */
-#hud.dredge #heat, #hud.dredge #heat-status, #hud.dredge #heat-meter, #hud.dredge #bust, #hud.dredge #objective-arrow { display: none; }
+#hud.dredge #heat, #hud.dredge #heat-status, #hud.dredge #heat-meter, #hud.dredge #bust { display: none; }
+#hud.dredge .hud-banner[data-kind="roam"] #objective-arrow { display: none; }
 #heat-status.alarm { color: #ff8a7a; animation: pulse 0.7s ease-in-out infinite alternate; }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.45; } }
 

@@ -182,6 +182,22 @@ export const CONFIG = {
       bounce: 1.05,         // walls deflect rather than throw you back
       wallKeep: 0.99,       // and cost little speed
     },
+    // Towns with a market (stop inside the radius to sell). One for now; the second town
+    // comes later.
+    towns: [
+      { id: 'baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
+    ],
+    // What each town pays, as a multiple of each kind's base value.
+    prices: {
+      baltimore: { case: 1.0, barrel: 0.95, crate: 1.25, sack: 0.85, radio: 1.1 },
+    },
+    market: {
+      drift: 0.15,          // prices wander up to ±15% from one in-game day to the next
+      glut: 0.06,           // each piece of a kind sold in a town knocks 6% off its next price
+      glutFloor: 0.5,       // ... down to half price at worst
+      recoverPerHour: 0.01, // and the price creeps back 1% per in-game hour
+      stopSpeed: 3,         // m/s: slow to this inside a market to open it
+    },
     // The trunk: a grid to pack loot into (upgrades will grow it).
     trunk: { cols: 5, rows: 3 },
     // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]

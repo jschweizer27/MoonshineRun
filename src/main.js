@@ -4,7 +4,7 @@ import { createRng } from './rng.js';
 import { World } from './world.js';
 import { Vehicle } from './vehicle.js';
 import { Police } from './police.js';
-import { Mission } from './mission.js';
+import { Mission, makeMarker, animateMarker } from './mission.js';
 import { Waypoint } from './waypoint.js';
 import { ChaseCamera } from './camera.js';
 import { HUD } from './hud.js';
@@ -17,7 +17,7 @@ import { loadSettings, saveSettings } from './settings.js';
 import { Career } from './career.js';
 import { Environment } from './environment.js';
 import { BEATS, nextBeat } from './story.js';
-import { showOrders, showGarage, showLedger, playDialog, money } from './screens.js';
+import { showOrders, showGarage, showLedger, showMarket, playDialog, money } from './screens.js';
 import { Fire } from './effects.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
@@ -25,6 +25,8 @@ import { Props } from './props.js';
 import { Loot } from './loot.js';
 import { Trunk } from './trunk.js';
 import { TrunkScreen } from './trunkscreen.js';
+import { DredgeCareer } from './dredgecareer.js';
+import { sell, passTime } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -104,6 +106,15 @@ class Game {
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // the dredge run's pickups
     this.trunk = new Trunk();                                       // loot aboard (dredge run)
+    this.dredge = new DredgeCareer();                                // the dredge run's save
+    // Town markets: a marker each, built now and shown only in the dredge run.
+    this.marketMarkers = CONFIG.dredge.towns.map((t) => {
+      const m = makeMarker(this.scene, 0xf2b84a, 'market');
+      m.position.set(t.x, 0, t.z);
+      m.visible = false;
+      return m;
+    });
+    this._marketLeft = true;                                          // left the market since it last opened
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
     this.slowMo = 0;
@@ -127,8 +138,8 @@ class Game {
     this.ui = new UI(this.input);
     this.trunkScreen = new TrunkScreen(this.ui, {
       onDiscard: (k) => this.hud.toast(`Left behind: ${k.name}`, '', 1400),
-      onChange: () => this._updateTrunkPill(),
-      onClose: () => { if (!this.ui.anyOpen) this.resume(); },
+      onChange: () => { this._updateTrunkPill(); this.dredge.saveTrunk(this.trunk); },
+      onClose: () => { if (this._marketRender && this.ui.isOpen('market')) this._marketRender(); else if (!this.ui.anyOpen) this.resume(); },
     });
     this.audio = new Audio();
     this.minimap = new MiniMap(this.world, $('minimap'), $('map-canvas'));
@@ -453,6 +464,7 @@ class Game {
     }
     this.police.reset();
     this.loot.reset(false);
+    for (const m of this.marketMarkers) m.visible = false;
     this.mission.reset(this.player.position, mode);
     this.fire.out();
     this.particles.clear();
@@ -506,7 +518,9 @@ class Game {
     this.particles.clear();
     this.props.reset();
     this.loot.reset(true, this.player.position);
-    this.trunk.clear();
+    this.trunk = this.dredge.loadTrunk();
+    for (const m of this.marketMarkers) m.visible = true;
+    this._marketLeft = true;
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -514,11 +528,11 @@ class Game {
     this.chase.snap(this.player);
     this._applyPerks();
     this.hud.setMode('dredge');
-    this.hud.setCash(this.career.cash);
+    this.hud.setCash(this.dredge.cash);
     this._updateTrunkPill();
     this.hud.setBust(0);
     this.hud.setStatusPill(null);
-    this.hud.setObjective('Free roam', null, 'roam');
+    this._updateDredgeObjective();
     this.prevTier = 0;
     this.bustMeter = 0;
     this.runTime = 0;
@@ -807,6 +821,10 @@ class Game {
     let taken = 0;
     const [got] = this.loot.update(dt, this.time, this.player, { canTake: () => taken++ === 0 });
     if (got) this._onLoot(got);
+    // Markets: the clock turns the day and eases gluts; stop in one to trade.
+    passTime(this.dredge.market, dt * this.env.hoursPerSecond);
+    this.marketMarkers.forEach((m) => animateMarker(m, this.time, this.camera.position));
+    this._checkMarket();
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -822,6 +840,7 @@ class Game {
     this.hud.setSpeed(this.player.speedMph, dt);
     const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
     this.hud.setClock(`${this.env.daylight > 0.5 ? '☀' : '☾'} ${this.env.clock}${weather}`);
+    this._updateDredgeObjective();
     this._updateAudio(IDLE_STATUS);
   }
 
@@ -839,6 +858,55 @@ class Game {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     this.trunkScreen.open(this.trunk, newKind);
+  }
+
+  // The nearest market, and whether the truck is inside it.
+  _nearestMarket(p = this.player.position) {
+    let best = null, bd = Infinity;
+    for (const t of CONFIG.dredge.towns) {
+      const d = Math.hypot(t.x - p.x, t.z - p.z);
+      if (d < bd) { bd = d; best = t; }
+    }
+    return { town: best, dist: bd, inside: best && bd < best.radius };
+  }
+
+  // Stop in a market to open it; it won't open again until you've driven out.
+  _checkMarket() {
+    const { town, inside } = this._nearestMarket();
+    if (!inside) { this._marketLeft = true; return; }
+    if (!this._marketLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    this._marketLeft = false;
+    this.openMarket(town);
+  }
+
+  openMarket(town = this._nearestMarket().town) {
+    if (this.mode !== 'dredge') return;
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    if (this.state !== STATE.PAUSED) return;
+    const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
+    this._marketRender = showMarket(this.ui, {
+      town, trunk: this.trunk, career: this.dredge,
+      onSell: (kind) => {
+        const r = sell(town.id, this.trunk, this.dredge.market, kind);
+        if (!r.count) return;
+        this.dredge.sold({ ...r, town: town.name, trunk: this.trunk });
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`+${money(r.total)}`);
+        this.audio.cash?.();
+        this._updateTrunkPill();
+      },
+      onTrunk: () => this.trunkScreen.open(this.trunk),
+      onBack: close,
+    });
+  }
+
+  // The banner: where to sell (with the arrow) once there's something aboard.
+  _updateDredgeObjective() {
+    const { town, dist } = this._nearestMarket();
+    if (!town || !this.trunk.count) { this.hud.setObjective('Free roam: pick up what you find', null, 'roam'); return; }
+    const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
+    const bearing = Math.atan2(dx, -dz) - this.chase.heading;
+    this.hud.setObjective(`Sell at ${town.name}`, Math.round(dist / 10) * 10, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
   }
 
   _updateTrunkPill() {
@@ -1019,7 +1087,10 @@ class Game {
   }
 
   _mapMarkers() {
-    if (this.mode === 'dredge') return this.loot.near(this.player.position, CONFIG.dredge.loot.mapRange);
+    if (this.mode === 'dredge') {
+      return [...this.loot.near(this.player.position, CONFIG.dredge.loot.mapRange),
+        ...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z }))];
+    }
     const out = [];
     const m = this.mission;
     for (const [marker, kind] of [[m.pickup, 'still'], [m.drop, 'drop'], [m.hideoutMarker, 'hideout'], [m.goal, 'goal']]) {
