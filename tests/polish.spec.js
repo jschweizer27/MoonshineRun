@@ -113,12 +113,11 @@ test('the city is dressed: neon signs, water towers, a sign for every buyer', as
   await startRun(page);
   const r = await page.evaluate(() => {
     const g = window.shine.game;
-    let signs = 0, towers = 0;
+    let signs = 0;
     g.scene.traverse((o) => {
       if (o.material === g.world.signMaterial) signs = o.geometry.index.count / 12;   // 2 quads per sign
-      if (o.isInstancedMesh && o.geometry.type === 'CylinderGeometry' && o.geometry.parameters.radiusTop === 2) towers = o.count;
     });
-    return { signs, towers, drops: g.world.drops.length };
+    return { signs, towers: g.world.waterTowers.count, drops: g.world.drops.length };
   });
   expect(r.signs).toBeGreaterThan(r.drops + 10);
   expect(r.towers).toBeGreaterThan(5);
@@ -183,6 +182,38 @@ test('one painted atlas dresses the facades, trims, rooftops, awnings and barns'
   for (const lit of r.glass) expect(lit).toBeGreaterThan(2000);
   expect(r.archCorner).toBe(0);
   expect(r.archPane).toBeGreaterThan(128);
+});
+
+test('the skyline varies: bay windows, rooflines, chimney stacks and water towers of different sizes', async ({ page }) => {
+  await openGame(page);
+  await startRun(page);
+  const r = await page.evaluate(() => {
+    const g = window.shine.game, w = g.world, mesh = w.buildingMesh, look = mesh.geometry.attributes.aFacade;
+    // The facade mesh holds the buildings (0), bay windows on x / z walls (1, 2) and brick
+    // parapets (3), each in a whole-number wall style.
+    const kinds = [0, 0, 0, 0];
+    let whole = true;
+    for (let i = 0; i < mesh.count; i++) {
+      kinds[look.getZ(i)]++;
+      if (look.getX(i) % 1 || look.getY(i) % 1) whole = false;
+    }
+    // Sizes straight from the instance matrices (no rotation: the diagonal is the scale).
+    const distinct = (im, k) => { const a = im.instanceMatrix.array, out = new Set(); for (let i = 0; i < im.count; i++) out.add(a[i * 16 + k].toFixed(2)); return out.size; };
+    const lowestBay = Math.min(...w.bays.map((b) => b[1]));
+    return {
+      kinds, whole, bays: w.bays.length, lowestBay, calls: window.shine.renderInfo().calls,
+      towers: w.waterTowers.count, towerSizes: distinct(w.waterTowers, 0), flues: w.chimneyStacks.count, flueHeights: distinct(w.chimneyStacks, 5),
+    };
+  });
+  expect(r.kinds[1] + r.kinds[2]).toBe(r.bays);
+  expect(r.bays).toBeGreaterThan(20);
+  expect(r.lowestBay).toBeGreaterThanOrEqual(4.6);   // above the shopfronts and awnings
+  expect(r.kinds[3]).toBeGreaterThan(40);             // parapet walls
+  expect(r.whole).toBe(true);
+  expect(r.towerSizes).toBeGreaterThan(Math.min(5, r.towers - 1));
+  expect(r.flues).toBeGreaterThan(60);
+  expect(r.flueHeights).toBeGreaterThan(20);
+  expect(r.calls).toBeLessThan(60);
 });
 
 test('the road has cobble relief, glossy puddles, raised curbs, and lamp reflections that grow in the rain', async ({ page }) => {

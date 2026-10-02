@@ -7,6 +7,7 @@ import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
 import { buildCounty, COUNTY } from './county.js';
 import { ATLAS, region, makePaintedAtlas, atlasMaterial, uvToRegion } from './atlas.js';
+import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 
 // Named drop sites around the city (intersections), for the order board.
 export const DROPS = [
@@ -177,21 +178,45 @@ export class World {
     }
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
     const A = this.atlas;
-    const tank = new THREE.InstancedMesh(new THREE.CylinderGeometry(2, 2, 3.6, 12).translate(0, 4.6, 0), atlasMaterial(A, { side: 'staves', tile: 4 }), towers.length);
-    const cap = new THREE.InstancedMesh(new THREE.ConeGeometry(2.3, 1.6, 12).translate(0, 7.2, 0), atlasMaterial(A, { side: 'roof', tile: 4, color: 0x8a8a8a, roughness: 0.8 }), towers.length);
-    const legs = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 2.8, 5).translate(0, 1.4, 0), new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.6 }), towers.length * 4);
+    // Sizes, extra stacks and caps draw from their own stream, so the layout never moves.
+    const vary = createRng(this.seed + 15485863);
+    for (const b of city) {
+      if (b.h < 12 || !vary.chance(0.3)) continue;   // a second stack on a party wall
+      const top = b.h > 40 ? b.h * 1.48 : b.h > 26 ? b.h * 1.3 : b.h, scale = b.h > 40 ? 0.46 : b.h > 26 ? 0.72 : 1;
+      const w = (b.maxX - b.minX) * scale, d = (b.maxZ - b.minZ) * scale;
+      chimneys.push([(b.minX + b.maxX) / 2 + w * (vary.chance(0.5) ? 0.38 : -0.38), top, (b.minZ + b.maxZ) / 2 + vary.range(-d / 3, d / 3)]);
+    }
+    // Water towers: a wooden tank and roof (one mesh) of its own size on steel legs of its
+    // own height.
+    const tankGeo = mergeGeometries([new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0), new THREE.ConeGeometry(1.14, 0.42, 12).translate(0, 1.21, 0)]);
+    const tank = new THREE.InstancedMesh(tankGeo, atlasMaterial(A, { side: 'staves', tile: 4 }), towers.length);
+    const legs = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 5).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.6 }), towers.length * 4);
     towers.forEach(([x, y, z], i) => {
-      tank.setMatrixAt(i, m.compose(p.set(x, y, z), q, s));
-      cap.setMatrixAt(i, m.compose(p.set(x, y, z), q, s));
-      [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]].forEach(([lx, lz], k) => legs.setMatrixAt(i * 4 + k, m.compose(p.set(x + lx, y, z + lz), q, s)));
+      const r = vary.range(1.5, 2.4), th = vary.range(2.8, 4.4), lh = vary.range(2, 3.8);
+      tank.setMatrixAt(i, m.compose(p.set(x, y + lh, z), q, s.set(r, th, r)));
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([lx, lz], k) => legs.setMatrixAt(i * 4 + k, m.compose(p.set(x + lx * r * 0.65, y, z + lz * r * 0.65), q, s.set(1, lh + 0.1, 1))));
     });
-    const chim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 2.4, 0.9).translate(0, 1.2, 0), atlasMaterial(A, { side: 'brick', tile: 1.4, color: 0xd0d0d0, roughness: 0.95 }), chimneys.length);
-    chimneys.forEach(([x, y, z], i) => chim.setMatrixAt(i, m.compose(p.set(x, y, z), q, s)));
-    this.chimneys = chimneys.map(([x, y, z]) => [x, y + 2.4, z]);   // chimney tops (smoke rises from them)
+    this.waterTowers = tank;
+    // Chimneys: stacks of one to three flues side by side, each capped, some with a pot.
+    // Smoke rises from the first flue of each stack.
+    const flues = [];
+    this.chimneys = [];
+    for (const [x, y, z] of chimneys) {
+      const n = vary.int(1, 3), alongX = vary.chance(0.5), fw = vary.range(0.55, 0.9), fd = vary.range(0.6, 1), h = vary.range(1.4, 3.4);
+      for (let i = 0; i < n; i++) {
+        const o = (i - (n - 1) / 2) * (fw + 0.06), fx = x + (alongX ? o : 0), fz = z + (alongX ? 0 : o), fh = h * vary.range(0.88, 1.1);
+        flues.push([fx, y, fz, fw, fh, fd], [fx, y + fh, fz, fw + 0.18, 0.16, fd + 0.18]);
+        if (vary.chance(0.3)) flues.push([fx, y + fh + 0.16, fz, 0.28, 0.45, 0.28]);
+        if (i === 0) this.chimneys.push([fx, y + fh + 0.2, fz]);   // chimney tops (smoke rises from them)
+      }
+    }
+    const chim = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), atlasMaterial(A, { side: 'brick', tile: 1.4, color: 0xd0d0d0, roughness: 0.95 }), flues.length);
+    flues.forEach(([x, y, z, w, h, d], i) => chim.setMatrixAt(i, m.compose(p.set(x, y, z), q, s.set(w, h, d))));
+    this.chimneyStacks = chim;
     const bulk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), atlasMaterial(A, { side: 'brick', top: 'roof', tile: 1.4, topTile: 4, color: 0xa0a0a0 }), bulkheads.length);
     bulkheads.forEach(([x, y, z, bw, bh, bd], i) => bulk.setMatrixAt(i, m.compose(p.set(x, y, z), q, s.set(bw, bh, bd))));
     s.set(1, 1, 1);
-    for (const im of [tank, cap, legs, chim, bulk]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+    for (const im of [tank, legs, chim, bulk]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
   }
 
   // Striped canvas awnings sloping out over the shopfronts: one draw call, colourway by
@@ -341,13 +366,17 @@ export class World {
     const boxes = [];                              // { x, z, w, d, h, y, color }
 
     const brick = [0x7c4a3a, 0x8b5d45, 0x6f4a3c, 0x8a7560, 0x6d6862, 0x5d4a3c, 0x93705a, 0x7a6f66];
+    // Wall styles, rooflines and bay windows draw from their own random stream, so dressing
+    // the skyline never moves the city's layout.
+    const vary = createRng(this.seed + 104729);
     const addBuilding = (minX, minZ, maxX, maxZ, h) => {
       const color = rng.pick(brick);
+      const look = { style: vary.int(0, ATLAS.STYLES - 1), win: vary.int(0, 1) };   // wall style; sash or arched windows
       const w = maxX - minX, d = maxZ - minZ, x = (minX + maxX) / 2, z = (minZ + maxZ) / 2;
-      boxes.push({ x, z, w, d, h, y: 0, color });
+      boxes.push({ x, z, w, d, h, y: 0, color, look });
       // Art-deco setbacks on the tall ones.
-      if (h > 26) boxes.push({ x, z, w: w * 0.72, d: d * 0.72, h: h * 0.3, y: h, color });
-      if (h > 40) boxes.push({ x, z, w: w * 0.46, d: d * 0.46, h: h * 0.18, y: h * 1.3, color });
+      if (h > 26) boxes.push({ x, z, w: w * 0.72, d: d * 0.72, h: h * 0.3, y: h, color, look });
+      if (h > 40) boxes.push({ x, z, w: w * 0.46, d: d * 0.46, h: h * 0.18, y: h * 1.3, color, look });
       this.buildings.push({ minX, minZ, maxX, maxZ, h });
       this.collision.addBox(minX, minZ, maxX, maxZ, { tag: 'building' });
     };
@@ -405,9 +434,10 @@ export class World {
     addWall(wallIn, -wallIn, wallOut, wallIn);       // east
     this.edge = Math.min(edge, wallIn);
 
-    // One instanced mesh for every box. Facades come from the painted atlas (brick and
-    // stone bays, shopfronts, windows), laid out in world space by the facade shader; the
-    // trims, chimneys, tanks, awnings and barns paint themselves from the same atlas.
+    // One instanced mesh for every box, and for the bay windows and brick parapets that
+    // vary the street fronts and the skyline. Facades come from the painted atlas (brick
+    // and stone bays, shopfronts, windows), laid out in world space by the facade shader;
+    // the trims, chimneys, tanks, awnings and barns paint themselves from the same atlas.
     const geo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.02 });
     // Its own random stream, so repainting the atlas never reshuffles the city. The old
@@ -418,25 +448,111 @@ export class World {
     this.atlas = atlas;
     this.facadeTextures = [atlas.color, atlas.mask];
     addFacadeShader(mat, this.uniforms, atlas);
-    const mesh = new THREE.InstancedMesh(geo, mat, boxes.length);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
     const c = new THREE.Color();
-    // Cornices: a stone slab and a thinner course under it on every roof line, and a
-    // string course above the shopfronts.
-    const trims = [...(this._curbs || [])];
-    boxes.forEach((b, k) => {
-      m.compose(p.set(b.x, b.y, b.z), q, s.set(b.w, b.h, b.d));
-      mesh.setMatrixAt(k, m);
+    const trims = [...(this._curbs || [])];   // stone: [x, y, z, w, h, d, shade]
+    const extra = [];                          // facade boxes: [x, y, z, w, h, d, building, kind, offset]
+    // A box's walls that face a street (within 12 m of a road centreline): [the axis the
+    // wall faces, its coordinate, outward sign].
+    const nearRoad = (v) => Math.abs(v - Math.round(v / B) * B) < 12;
+    const streetWalls = (b) => [['x', b.x - b.w / 2, -1], ['x', b.x + b.w / 2, 1], ['z', b.z - b.d / 2, -1], ['z', b.z + b.d / 2, 1]].filter(([, v]) => nearRoad(v));
+    const inCity = (b) => Math.max(Math.abs(b.x) + b.w / 2, Math.abs(b.z) + b.d / 2) < this.edge - 1;
+
+    // Rooflines, all in stone trim and brick: a thin coping; a deep cornice on brackets
+    // over a frieze; or a brick parapet round the roof, plain, raised over the main street
+    // front in one block (a pediment), or raised in steps.
+    const ROOFLINES = ['coping', 'cornice', 'cornice', 'parapet', 'pediment', 'stepped'];
+    const roofline = (b, top, shade) => {
+      const kind = vary.pick(ROOFLINES), walls = streetWalls(b);
+      const slab = (y, h, grow, k = 1) => trims.push([b.x, y, b.z, b.w + grow, h, b.d + grow, shade * k]);
+      if (kind === 'coping') { slab(top - 0.05, 0.3, 0.3); return; }
+      if (kind === 'cornice') {
+        slab(top - 0.1, 0.45, 1.1);
+        slab(top - 0.45, 0.22, 0.5, 0.85);
+        slab(top - 1.25, 0.7, 0.16, 0.92);                                     // frieze
+        if (top > 26) return;                                                  // brackets only where they can be seen
+        for (const [axis, v, sgn] of walls) {
+          const n = Math.floor(((axis === 'x' ? b.d : b.w) - 1.2) / 1.3);
+          for (let i = 0; i <= n; i++) {
+            const a = i * 1.3 - (n * 1.3) / 2;
+            if (axis === 'x') trims.push([v + sgn * 0.25, top - 0.72, b.z + a, 0.5, 0.62, 0.26, shade * 0.9]);
+            else trims.push([b.x + a, top - 0.72, v + sgn * 0.25, 0.26, 0.62, 0.5, shade * 0.9]);
+          }
+        }
+        return;
+      }
+      // A parapet: four low brick walls flush with the facade, stone-capped, on a course
+      // that hides the joint.
+      const t = 0.35, ph = vary.range(0.6, 0.9);
+      slab(top - 0.12, 0.24, 0.35, 0.85);
+      const ring = (y, h, th, out, stone) => {
+        const W = b.w + out * 2, D = b.d + out * 2, list = stone ? trims : extra;
+        const add = (x, z, w, d) => list.push(stone ? [x, y, z, w, h, d, shade] : [x, y, z, w, h, d, b, 3, 0]);
+        add(b.x, b.z - D / 2 + th / 2, W, th); add(b.x, b.z + D / 2 - th / 2, W, th);
+        add(b.x - W / 2 + th / 2, b.z, th, D - th * 2); add(b.x + W / 2 - th / 2, b.z, th, D - th * 2);
+      };
+      ring(top, ph, t, 0, false);
+      ring(top + ph, 0.14, t + 0.24, 0.12, true);                               // coping
+      if (kind === 'parapet' || !walls.length) return;
+      // Raised over the main street front: brick blocks, each stone-capped.
+      const [axis, v, sgn] = walls[0], len = axis === 'x' ? b.d : b.w, y = top + ph + 0.14;
+      const raise = (along, wide, h) => {
+        const x = axis === 'x' ? v - sgn * t / 2 : b.x + along, z = axis === 'x' ? b.z + along : v - sgn * t / 2;
+        const [w, d] = axis === 'x' ? [t, wide] : [wide, t];
+        extra.push([x, y, z, w, h, d, b, 3, 0]);
+        trims.push([x, y + h, z, w + 0.24, 0.14, d + 0.24, shade]);
+      };
+      if (kind === 'pediment') raise(0, len * vary.range(0.25, 0.4), vary.range(0.6, 0.9));
+      else { const cw = len * 0.24, sw = len * 0.14; raise(0, cw, 0.85); raise(-(cw + sw) / 2, sw, 0.45); raise((cw + sw) / 2, sw, 0.45); }
+    };
+
+    // Bay windows: oriels on some street fronts, one or two bays wide and two or three
+    // floors tall from the first or second floor up, clear of the corners (blade signs hang
+    // there) and of the roofline. They wear their building's style.
+    const addBays = (b) => {
+      for (const [axis, v, sgn] of streetWalls(b)) {
+        if (!vary.chance(0.32)) continue;
+        const lo = (axis === 'x' ? b.z - b.d / 2 : b.x - b.w / 2) + 3, hi = lo + (axis === 'x' ? b.d : b.w) - 6;
+        const wide = (vary.chance(0.35) ? 2 : 1) * BAY_W, floors = vary.int(2, 3), from = vary.int(0, 1);
+        const first = Math.ceil(lo / BAY_W), last = Math.floor((hi - wide) / BAY_W);
+        const y0 = SHOP_H + from * FLOOR_H, y1 = y0 + floors * FLOOR_H;
+        if (last < first || y1 > b.h - FLOOR_H) continue;
+        const mid = vary.int(first, last) * BAY_W + wide / 2, depth = 0.8, out = v + sgn * depth / 2;
+        // Its narrow sides show the middle of a window: shift them onto a bay's centre.
+        const offset = BAY_W / 2 - out;
+        if (axis === 'x') extra.push([out, y0, mid, depth, y1 - y0, wide, b, 1, offset]);
+        else extra.push([mid, y0, out, wide, y1 - y0, depth, b, 2, offset]);
+        // Stone cap on top, a corbelled stone base underneath.
+        trims.push(axis === 'x' ? [out + sgn * 0.08, y1, mid, depth + 0.3, 0.22, wide + 0.3, 0.85] : [mid, y1, out + sgn * 0.08, wide + 0.3, 0.22, depth + 0.3, 0.85]);
+        trims.push(axis === 'x' ? [out, y0 - 0.32, mid, depth + 0.12, 0.32, wide + 0.12, 0.8] : [mid, y0 - 0.32, out, wide + 0.12, 0.32, depth + 0.12, 0.8]);
+        trims.push(axis === 'x' ? [out - sgn * 0.12, y0 - 0.62, mid, depth - 0.24, 0.3, wide - 0.3, 0.75] : [mid, y0 - 0.62, out - sgn * 0.12, wide - 0.3, 0.3, depth - 0.24, 0.75]);
+      }
+    };
+
+    boxes.forEach((b) => {
       const t = rng.range(0.82, 1.06);
-      mesh.setColorAt(k, c.setRGB(t, t * rng.range(0.96, 1.02), t * rng.range(0.93, 1.0)));
+      b.tint = [t, t * rng.range(0.96, 1.02), t * rng.range(0.93, 1.0)];
       const top = b.y + b.h, shade = rng.range(0.7, 1);
-      trims.push([b.x, top - 0.1, b.z, b.w + 0.7, 0.45, b.d + 0.7, shade]);
-      trims.push([b.x, top - 0.45, b.z, b.w + 0.35, 0.22, b.d + 0.35, shade * 0.85]);
-      if (b.y === 0 && b.h > 7) trims.push([b.x, 4.5, b.z, b.w + 0.25, 0.28, b.d + 0.25, shade]);
+      if (b.y === 0 && b.h > 7) trims.push([b.x, 4.5, b.z, b.w + 0.25, 0.28, b.d + 0.25, shade]);   // string course
+      if (inCity(b)) { roofline(b, top, shade); if (b.y === 0) addBays(b); }
+      else { trims.push([b.x, top - 0.1, b.z, b.w + 0.7, 0.45, b.d + 0.7, shade]); trims.push([b.x, top - 0.45, b.z, b.w + 0.35, 0.22, b.d + 0.35, shade * 0.85]); }
     });
+    // Per instance: wall style, window kind, what it is (0 building, 1-2 a bay window on an
+    // x / z wall, 3 a plain brick wall) and a bay's side shift.
+    const n = boxes.length + extra.length, facade = new Float32Array(n * 4);
+    const mesh = new THREE.InstancedMesh(geo, mat, n);
+    const put = (k, x, y, z, w, h, d, b, kind, offset) => {
+      mesh.setMatrixAt(k, m.compose(p.set(x, y, z), q, s.set(w, h, d)));
+      mesh.setColorAt(k, c.setRGB(...b.tint));
+      facade.set([b.look.style, b.look.win, kind, offset], k * 4);
+    };
+    boxes.forEach((b, k) => put(k, b.x, b.y, b.z, b.w, b.h, b.d, b, 0, 0));
+    extra.forEach((e, i) => put(boxes.length + i, ...e));
+    geo.setAttribute('aFacade', new THREE.InstancedBufferAttribute(facade, 4));
     mesh.instanceMatrix.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
     this.buildingMesh = mesh;
+    this.bays = extra.filter((e) => e[7] === 1 || e[7] === 2).map((e) => e.slice(0, 6));   // [x, y, z, w, h, d]
     this.scene.add(mesh);
 
     const trim = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
@@ -801,15 +917,16 @@ export class World {
 const BAY_W = 2.6, SHOP_H = 4.6, FLOOR_H = 3.4;
 
 function addFacadeShader(material, uniforms, atlas) {
-  const { TW, TH, STYLES, W, H } = ATLAS;
+  const { TW, TH, STYLES, W, H } = ATLAS;   // each instance's style comes from its aFacade attribute
   const n = (v) => v.toFixed(6);
   const roof = region('roof');
   const u = { ...uniforms, uFacade: { value: atlas.color }, uFacadeMask: { value: atlas.mask } };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vShineWorldPos;\nvarying vec3 vShineWorldNormal;\nvarying vec3 vShineBox;')
+      .replace('#include <common>', '#include <common>\nattribute vec4 aFacade;\nvarying vec4 vShineFacade;\nvarying vec3 vShineWorldPos;\nvarying vec3 vShineWorldNormal;\nvarying vec3 vShineBox;')
       .replace('#include <project_vertex>', `#include <project_vertex>
+        vShineFacade = aFacade;
         vec4 shineWP = vec4(transformed, 1.0);
         vShineBox = vec3(0.0);
         #ifdef USE_INSTANCING
@@ -821,6 +938,7 @@ function addFacadeShader(material, uniforms, atlas) {
         vShineWorldNormal = normalize(mat3(modelMatrix) * objectNormal);`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
+        varying vec4 vShineFacade;
         varying vec3 vShineWorldPos;
         varying vec3 vShineWorldNormal;
         varying vec3 vShineBox;
@@ -836,17 +954,22 @@ function addFacadeShader(material, uniforms, atlas) {
         vec3 shineGlow = vec3(0.0);
         if (shineN.y < 0.5) {
           bool faceX = shineN.x > shineN.z;
+          // Per-instance values, rounded: interpolation can drift them by a hair, and the
+          // window hash below would turn that into speckle.
+          float kind = floor(vShineFacade.z + 0.5);
           float along = faceX ? vShineWorldPos.z : vShineWorldPos.x;
+          // A bay window's narrow sides are shifted to show the middle of a window.
+          if (kind > 0.5 && kind < 2.5 && (kind < 1.5) != faceX) along += vShineFacade.w;
           float faceSeed = floor((faceX ? vShineWorldPos.x : vShineWorldPos.z) * 0.37);
-          vec2 home = floor(vShineBox.xz * 0.5);
-          float style = floor(shineHash(home) * ${STYLES}.0);
+          float style = floor(vShineFacade.x + 0.5);
           bool shop = vShineBox.y < 0.5 && vShineWorldPos.y < ${SHOP_H.toFixed(1)};
           vec2 cell = vec2(along / ${BAY_W.toFixed(1)}, shop ? vShineWorldPos.y / ${SHOP_H.toFixed(1)} : (vShineWorldPos.y - (vShineBox.y < 0.5 ? ${SHOP_H.toFixed(1)} : vShineBox.y)) / ${FLOOR_H.toFixed(1)});
           vec2 id = floor(cell);
           vec2 f = clamp(fract(cell), 0.004, 0.996);
           // Atlas rows: 0-1 shopfronts (display window; door and window), 2-3 windows (sash;
           // arched). One bay in three of a shopfront is a door; one window kind per building.
-          float row = shop ? step(0.66, shineHash(vec2(id.x, faceSeed) + 5.3)) : 2.0 + step(0.5, shineHash(home + 7.0));
+          // Parapets are lower than a sill, so they show only brick.
+          float row = shop ? step(0.66, shineHash(vec2(id.x, faceSeed) + 5.3)) : 2.0 + (kind > 2.5 ? 0.0 : floor(vShineFacade.y + 0.5));
           vec2 tileSize = vec2(${n(TW / W)}, ${n(TH / H)});
           vec2 uv = vec2(style * tileSize.x, 1.0 - (row + 1.0) * tileSize.y) + f * tileSize;
           vec2 gx = dFdx(cell) * tileSize, gy = dFdy(cell) * tileSize;
@@ -869,6 +992,8 @@ function addFacadeShader(material, uniforms, atlas) {
           vec2 rc = vShineWorldPos.xz / vec2(6.0, ${n(6 * (roof[3] * H) / (roof[2] * W))});
           vec2 rf = clamp(fract(rc), 0.01, 0.99);
           diffuseColor.rgb *= textureGrad(uFacade, roofR.xy + rf * roofR.zw, dFdx(rc) * roofR.zw, dFdy(rc) * roofR.zw).rgb;
+        } else {
+          diffuseColor.rgb *= 0.3;                       // the undersides of the bay windows
         }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor, 0.16, shineGlass);`)

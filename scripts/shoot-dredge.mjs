@@ -72,6 +72,21 @@ try {
   await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(40, 50, 70); g.camera.lookAt(110, 16, 10); });
   await shoot('roofs', 'rooftops: tar paper, cornices, chimneys, tanks');
   await count('roofs');
+  // The skyline down a street: cornices, parapets, chimneys and towers against the sky.
+  const skyline = () => page.evaluate(() => { const g = window.shine.game; g.camera.position.set(-150, 2.5, -42); g.camera.lookAt(-60, 18, -44); });
+  await skyline();
+  await shoot('skyline', 'the skyline down a street: cornices, parapets, chimneys, towers');
+  await count('skyline');
+  // The bay window nearest the start, from across the street.
+  await page.evaluate(() => {
+    const g = window.shine.game, bays = g.world.bays || [];
+    if (!bays.length) return;
+    const [x, y, z, sx, sy, sz] = (bays.filter((b) => b[1] < 5).length ? bays.filter((b) => b[1] < 5) : bays).reduce((a, b) => (Math.hypot(b[0], b[2] - 100) < Math.hypot(a[0], a[2] - 100) ? b : a));
+    const onX = sx < sz, c = onX ? x : z, road = Math.round(c / 44) * 44, out = Math.sign(road - c) || 1;
+    if (onX) g.camera.position.set(road + out * 3, 2.2, z + 7); else g.camera.position.set(x + 7, 2.2, road + out * 3);
+    g.camera.lookAt(x, y + sy * 0.4, z);
+  });
+  await shoot('bay', 'a bay window');
   await page.evaluate(() => {
     const g = window.shine.game, b = g.world.barns[0];
     window.shine.teleport(b.x + b.fx * 24, b.z + b.fz * 24, Math.atan2(-b.fx, b.fz));
@@ -83,6 +98,8 @@ try {
   await page.evaluate(() => { const g = window.shine.game; g.env.hour = 12; g.env.update(0, g.camera.position); });
   await facade();
   await shoot('facade-day', 'the same facade by day');
+  await skyline();
+  await shoot('skyline-day', 'the same skyline by day');
   await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; g.env.update(0, g.camera.position); });
 
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
