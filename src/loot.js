@@ -363,6 +363,25 @@ export class Loot {
     return events;
   }
 
+  // A piece thrown out of the trunk onto the road (a crash): it lies at x, z in a free slot
+  // (not the rare find's) and comes back to the scatter like any other once taken.
+  drop(kind, x, z) {
+    const c = this.world.collision.resolveCircle(x, z, 0.9);
+    if (c.hit) { x = c.x; z = c.z; }
+    // A free slot, or else the piece lying furthest away (it simply turns up here instead).
+    let slot = -1, far = -1;
+    for (let i = 0; i < this.rareSlot; i++) {
+      if (!this.active[i]) { slot = i; break; }
+      const d = (this.x[i] - x) ** 2 + (this.z[i] - z) ** 2;
+      if (d > far) { far = d; slot = i; }
+    }
+    if (slot < 0) return false;
+    this.kind[slot] = kind; this.x[slot] = x; this.z[slot] = z; this.yaw[slot] = this.rng() * Math.PI * 2;
+    this.active[slot] = 1;
+    this.timer[slot] = 0;
+    return true;
+  }
+
   // A rare find: a rare kind, out in the county, far from the truck. Pushes a 'rare' event.
   spawnRare(p, events = []) {
     const s = this.rareSlot, kind = this._rareKinds[Math.floor(this.rng() * this._rareKinds.length)];

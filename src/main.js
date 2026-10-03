@@ -20,6 +20,7 @@ import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
 import { Loot } from './loot.js';
+import { Traffic } from './traffic.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
 import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
@@ -48,6 +49,7 @@ export const OPTIONS = {
   painterly: !params.has('test') || params.has('painterly'),
   story: !params.has('test') || params.has('story'),
   hints: !params.has('test') || params.has('hints'),
+  traffic: !params.has('test') || params.has('traffic'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -95,6 +97,8 @@ class Game {
     // Crates, barrels and signs the truck knocks flying, and debris from heavy crashes (juice).
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pickups along the roads
+    this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
+    this.traffic.enabled = OPTIONS.traffic;
     this.dredge = new DredgeCareer();                                // the save: cash, trunk, upgrades
     // Town markets: a marker each, built now and shown only near the camera (_updateMarkers).
     this.marketMarkers = CONFIG.dredge.towns.map((t) => {
@@ -123,7 +127,7 @@ class Game {
     this.chase = new ChaseCamera(this.camera, this.world.collision);
     this.particles = new Particles(this.scene);
     this.feel = new VehicleFeel(this.scene, this.player, this.particles, this.headlight);
-    this._cars = [this.player];   // what knocks props over
+    this._cars = [this.player, ...this.traffic.cars];   // what knocks props over
 
     this.hud = new HUD();
     this.input = new Input(this.settings.bindings);
@@ -468,6 +472,7 @@ class Game {
     this.particles.clear();
     this.props.reset();
     this.loot.reset(this.player.position);
+    this.traffic.clear();
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
     this._barnLeft = true;
@@ -674,15 +679,8 @@ class Game {
     // Hitting a wall: a thud, sparks and a shake; the hard ones throw debris and hold the
     // action for a beat (hit-stop).
     const p = this.player.position;
-    if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
-      this._lastRam = this.time;
-      this.audio.crash(Math.min(0.6, this.player.impact / 25));
-      this.chase.shake(Math.min(0.5, this.player.impact / 30));
-      this.feel.hit(this.player.impact / 20);
-      this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
-      this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
-      this._wear(this.player.impact);
-    }
+    if (this.player.impact > 6) this._crash(this.player.impact, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
+    for (const e of this.traffic.update(dt, this.player, this.camera.position, this.env.hour)) this._onTraffic(e);
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
@@ -884,6 +882,35 @@ class Game {
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: () => { this.ui.close('barn'); this._barnRender = null; if (!this.ui.anyOpen) this.resume(); },
     });
+  }
+
+  // Hitting a car, van or cart: a crash like a wall's (the impact is picked up with the
+  // player's), and a hard one throws a piece out of the trunk onto the road.
+  _onTraffic(e) {
+    if (e.impact > 6) this._crash(e.impact, e.x, e.z);
+    if (e.impact < CONFIG.dredge.traffic.spill || !this.trunk.count) return;
+    const pieces = [...this.trunk.pieces.values()];
+    const p = pieces[Math.floor(Math.random() * pieces.length)];
+    const kind = this.loot.kindIndex(p.kind);
+    const back = this.perks.pickupRadius + 4;               // past the magnet's reach, so it isn't picked straight back up
+    if (!this.loot.drop(kind, e.x - this.player.forwardX * back, e.z - this.player.forwardZ * back)) return;
+    this.trunk.remove(p.id);
+    this.dredge.saveTrunk(this.trunk);
+    this._updateTrunkPill();
+    this.hud.toast(`The ${KINDS[p.kind].name.toLowerCase()} bounced out of the trunk!`, '', 2500);
+  }
+
+  // A crash (a wall, a car): a thud, sparks and a shake; the hard ones throw debris, hold
+  // the action for a beat (hit-stop) and wear the truck.
+  _crash(impact, x, z) {
+    if (this.time - this._lastRam <= 0.3) return;
+    this._lastRam = this.time;
+    this.audio.crash(Math.min(0.6, impact / 25));
+    this.chase.shake(Math.min(0.5, impact / 30));
+    this.feel.hit(impact / 20);
+    this.particles.sparks(x, z, impact / 20);
+    this._impact(impact / 20, x, z);
+    this._wear(impact);
   }
 
   // A hard knock wears the truck (it slows until mended at the barn).

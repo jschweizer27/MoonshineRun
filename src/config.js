@@ -210,6 +210,14 @@ export const CONFIG = {
     // Otto's barn, the home base: stop in its yard to open it. The stash holds this many
     // trunk cells' worth of loot. PLACEHOLDERS: tune after playtesting.
     barn: { radius: 9, stashCells: 40 },
+    // Traffic (src/traffic.js): up to `count` vehicles out near the camera in the city,
+    // `county` in the valley, x `night` late at night; they turn up `spawn` metres away
+    // (out of sight) and go beyond `despawn`. `mix`: the share of motor cars and vans (the
+    // rest are horse carts); `speeds` (m/s) for each; `lane` metres right of the road's
+    // middle; `gap` metres kept behind whatever's ahead; `radius` / `offset` their two
+    // collision circles; `stun` seconds a car stops after a knock; a hit harder than
+    // `spill` (m/s) throws a piece out of the trunk. PLACEHOLDERS: tune after playtesting.
+    traffic: { count: 8, county: 3, night: 0.5, spawn: [90, 220], despawn: 260, mix: [0.5, 0.3], speeds: [11, 9, 5], lane: 2.2, gap: 7, radius: 1.1, offset: 1.3, stun: 1.5, spill: 11 },
     // Ranks: reputation (contracts, brews, rare finds) lifts Otto through them; each unlocks
     // recipes (CONFIG.dredge.brew), upgrade levels (`ranks` on each upgrade), abilities and,
     // at the top, the brewery deed. Reputation: a contract's pay / contracts.repPer, a brew's
