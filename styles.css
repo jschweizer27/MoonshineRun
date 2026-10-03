@@ -175,6 +175,11 @@ body.touch-mode .hud-br { bottom: 250px; }
 #still-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #still-progress i { display: block; height: 100%; width: 0; background: var(--gold); }
 #still-stoke { touch-action: none; user-select: none; -webkit-user-select: none; }
+/* The abilities: small chips above the speedometer, tappable. */
+#abilities { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 8px; pointer-events: auto; }
+.ability { font: inherit; font-size: calc(12px * var(--ts)); letter-spacing: 1px; padding: 4px 8px; color: var(--muted); background: rgba(13, 11, 8, 0.6); border: 1px solid rgba(216, 178, 90, 0.35); border-radius: 2px; cursor: pointer; }
+.ability.ready { color: var(--paper); border-color: var(--gold); }
+.ability.on { color: #0b0d14; background: var(--gold); border-color: var(--gold); }
 #pause, #settings, #help, #map, #confirm, #ledger, #slots, #barn, #still { background: rgba(3, 4, 7, 0.82); z-index: 25; }
 #dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
 #dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }

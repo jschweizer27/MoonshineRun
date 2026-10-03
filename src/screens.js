@@ -41,7 +41,7 @@ function contractRows(body, jobs, trunk, render) {
   }
 }
 
-export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, onSell, onBuy, onTrunk, onBack }) {
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, onSell, onBuy, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
@@ -68,6 +68,15 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
+    // The ending, at Lexington Market once Otto is King of York Road.
+    if (deed && !career.data.flags.deed) {
+      body.append(el('h3', { class: 'market-head' }, 'THE DEED'));
+      const buy = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'deed' }, `BUY ${money(deed.cost)}`);
+      buy.disabled = career.cash < deed.cost;
+      buy.addEventListener('click', () => deed.onBuy());
+      body.append(el('div', { class: 'upgrade deed' }, el('div', {}, el('b', {}, 'Braun & Sons, Highlandtown'),
+        el('small', {}, 'The bank will sell the brewery back. This is what it was all for.')), buy));
+    }
     contractRows(body, jobs, trunk, render);
     // Upgrades for the truck, paid from the same cash.
     if (onBuy) {
@@ -75,8 +84,10 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       for (const [id, u] of Object.entries(CONFIG.dredge.upgrades)) {
         const lvl = career.level(id), cost = career.nextCost(id), max = u.costs.length;
         const pips = el('span', { class: 'pips', 'aria-label': `level ${lvl} of ${max}` }, ...u.costs.map((_, k) => el('i', { class: k < lvl ? 'on' : '' })));
-        const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `up-${id}` }, cost == null ? 'MAXED' : `BUY ${money(cost)}`);
-        if (cost == null || career.cash < cost) btn.disabled = true;
+        const locked = career.lockedRank(id);
+        const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `up-${id}` },
+          cost == null ? 'MAXED' : locked != null ? `AT ${CONFIG.dredge.ranks[locked].name.toUpperCase()}` : `BUY ${money(cost)}`);
+        if (cost == null || locked != null || career.cash < cost) btn.disabled = true;
         btn.addEventListener('click', () => { onBuy(id); render(); });
         body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, u.desc)), btn));
       }
@@ -301,7 +312,7 @@ export function showLedger(ui, career) {
     ['Cash on hand', money(career.cash)], ['Earned, all time', money(s.earned)],
     ['Pieces sold', s.sold.toLocaleString()], ['Upgrades bought', upgrades],
     ['Rare finds', (s.rares || 0).toLocaleString()], ['Jobs done', (s.contracts || 0).toLocaleString()],
-    ['Reputation', (career.data.rep || 0).toLocaleString()], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
+    ['Rank', `${CONFIG.dredge.ranks[career.data.rank || 0].name} (${(career.data.rep || 0).toLocaleString()} rep)`], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
     ['Time on the road', playTime(s.playSeconds)],
   ];
   for (const [k, v] of rows) $('ledger-totals').append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));

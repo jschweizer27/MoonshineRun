@@ -16,12 +16,13 @@ const DEFAULT = {
   started: false,            // a run has been started in this slot
   cash: 0,
   trunk: null,               // Trunk.toJSON()
-  upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0 },
+  upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0 },
   market: { sold: {}, clock: 0 },
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
-  rep: 0,                    // reputation, from contracts (ranks come from it)
+  rep: 0,                    // reputation, from contracts, brews and rare finds
+  rank: 0,                   // CONFIG.dredge.ranks index reached (it never drops)
   contract: null,            // the job taken: an offer from contracts.js plus `due` (game hours)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
@@ -96,9 +97,15 @@ export class DredgeCareer {
     return lvl < costs.length ? costs[lvl] : null;
   }
 
+  // The rank the next level of an upgrade waits for, or null if it's open (or maxed).
+  lockedRank(id) {
+    const u = CONFIG.dredge.upgrades[id], need = u.ranks?.[this.level(id)] || 0;
+    return this.level(id) < u.costs.length && need > (this.data.rank || 0) ? need : null;
+  }
+
   buy(id) {
     const cost = this.nextCost(id);
-    if (cost == null || this.data.cash < cost) return false;
+    if (cost == null || this.data.cash < cost || this.lockedRank(id) != null) return false;
     this.data.cash -= cost;
     this.data.upgrades[id] = this.level(id) + 1;
     this.data.ledger.unshift({ t: Date.now(), text: `${CONFIG.dredge.upgrades[id].name} (level ${this.data.upgrades[id]})`, amount: -cost });

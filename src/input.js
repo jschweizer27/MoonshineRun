@@ -50,7 +50,7 @@ export class Input {
     if (this.playing && (actions.length || ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code))) e.preventDefault();
     if (e.repeat) { this.down.add(e.code); return; }
     this.down.add(e.code);
-    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice', 'trunk'].includes(a)) this.onAction(a, 'keyboard');
+    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice', 'trunk', 'ability1', 'ability2', 'ability3'].includes(a)) this.onAction(a, 'keyboard');
   }
 
   isDown(action) { return (this.bindings[action] || []).some((c) => this.down.has(c)); }
@@ -89,10 +89,12 @@ export class Input {
     edge(PAD.X, 'trunk');
     edge(PAD.LB, 'rotate');
     edge(PAD.RB, 'rotate');
-    edge(PAD.UP, 'up');
+    // The d-pad moves through menus; while driving, left / up / right are the abilities
+    // (the stick's menu moves don't count, so steering never fires one).
+    edge(PAD.UP, 'up', 'ability2');
     edge(PAD.DOWN, 'down');
-    edge(PAD.LEFT, 'left');
-    edge(PAD.RIGHT, 'right');
+    edge(PAD.LEFT, 'left', 'ability1');
+    edge(PAD.RIGHT, 'right', 'ability3');
     // Left stick flicks also navigate menus.
     const ny = y > 0 ? 1 : y < 0 ? -1 : 0;
     const nx = Math.abs(gp.axes[0] || 0) > 0.6 ? Math.sign(gp.axes[0]) : 0;

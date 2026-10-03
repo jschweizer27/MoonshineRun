@@ -56,6 +56,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
   earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
   marker is one of `main.jobMarkers`, under the nearest-marker rule.
+- Ranks and abilities: `data.rep` (contracts, brews, rare finds; `main._addRep`) sets
+  `data.rank` against `CONFIG.dredge.ranks`; ranks gate recipes, upgrade levels (`ranks` on each
+  upgrade, `dredgecareer.lockedRank`) and the abilities (`CONFIG.dredge.abilities`,
+  `main.useAbility`, HUD chips in `#abilities`; actions `ability1-3`, the d-pad's left / up /
+  right while driving). The ending is the deed (`CONFIG.dredge.deed`, bought in
+  `main._deed` at Lexington Market), which sets `flags.deed` for the last story beat.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

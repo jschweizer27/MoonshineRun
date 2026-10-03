@@ -301,12 +301,13 @@ class Game {
   // shows, how big the trunk is and which body it wears.
   _applyPerks() {
     const base = CONFIG.player, D = CONFIG.dredge, U = D.upgrades, lv = (id) => this.dredge.level(id);
-    // A worn truck loses some of its top speed until it's repaired.
+    // A worn truck loses some of its top speed until it's repaired; Lead Foot opens it up.
     const worn = 1 - this.dredge.data.wear * D.wear.maxSlow;
+    const boost = this._leadFoot ? D.abilities.leadfoot : { speed: 1, accel: 1 };
     const car = {
       ...base,
-      maxSpeed: (base.maxSpeed + U.engine.step.maxSpeed * lv('engine')) * worn,
-      accel: base.accel + U.engine.step.accel * lv('engine'),
+      maxSpeed: (base.maxSpeed + U.engine.step.maxSpeed * lv('engine')) * worn * boost.speed,
+      accel: (base.accel + U.engine.step.accel * lv('engine')) * boost.accel,
       grip: base.grip + U.handling.step.grip * lv('handling'),
       turnRate: base.turnRate + U.handling.step.turnRate * lv('handling'),
     };
@@ -314,8 +315,13 @@ class Game {
     this.perks = {
       pickupRadius: D.loot.pickupRadius + U.magnet.step.pickupRadius * lv('magnet'),
       mapRange: D.loot.mapRange + U.spotter.step.mapRange * lv('spotter'),
+      field: 0.7 + U.tyres.step.field * lv('tyres'),       // speed kept in the fields
+      wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
+      light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
+      wear: 1 - U.plating.step.wear * lv('plating'),       // share of a knock's wear taken
       cols, rows,
     };
+    if (this.feel) { this._lampBase ??= this.feel.headlightBase; this.feel.headlightBase = this._lampBase * this.perks.light; }
     // The trunk grows with its upgrade (pieces stay where they were).
     if (this.trunk && (this.trunk.cols < cols || this.trunk.rows < rows)) {
       this.trunk = this.trunk.resized(Math.max(cols, this.trunk.cols), Math.max(rows, this.trunk.rows));
@@ -364,9 +370,11 @@ class Game {
   _updateIntroBest() {
     const s = this.dredge.data.stats, slot = this.dredge.slot;
     $('start-btn').textContent = this.dredge.started ? 'CONTINUE' : 'START DRIVING';
-    $('intro-best').textContent = s.sold
-      ? `Slot ${slot} · Cash on hand: ${money(this.dredge.cash)} · Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}`
-      : this.dredge.started ? `Slot ${slot}` : '';
+    const d = this.dredge.data, parts = [`Slot ${slot}`];
+    if (d.rank) parts.push(CONFIG.dredge.ranks[d.rank].name);
+    if (s.sold) parts.push(`Cash on hand: ${money(this.dredge.cash)}`, `Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}`);
+    if (d.flags.deed) parts.push('Braun & Sons is yours again');
+    $('intro-best').textContent = this.dredge.started || s.sold ? parts.join(' · ') : '';
   }
 
   // The saved games: play a slot, start a new game in one, or erase one.
@@ -391,6 +399,7 @@ class Game {
     this._updateIntroBest();
     this._updateGuide();
     this._updateJobMarker();
+    this._buildAbilities();
   }
 
   openSettings() {
@@ -466,6 +475,10 @@ class Game {
     this._dropLeft = true;
     this._jobLeft = true;
     this._updateJobMarker();
+    // Abilities start each run ready (times are game time).
+    this.abil = Object.fromEntries(Object.keys(CONFIG.dredge.abilities).map((id) => [id, { until: -1, ready: 0 }]));
+    this._leadFoot = false;
+    this._sweet = false;
     this.place = this._placeName();
     this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
@@ -479,6 +492,7 @@ class Game {
     this._updateObjective();
     this._updateMarkers();
     this._updateGuide();
+    this._buildAbilities();
     this.runTime = 0;
     this._lastRam = -1;
     this._surfaceTimer = 0;
@@ -555,6 +569,7 @@ class Game {
     if ((this._storyT = (this._storyT || 0) - dt) > 0) return;
     this._storyT = 0.5;
     this._updateGuide();
+    this._updateAbilities();
     const id = OPTIONS.story && nextBeat(this.dredge.data);
     if (id) this._story(id);
   }
@@ -622,6 +637,9 @@ class Game {
     else if (a === 'horn') this.audio.horn();
     else if (a === 'juice') this.toggleJuice();
     else if (a === 'trunk') this.openTrunk();
+    else if (a === 'ability1') this.useAbility('tip');
+    else if (a === 'ability2') this.useAbility('leadfoot');
+    else if (a === 'ability3') this.useAbility('sweet');
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
     else if (a === 'mute') this.toggleMute();
     else if (a === 'fullscreen') this.toggleFullscreen();
@@ -637,7 +655,7 @@ class Game {
     if (!this.world.inCounty(p) || p.z > -262) { this.surface = 1; return; }
     let on = false;
     for (const [a, b, w] of this.world.countyEdges) if (distToSegment(p.x, p.z, a, b) < w / 2 + 1.5) { on = true; break; }
-    this.surface = on ? 1 : 0.7;
+    this.surface = on ? 1 : this.perks.field;
   }
 
   // One simulation step (also used by tests to fast-forward deterministically): drive,
@@ -650,7 +668,7 @@ class Game {
     const fx = this.env.effects;
     this._updateSurface(dt);
     this.player.speedFactor = this.surface;
-    this.player.t.grip = this.gripBase * fx.grip * (this.surface < 1 ? 0.85 : 1);
+    this.player.t.grip = this.gripBase * (1 - (1 - fx.grip) * this.perks.wet) * (this.surface < 1 ? 0.85 : 1);
     this.player.update(dt, input);
     this._throttle = input.throttle || 0;
     // Hitting a wall: a thud, sparks and a shake; the hard ones throw debris and hold the
@@ -676,6 +694,7 @@ class Game {
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
     this._checkEvent();
     this._updateMarkers();
+    this._tickAbilities();
     this._checkContract();
     this._checkMarket();
     this._checkBarn();
@@ -721,7 +740,7 @@ class Game {
 
   // Picked up a piece of loot: the trunk opens with it in hand to pack it.
   _onLoot(e) {
-    if (e.rare) this.dredge.data.stats.rares++;
+    if (e.rare) { this.dredge.data.stats.rares++; this._addRep(CONFIG.dredge.repPerFind); }
     const pays = e.kind.paysAt && CONFIG.dredge.towns.find((t) => t.id === e.kind.paysAt);
     this.hud.toast(e.rare && pays ? `Found the ${e.kind.name.toLowerCase()}! It pays best in ${pays.town}` : `Picked up: ${e.kind.name}`, 'gold', e.rare ? 3500 : 1600);
     this.audio.pickup?.();
@@ -835,6 +854,7 @@ class Game {
           onDone: (q, crates) => {
             d.stash[recipe.id] = (d.stash[recipe.id] || 0) + crates;
             d.stats.brews++;
+            this._addRep(Math.round(q * CONFIG.dredge.repPerBrew));
             d.ledger.unshift({ t: Date.now(), text: `Brewed ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name} (${Math.round(q * 100)}%)`, amount: 0 });
             d.ledger.length = Math.min(d.ledger.length, 40);
             this.dredge.save();
@@ -871,7 +891,7 @@ class Game {
     const W = CONFIG.dredge.wear, d = this.dredge.data;
     if (impact <= W.from || d.wear >= 1) return;
     const before = d.wear;
-    d.wear = Math.min(1, d.wear + (impact - W.from) * W.perImpact);
+    d.wear = Math.min(1, d.wear + (impact - W.from) * W.perImpact * this.perks.wear);
     this._applyPerks();
     if (before < W.warnAt && d.wear >= W.warnAt) this.hud.toast('The truck’s knocking. Get it to the barn for repairs.', '', 3500);
   }
@@ -881,6 +901,95 @@ class Game {
     el.classList.toggle('hidden', w < 0.05);
     el.classList.toggle('bad', w >= CONFIG.dredge.wear.warnAt);
     el.textContent = `TRUCK ${Math.round((1 - w) * 100)}%`;
+  }
+
+  // ---------- Reputation, ranks and abilities ----------
+  _addRep(n) {
+    const d = this.dredge.data;
+    d.rep = (d.rep || 0) + n;
+    const R = CONFIG.dredge.ranks;
+    let r = 0;
+    R.forEach((x, i) => { if (d.rep >= x.rep) r = i; });
+    if (r > (d.rank || 0)) {
+      d.rank = r;
+      this.hud.toast(`New rank: ${R[r].name}${R[r].unlocks ? ` · ${R[r].unlocks}` : ''}`, 'gold', 5000);
+      this._buildAbilities();
+    }
+    this.dredge.save();
+  }
+
+  // Sweet Talk, if it's waiting: the bonus on a sale or a job (and it's used up).
+  _sweetTalk(amount) {
+    if (!this._sweet) return 0;
+    this._sweet = false;
+    this._updateAbilities();
+    return Math.round(amount * CONFIG.dredge.abilities.sweet.bonus);
+  }
+
+  useAbility(id) {
+    const A = CONFIG.dredge.abilities[id], s = this.abil[id], d = this.dredge.data;
+    if (this.state !== STATE.PLAYING) return false;
+    if ((d.rank || 0) < A.rank) { this.hud.toast(`${A.name} comes at ${CONFIG.dredge.ranks[A.rank].name}`, '', 2000); return false; }
+    if (this.time < s.ready || (id === 'sweet' && this._sweet)) { this.hud.toast(this._sweet && id === 'sweet' ? 'Sweet Talk is waiting for the next sale' : `${A.name} is ready in ${Math.ceil(s.ready - this.time)} s`, '', 1800); return false; }
+    s.ready = this.time + A.cooldown;
+    if (id === 'tip') { s.until = this.time + A.seconds; this.hud.toast('The Jockey’s tip: every piece on the roads is on the radar', 'gold', 2500); }
+    if (id === 'leadfoot') { s.until = this.time + A.seconds; this._leadFoot = true; this._applyPerks(); this.hud.toast('Lead Foot!', 'gold', 1500); }
+    if (id === 'sweet') { this._sweet = true; this.hud.toast('Sweet Talk: the next sale or job pays 20% more', 'gold', 2500); }
+    this._updateAbilities();
+    return true;
+  }
+
+  // Lead Foot runs out; the HUD chips count down.
+  _tickAbilities() {
+    if (this._leadFoot && this.time > this.abil.leadfoot.until) { this._leadFoot = false; this._applyPerks(); }
+  }
+
+  // The HUD's ability chips: one per ability the rank allows (tap or press its key).
+  _buildAbilities() {
+    const box = $('abilities'), rank = this.dredge.data.rank || 0;
+    box.textContent = '';
+    for (const [id, A] of Object.entries(CONFIG.dredge.abilities)) {
+      if (rank < A.rank) continue;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ability';
+      b.dataset.id = id;
+      b.addEventListener('click', () => this.useAbility(id));
+      box.append(b);
+    }
+    this._updateAbilities();
+  }
+
+  _updateAbilities() {
+    for (const b of $('abilities').children) {
+      const id = b.dataset.id, A = CONFIG.dredge.abilities[id], s = this.abil[id];
+      const active = (id === 'sweet' && this._sweet) || this.time < s.until, wait = Math.ceil(s.ready - this.time);
+      const state = active ? 'on' : wait > 0 ? `${wait}s` : 'ready';
+      const text = `${A.key} · ${A.name} · ${state}`;
+      if (b.textContent !== text) b.textContent = text;
+      b.classList.toggle('on', active);
+      b.classList.toggle('ready', !active && wait <= 0);
+    }
+  }
+
+  // The ending: buy back the brewery deed at Lexington Market, once King of York Road.
+  _deed(town) {
+    const D = CONFIG.dredge.deed, d = this.dredge.data;
+    if (town.id !== D.town || (d.rank || 0) < D.rank || d.flags.deed) return null;
+    return {
+      cost: D.cost,
+      onBuy: async () => {
+        if (d.cash < D.cost) return;
+        if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(D.cost)} for the Braun & Sons brewery deed?`, 'BUY IT BACK'))) return;
+        d.cash -= D.cost;
+        d.flags.deed = true;
+        d.ledger.unshift({ t: Date.now(), text: 'The Braun & Sons deed', amount: -D.cost });
+        this.dredge.save();
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`−${money(D.cost)}`);
+        this._marketRender?.();
+      },
+    };
   }
 
   // ---------- Contracts ----------
@@ -945,17 +1054,20 @@ class Game {
     d.cash += c.pay;
     d.stats.earned += c.pay;
     d.stats.contracts++;
-    d.rep = (d.rep || 0) + c.rep;
-    d.ledger.unshift({ t: Date.now(), text: `Job for ${c.name}: ${wantsText(c.wants)}`, amount: c.pay });
+    const bonus = this._sweetTalk(c.pay);
+    d.cash += bonus;
+    d.stats.earned += bonus;
+    this._addRep(c.rep);
+    d.ledger.unshift({ t: Date.now(), text: `Job for ${c.name}: ${wantsText(c.wants)}`, amount: c.pay + bonus });
     d.ledger.length = Math.min(d.ledger.length, 40);
     d.contract = null;
     this.dredge.saveTrunk(this.trunk);
     this._updateJobMarker();
     this._updateTrunkPill();
     this.hud.setCash(this.dredge.cash, true);
-    this.hud.cashPop(`+${money(c.pay)}`);
+    this.hud.cashPop(`+${money(c.pay + bonus)}`);
     this.audio.cash?.();
-    this.hud.toast(`Delivered to ${c.name}: ${money(c.pay)}`, 'gold', 3000);
+    this.hud.toast(`Delivered to ${c.name}: ${money(c.pay + bonus)}${bonus ? ' (sweet-talked)' : ''}`, 'gold', 3000);
   }
 
   // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
@@ -990,10 +1102,11 @@ class Game {
     if (this.state !== STATE.PAUSED) return;
     const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
     this._marketRender = showMarket(this.ui, {
-      town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(),
+      town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(), deed: this._deed(town),
       onSell: (kind) => {
         const r = sell(town.id, this.trunk, this.dredge.market, kind);
         if (!r.count) return;
+        r.total += this._sweetTalk(r.total);
         this.dredge.sold({ ...r, town: town.name, trunk: this.trunk });
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`+${money(r.total)}`);
@@ -1104,7 +1217,7 @@ class Game {
     const c = this.dredge.data.contract;
     if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
     return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
-      ...this.loot.near(this.player.position, this.perks.mapRange)];
+      ...this.loot.near(this.player.position, this.time < this.abil.tip.until ? Infinity : this.perks.mapRange)];
   }
 
   // Draw one frame of the 3D view.
@@ -1118,7 +1231,7 @@ class Game {
     this.post.setRush(juice('cinematic', 'speedPulse') * Math.min(1, Math.max(0, (s01 - 0.85) / 0.15)));
     // Headlight beams show in the dark (and more in fog or rain), dim by day, stutter after a hit.
     const beam = this.player.model.beam;
-    if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
+    if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (this.perks?.light || 1) * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
     this.post.render();
   }
 

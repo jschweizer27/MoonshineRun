@@ -194,11 +194,15 @@ export const CONFIG = {
     // `costs` are levels 1-3; each level adds `step` to the base value (trunk: `sizes` per
     // level, from the base 5x3 at level 0).
     upgrades: {
-      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700], sizes: [[5, 3], [6, 3], [6, 4], [7, 4]] },
-      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900], step: { maxSpeed: 3, accel: 2 } },
-      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500], step: { grip: 2.5, turnRate: 0.15 } },
-      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [250, 600, 1200], step: { pickupRadius: 1.2 } },
-      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [200, 500, 1000], step: { mapRange: 60 } },
+      // `ranks`: the rank each level needs (levels 4 and 5 come with rank).
+      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], ranks: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
+      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], ranks: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
+      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], ranks: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
+      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [250, 600, 1200, 2200, 3600], ranks: [0, 0, 0, 2, 4], step: { pickupRadius: 1.2 } },
+      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [200, 500, 1000, 1900, 3000], ranks: [0, 0, 0, 2, 4], step: { mapRange: 60 } },
+      tyres: { name: 'Farm tyres', desc: 'Less bogging down in the fields, less sliding in the rain.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
+      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], ranks: [1, 1, 2], step: { light: 0.25 } },
+      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], ranks: [2, 2, 3], step: { wear: 0.25 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
@@ -206,6 +210,31 @@ export const CONFIG = {
     // Otto's barn, the home base: stop in its yard to open it. The stash holds this many
     // trunk cells' worth of loot. PLACEHOLDERS: tune after playtesting.
     barn: { radius: 9, stashCells: 40 },
+    // Ranks: reputation (contracts, brews, rare finds) lifts Otto through them; each unlocks
+    // recipes (CONFIG.dredge.brew), upgrade levels (`ranks` on each upgrade), abilities and,
+    // at the top, the brewery deed. Reputation: a contract's pay / contracts.repPer, a brew's
+    // quality x `repPerBrew`, `repPerFind` a rare find. PLACEHOLDERS: tune after playtesting.
+    ranks: [
+      { name: 'Junk Hauler', rep: 0 },
+      { name: 'Scavenger', rep: 30, unlocks: 'Applejack, Jockey’s Tip (1), tyres and lamps' },
+      { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4' },
+      { name: 'Brewer', rep: 180, unlocks: 'Barrel Rye, Sweet Talk (3)' },
+      { name: 'Bootlegger', rep: 320, unlocks: 'Highlandtown Lager, upgrade level 5' },
+      { name: 'King of York Road', rep: 500, unlocks: 'the Braun & Sons deed, at Lexington Market' },
+    ],
+    repPerBrew: 6,
+    repPerFind: 5,
+    // Abilities (keys 1-3, the D-pad's left / up / right, or the HUD chips), each from a rank:
+    // the Jockey's Tip shows every piece of loot on the radar for `seconds`; Lead Foot opens
+    // the engine up (`speed` / `accel` x) for `seconds`; Sweet Talk adds `bonus` to the next
+    // sale or job. `cooldown` seconds before each can be used again.
+    abilities: {
+      tip: { name: 'Jockey’s Tip', key: '1', rank: 1, seconds: 30, cooldown: 120 },
+      leadfoot: { name: 'Lead Foot', key: '2', rank: 2, seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
+      sweet: { name: 'Sweet Talk', key: '3', rank: 3, cooldown: 180, bonus: 0.2 },
+    },
+    // The ending: buy back the Braun & Sons brewery deed at Lexington Market, at the top rank.
+    deed: { cost: 20000, rank: 5, town: 'baltimore' },
     // Brewing at Otto's still. Each copper coil installed raises the still a level (up to
     // three), widening the band the temperature has to stay in. A batch takes `seconds`:
     // hold STOKE to raise the temperature (`heat.up` a second), let go and it falls
