@@ -37,7 +37,9 @@ try {
     // node, which can lie behind the truck, would turn it round on a long drive).
     const plan = (t, kind) => {
       if (way.length && goal && goal.x === t.x && goal.z === t.z) return;
-      const p = g.player.position, ids = R.path(R.nearest(p.x, p.z).id, R.nearest(t.x, t.z).id) || [];
+      // Around a road closed by a road event, as the radar's route goes.
+      const p = g.player.position, a = R.nearest(p.x, p.z).id, b = R.nearest(t.x, t.z).id;
+      const ids = R.path(a, b, g.roadEvents.blocked) || R.path(a, b) || [];
       if (!goal || goal.x !== t.x || goal.z !== t.z) stalls = 0;
       way = [...ids.map((i) => R.nodes[i]), t]; goal = t; goalKind = kind;
     };

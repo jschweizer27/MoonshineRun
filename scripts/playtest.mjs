@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Scripted playtest: `node scripts/playtest.mjs <label>`. Plays one run from the title
 // screen (drive out, pick up loot, pack the trunk, sell at Lexington Market, buy an
-// upgrade, drive up York Road to Monkton and sell there, the map and the ledger, rain and
-// daylight) through window.shine at fixed 60 Hz steps, with a simple autopilot that steers
-// for the next piece of loot or the nearest market. At each beat it saves a screenshot and
-// a line of stats (state, toast, draw calls, render time, console errors) and tiles them
-// into artifacts/shots/playtest-<label>.png.
+// upgrade, drive up York Road to Monkton and sell there; Otto's barn, a batch at the still
+// and the shine sold at a speakeasy; a contract taken and delivered; a new rank, Lead Foot
+// and Cockeysville's quarry store; a road event and the traffic; the map and the ledger,
+// rain and daylight) through window.shine at fixed 60 Hz steps, with a simple autopilot
+// that steers for the next piece of loot or the nearest market. At each beat it saves a
+// screenshot and a line of stats (state, toast, draw calls, render time, console errors)
+// and tiles them into artifacts/shots/playtest-<label>.png.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
@@ -119,6 +121,82 @@ try {
     if (await page.locator('#market-sell-all').isEnabled()) await page.click('#market-sell-all');
     await page.click('#market-done');
   }
+  // Otto's barn: the stash, the still and the garage. A coil goes in, then a batch of Corn
+  // Shine at a steady hand; the crates go from the stash to the trunk.
+  await page.evaluate(() => {
+    const g = window.shine.game, h = g.world.home;
+    g.dredge.data.stash = { coil: 1, sack: 1, jugs: 1 };
+    window.shine.teleport(h.stopX, h.stopZ, 0); window.shine.step(0.3);
+  });
+  await beat('barn', 'Otto’s barn: stash, still and garage');
+  if (await page.locator('#barn').isVisible()) {
+    await page.click('#barn [data-id="install-coil"]');
+    await page.click('#barn [data-id="brew-corn-shine"]');
+    await page.evaluate(() => { const s = window.shine.game.stillScreen; s.manual(); for (let k = 0; k < 600; k++) s.step(1 / 60, s.batch.temp < s.batch.center); });
+    await beat('still', 'a batch at the still');
+    await page.evaluate(() => { const s = window.shine.game.stillScreen; while (!s.batch.done) s.step(1 / 60, s.batch.temp < s.batch.center); });
+    await page.click('#still-done');
+    for (let k = 0; k < 3; k++) { const take = page.locator('#barn [data-id="take-corn-shine"]'); if (await take.isEnabled()) await take.click(); }
+    await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
+  }
+  // The shine sells only at a speakeasy (a knock at the door).
+  await page.evaluate(() => { const d = window.shine.game.world.drops[0]; window.shine.teleport(d.x, d.z + 30, Math.PI); window.shine.step(0.2); window.shine.teleport(d.x, d.z, Math.PI); window.shine.step(0.3); });
+  await beat('speakeasy', 'shine sold at the Highlandtown Speakeasy');
+  if (await page.locator('#market').isVisible()) {
+    if (await page.locator('#market-sell-all').isEnabled()) await page.click('#market-sell-all');
+    await page.click('#market-done');
+  }
+  // A contract: taken from the board, the goods aboard, delivered at the contact's door.
+  await page.evaluate(() => {
+    const g = window.shine.game, o = g._jobs().offers()[0];
+    g.takeContract(o);
+    g.trunk.clear();
+    for (const [kind, n] of Object.entries(o.wants)) for (let k = 0; k < n; k++) { const spot = g.trunk.findSpot(kind); if (spot) g.trunk.place(kind, spot.x, spot.y, spot.rot); }
+    window.shine.teleport(o.x + 30, o.z, -Math.PI / 2); window.shine.step(0.5);
+  });
+  await beat('contract', 'a job taken: the DELIVERY marker and the gold ring on the radar');
+  await page.evaluate(() => { const c = window.shine.game.dredge.data.contract; if (c) { window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3); } });
+  await beat('delivered', 'paid at the door');
+  // A new rank (Runner): Lead Foot, and Cockeysville's quarry store deals with Otto.
+  await page.evaluate(() => { const g = window.shine.game; g._addRep(Math.max(0, 90 - (g.dredge.data.rep || 0))); });
+  await beat('runner', 'a new rank and what it unlocks');
+  await page.evaluate(() => {
+    const g = window.shine.game, L = g.loot;
+    L.active.fill(0); L.timer.fill(1e9); L.rareIn = 1e9; L._writeAll(0, null);   // no stopping for loot from here on
+    window.shine.teleport(0, -300, Math.PI); window.shine.step(0.2);
+    g.useAbility('leadfoot');
+    window.shine.step(3, { throttle: 1 });
+  });
+  await beat('lead-foot', 'Lead Foot down York Road into the city');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    while (g.ui.anyOpen) g.ui.close();
+    g.resume();
+    g.trunk.clear(); g.trunk.place('coil', 0, 0); g._updateTrunkPill();
+    window.shine.teleport(394, -590, 0); window.shine.step(0.3);
+    window.shine.teleport(400, -646, 0); window.shine.step(0.3);
+  });
+  await beat('cockeysville', 'the quarry store, for a Runner');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
+  // A road event: a cart broken down across a valley road, and the route going round it.
+  await page.evaluate(() => {
+    const g = window.shine.game, ev = g.roadEvents.start('breakdown', 7, g.dredge.market.clock + 3, g.env, g.dredge.market);
+    // Up the road toward the cart.
+    const [a, b] = ev.edge.split('-').map((id) => g.world.roads.nodes[Number(id)]), len = Math.hypot(b.x - a.x, b.z - a.z);
+    const ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
+    window.shine.teleport(ev.x - ux * 24, ev.z - uz * 24, Math.atan2(ux, -uz)); window.shine.step(0.4);
+    g.hud.toast(ev.text, 'gold', 5000);
+  });
+  await beat('road-event', 'a broken-down cart: the road is closed');
+  await page.evaluate(() => { const g = window.shine.game; g.roadEvents.end(g.dredge.market); });
+  // Traffic in the city.
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.traffic.enabled = true;
+    window.shine.teleport(0, 150, 0); window.shine.step(3, { throttle: 0.4 });
+  });
+  await beat('traffic', 'cars, vans and carts on the city streets');
+  await page.evaluate(() => { const g = window.shine.game; g.traffic.enabled = false; g.traffic.clear(); });
   // The map and the books.
   await page.evaluate(() => window.shine.game.openMap());
   await page.waitForTimeout(200);

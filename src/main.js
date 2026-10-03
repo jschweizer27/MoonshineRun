@@ -166,7 +166,11 @@ class Game {
 
     this._bindUI();
     window.addEventListener('resize', () => this._onResize());
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
+    // A hidden tab pauses and goes silent; back again over a market or the barn, it's hushed.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { this.pause(); this.audio.setPaused(true); }
+      else if (this.state === STATE.PAUSED && !this.ui.isOpen('pause')) this.audio.setPaused('hush');
+    });
     window.addEventListener('blur', () => { if (!OPTIONS.test) this.pause(); });
     document.addEventListener('fullscreenchange', () => this._onResize());
     // Music on the title screen once the browser allows sound (after any click or key).
@@ -588,7 +592,9 @@ class Game {
     this.state = STATE.PAUSED;
     this.input.playing = false;
     this.input.down.clear();
-    this.audio.setPaused(true);
+    // The pause menu freezes every sound; a screen over the road (a market, the barn, the
+    // trunk, the map, a story card) only hushes the road, so its own sounds play.
+    this.audio.setPaused(showMenu ? true : 'hush');
     this.dredge.save();                  // the time on the road, for the ledger
     this._applyTouch();
     $('pause-skip-tips').classList.toggle('hidden', !this.dredge.data.guide);
@@ -729,7 +735,7 @@ class Game {
   // A rare find turned up (word of it, and where), or was lost to someone else.
   _onRare(e) {
     const name = e.kind.name.toLowerCase();
-    if (e.type === 'rare') this.hud.toast(`Word of a ${name} out near ${this._landmark(e.x, e.z)}`, 'gold', 5000);
+    if (e.type === 'rare') { this.hud.toast(`Word of a ${name} out near ${this._landmark(e.x, e.z)}`, 'gold', 5000); this.audio.fanfare?.('rare'); }
     else this.hud.toast(`Too late: someone else found the ${name}`, '', 3000);
   }
 
@@ -963,6 +969,7 @@ class Game {
     if (r > (d.rank || 0)) {
       d.rank = r;
       this.hud.toast(`New rank: ${R[r].name}${R[r].unlocks ? ` · ${R[r].unlocks}` : ''}`, 'gold', 5000);
+      this.audio.fanfare?.('rank');
       this._buildAbilities();
     }
     this.dredge.save();
@@ -1033,6 +1040,7 @@ class Game {
         if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(D.cost)} for the Braun & Sons brewery deed?`, 'BUY IT BACK'))) return;
         d.cash -= D.cost;
         d.flags.deed = true;
+        this.audio.fanfare?.('deed');
         d.ledger.unshift({ t: Date.now(), text: 'The Braun & Sons deed', amount: -D.cost });
         this.dredge.save();
         this.hud.setCash(this.dredge.cash, true);
@@ -1118,6 +1126,7 @@ class Game {
     this.hud.cashPop(`+${money(c.pay + bonus)}`);
     this.audio.cash?.();
     this.hud.toast(`Delivered to ${c.name}: ${money(c.pay + bonus)}${bonus ? ' (sweet-talked)' : ''}`, 'gold', 3000);
+    this.audio.chime?.();
   }
 
   // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
@@ -1150,6 +1159,8 @@ class Game {
   openMarket(town = this._nearestMarket().town, { upgrades = true } = {}) {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
+    // The shop's door bell, or a knock on a speakeasy's door.
+    if (String(town.id).startsWith('drop:')) this.audio.knock?.(); else this.audio.bell?.();
     const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
     this._marketRender = showMarket(this.ui, {
       town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(), deed: this._deed(town),
@@ -1248,7 +1259,27 @@ class Game {
       jazz01: night ? this._jazzLevel(v.position) : 0,
       rain01: this.env.wet,
       crickets: night && this.env.weather === 'clear' && this.world.inCounty(v.position),
+      place: this.place, night, harbor01: Math.min(1, Math.max(0, (v.position.z - 120) / 120)),
     });
+    this._updateTune();
+  }
+
+  // The radio's tune for where and when (music.js TUNES): a fast rag under Lead Foot, a waltz
+  // in the valley at night, the blues in the city at night, stride by day.
+  _tuneFor() {
+    if (this.time < (this.abil?.leadfoot?.until ?? -1)) return 'rag';
+    const night = this.env.daylight < 0.3;
+    return night ? (this.world.inCounty(this.player.position) ? 'waltz' : 'blues') : 'stride';
+  }
+
+  // A new tune fades in once it's been called for a couple of seconds (so driving along the
+  // edge of town doesn't flip it back and forth); Lead Foot's rag comes in and goes at once.
+  _updateTune() {
+    const want = this._tuneFor(), now = this.audio.music?.tune;
+    if (want !== this._tuneWant) { this._tuneWant = want; this._tuneSince = this.time; }
+    if (!now || want === now) return;
+    const quick = want === 'rag' || now === 'rag';
+    if (quick || this.time - this._tuneSince > 2) this.audio.setTune(want, quick ? 0.8 : 3);
   }
 
   // How loud the jazz from the nearest speakeasy (on the city's named corners) is: full at

@@ -56,6 +56,8 @@ export const JUICE = {
     crunch: 1,            // the crunch of a crash (x the volume)
     wind: 1,              // wind rushing past at speed
     nightBed: 1,          // the night: distant jazz from the speakeasies, crickets in the county
+    ambience: 1,          // the towns: the city's crowd and harbour, Monkton's cattle and bell,
+                          // Glyndon's train, Cockeysville's quarry
   },
 
   cinematic: {

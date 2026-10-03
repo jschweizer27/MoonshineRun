@@ -115,10 +115,14 @@ Settings → Help also lets you **roll a new city layout** or **copy a link** to
 
 **Sights and sounds:** everything but the street lamp model is generated in the browser,
 with no image or audio files: a painted brick-and-stone city with neon blade signs, bay
-windows and rooftop water towers, two villages of clapboard houses in the valley, a stride-piano
-ragtime soundtrack, and exhaust, dust and sparks. The engine shifts gears, the tyres
-screech, and you hear rain on the cobbles, jazz from the speakeasies at night and crickets
-in the valley.
+windows and rooftop water towers, three villages in the valley, and exhaust, dust and
+sparks. The radio plays four tunes of its own, fading from one to the next: stride piano by
+day, the blues in the city at night, a waltz in the valley after dark and a fast rag when
+you put your foot down. The engine shifts gears, the tyres screech, and you hear rain on the
+cobbles, jazz from the speakeasies at night, crickets in the valley, the city's crowds and
+the ships on the harbour, Monkton's cattle and church bell, the train at Glyndon and the
+quarry blasting at Cockeysville. A market's door bell rings when you stop, and the till
+rings when you sell.
 
 ### Settings
 
@@ -192,11 +196,14 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   plus render cost), `npm run shots -- dredge-mylabel` (the full set: skyline, county,
   truck, loot, trunk, markets and the towns, with draw-call counts), `npm run reel --
   mylabel` (a launch / brake / drift / crash contact sheet with the effect values) and
-  `node scripts/playtest.mjs mylabel` (a scripted run from the title screen to both
-  markets), all in `artifacts/shots/`. `node scripts/economy.mjs 10` plays ten game
-  minutes on autopilot and prints what the run earns a minute, for tuning prices and
-  upgrade costs (`node scripts/economy.mjs 10 0 3 rare` uses city seed 3 and fetches rare
-  finds; compare a few seeds).
+  `node scripts/playtest.mjs mylabel` (a scripted run from the title screen through every
+  system: the markets, the barn and the still, a speakeasy, a contract, a rank and Lead
+  Foot, Cockeysville, a road event and the traffic), all in `artifacts/shots/`.
+  `node scripts/economy.mjs 10` plays ten game minutes on autopilot and prints what the run
+  earns a minute, for tuning prices and upgrade costs (`node scripts/economy.mjs 10 0 3 rare`
+  uses city seed 3 and fetches rare finds; compare a few seeds). `node scripts/progress.mjs
+  200` projects, from that $/min and the tuning, the hour each rank and the deed come for a
+  busy player and an easy one.
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
   clock stands still), `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in
