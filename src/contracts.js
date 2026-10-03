@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { KINDS } from './trunk.js';
+import { CAST } from './story.js';
 
 // Contracts from Otto's contacts: the speakeasies (the named city corners) and the farms
 // (the county barns). Pure logic: each in-game day posts a few jobs, rolled from the day
@@ -7,11 +8,16 @@ import { KINDS } from './trunk.js';
 // deadline, for more than the markets pay (CONFIG.dredge.contracts).
 const C = CONFIG.dredge.contracts;
 
-// Everyone who posts jobs: { id, name, x, z, kind: 'speakeasy' | 'farm' }.
+// Everyone who posts jobs: { id, name, place, who, x, z, kind: 'speakeasy' | 'farm', rank? }.
+// `name` is the contact (a character from story.js CAST, `who`), `place` where they are.
+// Sheriff Hale wants what the speakeasies want, delivered to the county lockup, and only
+// posts once Otto's rank reaches his (`rank`).
 export function contacts(world) {
+  const person = (who, place) => ({ who, name: CAST[who]?.name ?? place, place });
   return [
-    ...world.drops.map((d, i) => ({ id: `drop:${i}`, name: d.name, x: d.x, z: d.z, kind: 'speakeasy' })),
-    ...world.barns.map((b, i) => ({ id: `farm:${i}`, name: b.name, x: b.stopX, z: b.stopZ, kind: 'farm' })),
+    ...world.drops.map((d, i) => ({ id: `drop:${i}`, ...person(d.who, d.name), x: d.x, z: d.z, kind: 'speakeasy' })),
+    ...world.barns.map((b, i) => ({ id: `farm:${i}`, ...person(b.who, b.name), x: b.stopX, z: b.stopZ, kind: 'farm' })),
+    ...(world.lockup ? [{ id: 'lockup', ...person(world.lockup.who, world.lockup.name), x: world.lockup.x, z: world.lockup.z, kind: 'speakeasy', rank: 3 }] : []),
   ];
 }
 
@@ -24,15 +30,17 @@ function roll(salt, day) {
 }
 
 // The day's offers. Speakeasies want bar goods, or shine once Otto brews (the recipes his
-// rank allows); farms want goods for the house and the yard.
+// rank allows); farms want goods for the house and the yard. Each comes with a line from
+// its contact (`line`).
 export function offersFor(day, list, { brewing = false, rank = 0 } = {}) {
   const shine = C.shine.filter((k) => (CONFIG.dredge.brew.recipes.find((r) => r.id === k)?.rank ?? 0) <= rank);
   const out = [];
   for (let i = 0; i < C.perDay; i++) {
     const r = (s) => roll(`${s}:${i}`, day);
     const farm = r('who') < C.farmShare;
-    const pool = farm ? list.filter((c) => c.kind === 'farm') : list.filter((c) => c.kind === 'speakeasy');
+    const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.rank || 0) <= rank);
     const contact = pool[Math.floor(r('contact') * pool.length)];
+    const asks = CAST[contact.who]?.asks || [];
     const goods = farm ? C.farmWants : brewing && shine.length ? shine : C.barWants;
     const wants = {};
     const kinds = 1 + (r('kinds') < 0.4 ? 1 : 0);
@@ -43,7 +51,10 @@ export function offersFor(day, list, { brewing = false, rank = 0 } = {}) {
     const worth = Object.entries(wants).reduce((s, [k, n]) => s + KINDS[k].value * n, 0);
     const pay = Math.round((worth * C.payMult) / 5) * 5;
     const hours = Math.round(C.hours[0] + r('hours') * (C.hours[1] - C.hours[0]));
-    out.push({ id: `${day}-${i}`, contact: contact.id, name: contact.name, kind: contact.kind, x: contact.x, z: contact.z, wants, pay, rep: Math.round(pay / C.repPer), hours });
+    out.push({
+      id: `${day}-${i}`, contact: contact.id, name: contact.name, place: contact.place, who: contact.who, line: asks[Math.floor(r('line') * asks.length)] || '',
+      kind: contact.kind, x: contact.x, z: contact.z, wants, pay, rep: Math.round(pay / C.repPer), hours,
+    });
   }
   return out;
 }

@@ -669,7 +669,7 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.prices.sack[1]).toBeLessThan(r.prices.sack[0]);           // farm goods less
   expect(r.toast).toContain('Monkton');
   expect(r.calls).toBeLessThan(60);
-  expect(r.markers).toBe(3);
+  expect(r.markers).toBe(4);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('MONKTON GENERAL STORE');
   expect(r.programs).toBe(0);
@@ -717,7 +717,7 @@ test('a third town: Glyndon out west has its own depot and prices, and only the 
       gap: Math.hypot(monkton.x - glyndon.x, monkton.z - glyndon.z),
     };
   });
-  expect(r.villages).toEqual(['Monkton', 'Glyndon']);
+  expect(r.villages).toEqual(['Monkton', 'Glyndon', 'Cockeysville']);
   expect(r.roadB).toBeLessThan(1);
   expect(r.path).toBeGreaterThan(2);
   expect(r.houses).toBeGreaterThan(6);
@@ -726,9 +726,9 @@ test('a third town: Glyndon out west has its own depot and prices, and only the 
   expect(r.prices.jugs[2]).toBeLessThan(Math.min(r.prices.jugs[0], r.prices.jugs[1]));      // and little for jugs
   expect(r.toast).toContain('Glyndon');
   expect(r.calls).toBeLessThan(60);
-  expect(r.shown).toEqual([false, false, true]);
+  expect(r.shown).toEqual([false, false, true, false]);
   expect(r.gap).toBeLessThan(450);
-  expect(r.shownMonkton).toEqual([false, true, false]);
+  expect(r.shownMonkton).toEqual([false, true, false, false]);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('GLYNDON DEPOT');
   expect(r.programs).toBe(0);

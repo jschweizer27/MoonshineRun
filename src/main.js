@@ -24,7 +24,7 @@ import { Traffic } from './traffic.js';
 import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
+import { sell, passTime, dayOf, eventFor, eventText, townOpen } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -479,6 +479,7 @@ class Game {
     this.traffic.clear();
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
+    this._closedLeft = true;
     this._barnLeft = true;
     this._dropLeft = true;
     this._jobLeft = true;
@@ -760,10 +761,12 @@ class Game {
     this._guideLine('trunk-guide', newKind ? 'Move it with the arrows, turn it with R, and press Enter to put it down. Pieces can’t overlap; X leaves it on the road.' : '');
   }
 
-  // The nearest market, and whether the truck is inside it.
+  // The nearest market that deals with Otto at his rank, and whether the truck is inside it.
   _nearestMarket(p = this.player.position) {
     let best = null, bd = Infinity;
+    const rank = this.dredge.data.rank || 0;
     for (const t of CONFIG.dredge.towns) {
+      if (!townOpen(t, rank)) continue;
       const d = Math.hypot(t.x - p.x, t.z - p.z);
       if (d < bd) { bd = d; best = t; }
     }
@@ -774,7 +777,9 @@ class Game {
   // four draw calls, so however many towns there are it's four at most (the radar always
   // shows every market).
   _updateMarkers() {
-    const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
+    const cam = this.camera.position, range = CONFIG.dredge.market.markerRange, rank = this.dredge.data.rank || 0;
+    // A town that doesn't deal with Otto yet shows no marker.
+    CONFIG.dredge.towns.forEach((t, i) => { this.marketMarkers[i].userData.off = !townOpen(t, rank); });
     let near = null, nd = range;
     for (const m of this.markers) {
       if (m.userData.off) continue;
@@ -806,11 +811,23 @@ class Game {
 
   // Stop in a market to open it; it won't open again until you've driven out.
   _checkMarket() {
+    this._checkClosed();
     const { town, inside } = this._nearestMarket();
     if (!inside) { this._marketLeft = true; return; }
     if (!this._marketLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
     this._marketLeft = false;
     this.openMarket(town);
+  }
+
+  // A market that doesn't deal with Otto yet (a town's `rank`): stopping there says when it
+  // will, once a visit.
+  _checkClosed() {
+    const p = this.player.position, rank = this.dredge.data.rank || 0;
+    const t = CONFIG.dredge.towns.find((x) => !townOpen(x, rank) && Math.hypot(x.x - p.x, x.z - p.z) < x.radius);
+    if (!t) { this._closedLeft = true; return; }
+    if (!this._closedLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    this._closedLeft = false;
+    this.hud.toast(`The ${t.name} only deals with runners it knows. Come back when you’re a ${CONFIG.dredge.ranks[t.rank].name}.`, '', 4000);
   }
 
   // Stop in the barn's yard to open it; like a market, it waits until you've driven out.
@@ -1048,7 +1065,7 @@ class Game {
     d.taken[offer.id] = true;
     this.dredge.save();
     this._updateJobMarker();
-    this.hud.toast(`Job taken: ${wantsText(offer.wants)} to ${offer.name}`, 'gold', 3000);
+    this.hud.toast(`Job taken: ${wantsText(offer.wants)} for ${offer.name}${offer.place ? `, ${offer.place}` : ''}`, 'gold', 3000);
     return true;
   }
 
@@ -1251,7 +1268,8 @@ class Game {
     if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
-    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
+    const rank = this.dredge.data.rank || 0;
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: townOpen(t, rank) ? 'market' : 'market-closed', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
       ...this.loot.near(this.player.position, this.time < this.abil.tip.until ? Infinity : this.perks.mapRange)];
   }
 

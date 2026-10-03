@@ -15,6 +15,12 @@ const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleSt
 // The contract board (markets, speakeasies and the barn): the job in hand with what's
 // aboard for it, and the day's offers to take. `jobs` = { active(), offers(), hoursLeft(),
 // onAccept(offer), onAbandon() }.
+// A contact's face: their initials on their colour (story.js CAST).
+function face(who) {
+  const c = CAST[who];
+  return c ? el('i', { class: 'face', style: `background:${c.color}`, 'aria-hidden': 'true' }, c.initials) : '';
+}
+
 function contractRows(body, jobs, trunk, render) {
   if (!jobs) return;
   body.append(el('h3', { class: 'market-head' }, 'CONTRACTS'));
@@ -24,8 +30,8 @@ function contractRows(body, jobs, trunk, render) {
     const drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'job-drop' }, 'DROP IT');
     drop.addEventListener('click', () => { jobs.onAbandon(); render(); });
     body.append(el('div', { class: 'upgrade job active' },
-      el('div', {}, el('b', {}, `${active.name}: ${wantsText(active.wants)}`),
-        el('small', {}, `Pays ${money(active.pay)} · due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${pr.ready ? ' · ready to deliver' : ''}`)),
+      el('div', {}, face(active.who), el('b', {}, `${active.name}: ${wantsText(active.wants)}`),
+        el('small', {}, `${active.place ? `${active.place} · ` : ''}pays ${money(active.pay)} · due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${pr.ready ? ' · ready to deliver' : ''}`)),
       drop));
   }
   const offers = jobs.offers();
@@ -35,8 +41,9 @@ function contractRows(body, jobs, trunk, render) {
     take.disabled = !!active;
     take.addEventListener('click', () => { jobs.onAccept(o); render(); });
     body.append(el('div', { class: 'upgrade job' },
-      el('div', {}, el('b', {}, `${o.name}: ${wantsText(o.wants)}`),
-        el('small', {}, `Pays ${money(o.pay)} · ${o.hours} h to deliver · ${o.kind === 'farm' ? 'a farm in the valley' : 'a speakeasy in the city'}`)),
+      el('div', {}, face(o.who), el('b', {}, `${o.name}: ${wantsText(o.wants)}`),
+        el('small', {}, `${o.place} · pays ${money(o.pay)} · ${o.hours} h to deliver`),
+        o.line ? el('small', { class: 'says' }, `“${o.line}”`) : ''),
       take));
   }
 }

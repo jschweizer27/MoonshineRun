@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { RoadGraph } from './roadgraph.js';
+import { openTowns } from './market.js';
 
 // Road events: now and then something happens on the roads for a few game hours, rolled
 // from the in-game clock in slots of `hours`, starting `offset` hours after midnight (the
@@ -81,7 +82,7 @@ export class RoadEvents {
       env.setWeather('fog');
       ev.text = 'A fog bank is rolling over the valley. Mind the road out there';
     } else {
-      const towns = CONFIG.dredge.towns, t = towns[Math.floor(roll('town', slot) * towns.length)];
+      const towns = openTowns(), t = towns[Math.floor(roll('town', slot) * towns.length)];
       ev.town = t.id; ev.x = t.x; ev.z = t.z;
       if (market) market.marketDay = { town: t.id, until, mult: E.marketDay };
       ev.text = `Market day in ${t.town}: everything sells for ${Math.round((E.marketDay - 1) * 100)}% more there`;

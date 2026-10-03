@@ -23,25 +23,32 @@ const LINKS = [
   ['K2', 'N1'], ['N1', 'Y8'], ['Y8', 'N2'], ['N2', 'K4'],
   ['Y1', 'H0'], ['V2', 'L1'], ['V5', 'L2'], ['M2', 'L3'], ['M5', 'L4'], ['K2', 'L5'], ['K4', 'L6'],
 ];
-// Barns sit at the end of their farm lanes. [lane node, road node it branches from, name]
+// Barns sit at the end of their farm lanes. [lane node, road node it branches from, name,
+// the contact there who posts jobs (story.js CAST)]
 const BARNS = [
-  ['L1', 'V2', 'Stone Hollow Farm'],
-  ['L2', 'V5', 'Ridgewood Farm'],
-  ['L3', 'M2', 'Old Mill Barn'],
-  ['L4', 'M5', 'Harrow Stables'],
-  ['L5', 'K2', 'Frog Hollow'],
-  ['L6', 'K4', 'Monkton Grange'],
+  ['L1', 'V2', 'Stone Hollow Farm', 'carroll'],
+  ['L2', 'V5', 'Ridgewood Farm', 'ridgely'],
+  ['L3', 'M2', 'Old Mill Barn', 'pruitt'],
+  ['L4', 'M5', 'Harrow Stables', 'jockey'],
+  ['L5', 'K2', 'Frog Hollow', 'tolley'],
+  ['L6', 'K4', 'Monkton Grange', 'gill'],
 ];
 const FENCED = [['V1', 'V2'], ['V4', 'V5'], ['M1', 'M2'], ['M4', 'M5'], ['Y4', 'Y5'], ['K1', 'K2']];
 
 export const COUNTY = { minX: -440, maxX: 440, minZ: -1040, maxZ: -247 };
-// The villages, each round a crossroads: Monkton on York Road (node Y5), and Glyndon out
-// west where the valley road meets the western lane (node M3). Each draws from its own
-// random stream (seed + 31337 + its index), so adding one moves nothing else.
+// The villages, each round a crossroads: Monkton on York Road (node Y5), Glyndon out west
+// where the valley road meets the western lane (node M3), and Cockeysville, the quarry town,
+// at the eastern crossroads (node M6): pale stone houses, and cut blocks stacked in the
+// quarry yard on the crossroads' open side (`quarry`, the way out to it). Each draws from
+// its own random stream (seed + 31337 + its index), so adding one moves nothing else.
 export const VILLAGES = [
   { name: 'Monkton', at: NODES.Y5 },
   { name: 'Glyndon', at: NODES.M3 },
+  { name: 'Cockeysville', at: NODES.M6, colors: [0xded8cc, 0xcac4b6, 0xb5afa2, 0x9d978c, 0x7a766d, 0x8a3b2e], quarry: [1, 0] },
 ];
+// Sheriff Hale's county lockup in Cockeysville, where his jobs are delivered: this far up
+// the road from the crossroads toward E1.
+const LOCKUP = { from: NODES.M6, toward: NODES.E1, along: 36 };
 const ROAD_W = 10;
 
 export function buildCounty(world, rng) {
@@ -87,12 +94,13 @@ export function buildCounty(world, rng) {
   scene.add(roads);
 
   // Barns (instanced bodies and roofs) with a lantern by each door.
-  const barnSpots = BARNS.map(([lane, from, name]) => barnAt(NODES[lane], NODES[from], name));
+  const barnSpots = BARNS.map(([lane, from, name, who]) => ({ ...barnAt(NODES[lane], NODES[from], name), who }));
   const home = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s barn'), home: true };
   // The villages: clapboard houses and stores round their crossroads, drawn with the barns'
   // kit (each has a market at its crossroads).
-  const villages = VILLAGES.map((v, i) => villageAround(v.at, edges, createRng((world.seed ?? 0) + 31337 + i), barnSpots.concat(home)));
+  const villages = VILLAGES.map((v, i) => villageAround(v.at, edges, createRng((world.seed ?? 0) + 31337 + i), barnSpots.concat(home), v.colors));
   const village = villages.flat();
+  const quarry = VILLAGES.filter((v) => v.quarry).flatMap((v) => quarryYard(v.at, v.quarry));
   const all = [...barnSpots, home, ...village];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
@@ -116,6 +124,8 @@ export function buildCounty(world, rng) {
     if (!b.house || b.lantern) world.extraLights.push({ x: b.x + b.fx * (d / 2 + 1.5) + b.fz * (w / 2 - 1), z: b.z + b.fz * (d / 2 + 1.5) - b.fx * (w / 2 - 1), tx: b.fx, tz: b.fz, pole: false });
   });
   world.villages = VILLAGES.map((v, i) => ({ name: v.name, x: v.at[0], z: v.at[1], houses: villages[i].length }));
+  const [lx, lz] = LOCKUP.from, [tx, tz] = LOCKUP.toward, ll = Math.hypot(tx - lx, tz - lz);
+  world.lockup = { name: 'Cockeysville Lockup', x: lx + ((tx - lx) / ll) * LOCKUP.along, z: lz + ((tz - lz) / ll) * LOCKUP.along, who: 'sheriff' };
   for (const im of [body, roof, door]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   body.instanceColor.needsUpdate = true;
 
@@ -146,7 +156,8 @@ export function buildCounty(world, rng) {
   const greens = [0x24381f, 0x2c4424, 0x1f3019, 0x34502a, 0x2a3b1c];
   // A tree standing on a village house is left out (scaled to nothing, no collider). It
   // still draws its random numbers, so everything built after the woods stays put.
-  const onHouse = ([x, z]) => village.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3);
+  const onHouse = ([x, z]) => village.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3)
+    || quarry.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3);
   trees.forEach(([x, z, sc], i) => {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * Math.PI * 2);
     const k = onHouse([x, z]) ? 0 : 1;
@@ -185,26 +196,36 @@ export function buildCounty(world, rng) {
   });
   for (const im of [postMesh, railMesh]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
 
-  // Low fieldstone walls mark the edge of the county (one instanced draw for all five).
+  // Low fieldstone walls mark the edge of the county, and the quarry's cut blocks are stacked
+  // in layers of the same stone (one instanced draw for them all).
   const { minX, maxX, minZ, maxZ } = COUNTY;
   const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], [maxX, minZ, maxX, maxZ], [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
+  const blocks = quarry.flatMap((b) => Array.from({ length: b.layers }, (_, k) => [b, k]));
   const wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.2, 1).translate(0, 0.6, 0),
-    atlasMaterial(world.atlas, { side: 'fieldstone', tile: 2.5, color: 0xb8b8b8, roughness: 1 }), walls.length);
+    atlasMaterial(world.atlas, { side: 'fieldstone', tile: 2.5, color: 0xb8b8b8, roughness: 1 }), walls.length + blocks.length);
   walls.forEach(([x0, z0, x1, z1], i) => {
     const w = Math.max(1, Math.abs(x1 - x0)), d = Math.max(1, Math.abs(z1 - z0));
     wallMesh.setMatrixAt(i, m.compose(p.set((x0 + x1) / 2, 0, (z0 + z1) / 2), q.identity(), s.set(w, 1, d)));
   });
+  blocks.forEach(([b, k], i) => {
+    // Each layer a little smaller than the one under it, and turned a touch.
+    const shrink = 1 - k * 0.12;
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.turn * (k % 2 ? -1 : 1));
+    wallMesh.setMatrixAt(walls.length + i, m.compose(p.set(b.x, k * 1.2, b.z), q, s.set(b.w * shrink, 1, b.d * shrink)));
+  });
+  for (const b of quarry) {
+    world.collision.addBox(b.x - b.w / 2, b.z - b.d / 2, b.x + b.w / 2, b.z + b.d / 2, { tag: 'quarry' });
+    world.buildings.push({ minX: b.x - b.w / 2, minZ: b.z - b.d / 2, maxX: b.x + b.w / 2, maxZ: b.z + b.d / 2, h: b.layers * 1.2, quarry: true });
+  }
   wallMesh.instanceMatrix.needsUpdate = true;
   scene.add(wallMesh);
 
   return { barns: barnSpots, home };
 }
 
-// A barn at the end of a lane, its door facing back down the lane.
 // Houses and stores along the four roads out of a crossroads, set back behind the verge,
 // fronts to the road (snapped to an axis, like the barns), clear of every road.
-function villageAround([cx, cz], edges, rng, barns = []) {
-  const COLORS = [0xd8d2c4, 0xc9bfa6, 0x8a3b2e, 0x5f6a72, 0x6b6e52, 0xb8a684];
+function villageAround([cx, cz], edges, rng, barns = [], COLORS = [0xd8d2c4, 0xc9bfa6, 0x8a3b2e, 0x5f6a72, 0x6b6e52, 0xb8a684]) {
   const arms = edges.filter(([a, b]) => (a.x === cx && a.z === cz) || (b.x === cx && b.z === cz))
     .map(([a, b]) => { const o = a.x === cx && a.z === cz ? b : a, len = Math.hypot(o.x - cx, o.z - cz); return [(o.x - cx) / len, (o.z - cz) / len]; });
   const out = [];
@@ -228,6 +249,23 @@ function villageAround([cx, cz], edges, rng, barns = []) {
   return out;
 }
 
+// A quarry yard: stacks of cut blocks in rows, out along `[ux, uz]` from a crossroads (its
+// open side), clear of the road. No random numbers: the stacks' heights follow a pattern.
+function quarryYard([cx, cz], [ux, uz]) {
+  const out = [];
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 4; col++) {
+      const along = 18 + row * 5.5, across = (col - 1.5) * 6.5;
+      out.push({
+        x: cx + ux * along - uz * across, z: cz + uz * along + ux * across,
+        w: 3.6, d: 2.4, layers: 1 + ((row * 2 + col * 3) % 3), turn: ((row + col) % 3 - 1) * 0.06,
+      });
+    }
+  }
+  return out;
+}
+
+// A barn at the end of a lane, its door facing back down the lane.
 function barnAt(lane, from, name) {
   const dx = lane[0] - from[0], dz = lane[1] - from[1];
   const len = Math.hypot(dx, dz);

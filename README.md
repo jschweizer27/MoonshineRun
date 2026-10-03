@@ -69,7 +69,9 @@ Enter, the D-pad and A/B, or touch.
 4. With loot aboard, the banner's arrow and the **gold route** on the radar lead to the
    nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, the
    **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
-   in the valley. Each town pays differently,
+   in the valley. Out east, the quarry town of **Cockeysville** has a company store that pays
+   best for copper, kegs and barrels, but it only deals with a **Runner** (see ranks, below);
+   until then its mark on the radar is barred. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
@@ -90,8 +92,11 @@ Enter, the D-pad and A/B, or touch.
    gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
    to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
    Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
-9. **Contracts**: the speakeasies and the farms post jobs each day, on the board at any market,
-   speakeasy or the barn. Take one (one at a time), bring what they want before it's due, and
+9. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
+   board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
+   Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
+   own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
+   Cockeysville. Take one job (one at a time), bring what they want before it's due, and
    stop at their door: they pay well over the market. Keeping your word builds your
    reputation; dropping a job or missing its deadline costs some.
 10. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
@@ -206,7 +211,8 @@ src/
   config.js     all tuning numbers
   world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, named corners
   atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
-  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton and Glyndon
+  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton, Glyndon and
+                Cockeysville (with its quarry yard)
   environment.js  day/night cycle and weather
   loot.js       loot along the roads (pooled, one instanced mesh for every kind)
   traffic.js    cars, vans and carts on the roads near the view (pooled, one instanced mesh)

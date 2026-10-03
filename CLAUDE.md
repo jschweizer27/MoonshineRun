@@ -39,7 +39,10 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   palette, towns, prices, market, trunk, upgrades and loot; the palette themes every screen
   through `--d-*` CSS variables under `html.dredge` (set by `hud.js`). A market's marker
   costs four draw calls, so only the one nearest the camera shows, within
-  `market.markerRange`.
+  `market.markerRange`. A town with a `rank` (Cockeysville) only deals with Otto from that
+  rank (`market.townOpen`): until then `main._nearestMarket` skips it (so does the route), its
+  marker is off, the radar shows it barred (`market-closed`) and `main._checkClosed` says
+  when. Market events and market days only come to the towns without one (`openTowns`).
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
 - Otto's barn (`world.home`, a `county.js` barn with a stop point `stopX/stopZ` in its yard;
@@ -52,8 +55,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `screens.js` runs a batch on its own clock (`manual()` + `step()` in tests). Brewed kinds
   are loot kinds with `brewed: true` (weight 0); `market.buys` keeps them out of the markets
   and lets the speakeasies (`world.drops`, town ids `drop:<n>`) buy only them.
-- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms;
-  `offersFor(day, ...)` rolls the day's jobs like `eventFor`; `progress` / `handOver`).
+- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms,
+  and Sheriff Hale's lockup in Cockeysville from his `rank`; `offersFor(day, ...)` rolls the
+  day's jobs like `eventFor`; `progress` / `handOver`). Every contact is a character: `who`
+  on `DROPS` (world.js) and `BARNS` (county.js) names a `CAST` entry in `story.js`, whose
+  `asks` lines go on the board with each job (`line`).
   `main._jobs()` is the board the market and barn screens show; `data.contract` is the job in
   hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
   earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
@@ -118,7 +124,7 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `CONFIG.look.atmosphere`.
 - `src/world.js` city generation (seeded; `world.drops` are the named corners, where the
   speakeasy jazz plays), `county.js` (the valley, barns, the villages in `VILLAGES`:
-  Monkton and Glyndon), `collision.js` (2D grid colliders + the line-of-sight test the
+  Monkton, Glyndon and Cockeysville with its quarry yard), `collision.js` (2D grid colliders + the line-of-sight test the
   camera pulls in by), `roadgraph.js` (pathfinding, the radar's GPS route), `vehicle.js`
   (physics), `hud.js` (DOM).
 - Input/UI: `input.js` (remappable keys via `e.code`, gamepad polling, touch controls)
