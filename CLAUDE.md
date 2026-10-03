@@ -70,6 +70,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Road events: `src/roadevents.js`, rolled per slot of game hours (`CONFIG.dredge.roadEvents`,
+  offset from midnight so they never land with the daily demand). A blocked road gets an
+  edge key in `blocked` (shared with traffic and `minimap.blocked`, so routes and cars go
+  around), a capsule collider and a parked traffic cart (`traffic.park`). Market day is
+  `market.marketDay` in the saved market state, which `priceOf` reads. `main` shows the
+  toasts and the radar's ⚠.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

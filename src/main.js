@@ -21,6 +21,7 @@ import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
 import { Loot } from './loot.js';
 import { Traffic } from './traffic.js';
+import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
 import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
@@ -99,6 +100,7 @@ class Game {
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pickups along the roads
     this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
     this.traffic.enabled = OPTIONS.traffic;
+    this.roadEvents = new RoadEvents(this.world, this.traffic);   // washouts, breakdowns, fog, market days
     this.dredge = new DredgeCareer();                                // the save: cash, trunk, upgrades
     // Town markets: a marker each, built now and shown only near the camera (_updateMarkers).
     this.marketMarkers = CONFIG.dredge.towns.map((t) => {
@@ -139,6 +141,7 @@ class Game {
     });
     this.audio = new Audio();
     this.minimap = new MiniMap(this.world, $('minimap'), $('map-canvas'));
+    this.minimap.blocked = this.roadEvents.blocked;              // the route goes around closed roads
     this.input.onAction = (a, dev) => this._onAction(a, dev);
     this.input.onDevice = () => { this._applyTouch(); this._updateStartHint(); };
 
@@ -472,6 +475,7 @@ class Game {
     this.particles.clear();
     this.props.reset();
     this.loot.reset(this.player.position);
+    this.roadEvents.reset(this.dredge.market);
     this.traffic.clear();
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
@@ -690,6 +694,8 @@ class Game {
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
+    const road = this.roadEvents.update(this.dredge.market.clock, this.env, this.dredge.market);
+    if (road) this.hud.toast(road.what === 'start' ? road.ev.text : RoadEvents.endText(road.ev), road.what === 'start' ? 'gold' : '', road.what === 'start' ? 5000 : 2500);
     this._checkEvent();
     this._updateMarkers();
     this._tickAbilities();
@@ -1243,6 +1249,8 @@ class Game {
     const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
     const c = this.dredge.data.contract;
     if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
+    const re = this.roadEvents.active;
+    if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
       ...this.loot.near(this.player.position, this.time < this.abil.tip.until ? Infinity : this.perks.mapRange)];
   }

@@ -82,7 +82,10 @@ Enter, the D-pad and A/B, or touch.
 7. The roads aren't empty: motor cars, delivery vans and horse carts go about their
    business, busier in the city than the valley and quieter late at night. Hit one and it's a
    crash like any other: it wears the truck, and a hard one can throw a piece out of the
-   trunk onto the road.
+   trunk onto the road. Now and then something happens out there for a few hours: rain
+   washes out a valley road, a farm cart breaks down across one (a ⚠ on the radar; the
+   route goes around), a fog bank rolls in, or a town holds its **market day** and pays 15%
+   more for everything.
 8. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
    gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
    to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
@@ -207,6 +210,7 @@ src/
   environment.js  day/night cycle and weather
   loot.js       loot along the roads (pooled, one instanced mesh for every kind)
   traffic.js    cars, vans and carts on the roads near the view (pooled, one instanced mesh)
+  roadevents.js washouts, broken-down carts, fog banks and market days
   trunk.js, trunkscreen.js   the trunk grid and its screen
   market.js     prices and selling (drift, gluts)
   dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger

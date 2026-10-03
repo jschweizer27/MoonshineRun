@@ -102,7 +102,9 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       ? 'Prices change day to day, and drop as you sell more of the same thing here.'
       : speakeasy ? 'Nothing aboard they want: a speakeasy only buys shine.' : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.')
       + (unsold && all.count ? (speakeasy ? ' They only buy shine.' : ' Shine sells at the speakeasies, not the markets.') : '')
-      + (ev && !speakeasy ? ` ${eventText(ev)}.` : '');
+      + (ev && !speakeasy ? ` ${eventText(ev)}.` : '')
+      + (career.market.marketDay?.town === town.id && (career.market.clock || 0) < career.market.marketDay.until
+        ? ` It's market day: everything sells for ${Math.round((career.market.marketDay.mult - 1) * 100)}% more.` : '');
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
     if (again && !again.disabled) again.focus();
     else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('market')) ui.focusFirst();

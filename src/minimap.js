@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
-const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, barn: P.cream, drop: P.copper, job: '#f2c55c', me: '#ece3cf' };
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, barn: P.cream, drop: P.copper, job: '#f2c55c', roadblock: '#e8735a', me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -62,7 +62,7 @@ export class MiniMap {
     this._routeTarget = { x: to.x, z: to.z };
     const roads = this.world.roads;
     const a = roads.nearest(from.x, from.z), b = roads.nearest(to.x, to.z);
-    const ids = roads.path(a.id, b.id) || [];
+    const ids = roads.path(a.id, b.id, this.blocked) || roads.path(a.id, b.id) || [];
     this.route = [...ids.map((i) => roads.nodes[i]), { x: to.x, z: to.z }];
   }
 
@@ -172,6 +172,9 @@ function drawMarker(g, kind, x, y, r) {
     // Market: a hexagon.
     for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); }
     g.closePath();
+  } else if (kind === 'roadblock') {
+    // A road event's blocked road: a warning triangle (shown at any range).
+    g.moveTo(x, y - r * 1.3); g.lineTo(x + r * 1.2, y + r * 0.9); g.lineTo(x - r * 1.2, y + r * 0.9); g.closePath();
   } else if (kind === 'job') {
     // A contract's delivery: a big gold ring, shown at any range (on the rim when far).
     g.arc(x, y, r * 1.25, 0, Math.PI * 2);

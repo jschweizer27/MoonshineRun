@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createRng } from './rng.js';
+import { RoadGraph } from './roadgraph.js';
 
 // Traffic: a fixed pool of 1920s vehicles (a motor car, a delivery van, a horse cart) that
 // drive the road graph near the camera, in the right-hand lane, turning at junctions,
@@ -8,7 +9,9 @@ import { createRng } from './rng.js';
 // their own) and live only near the view: each turns up out of sight ahead and goes again
 // once far behind. All of them are one draw call: the three bodies share one geometry,
 // each vertex tagged with its body (aKind), and each instance shows its own (iKind), the
-// same trick as the loot. Built at boot; nothing is allocated while driving.
+// same trick as the loot. Built at boot; nothing is allocated while driving. A road event
+// can `park` one across a road (a stuck cart): it stays put, still in the way, and the rest
+// keep off the edges in `blocked` (shared with the road events).
 const T = CONFIG.dredge.traffic;
 export const BODIES = ['car', 'van', 'cart'];
 
@@ -79,7 +82,7 @@ export class Traffic {
     this.rng = createRng(seed ^ 0x7aff1c);
     const n = this.n = T.count;
     this.cars = Array.from({ length: n }, (_, i) => ({
-      i, on: false, body: 0, from: 0, to: 0, t: 0, len: 1, speed: 0, cruise: 0, stun: 0,
+      i, on: false, parked: false, body: 0, from: 0, to: 0, t: 0, len: 1, speed: 0, cruise: 0, stun: 0,
       position: new THREE.Vector3(), heading: 0, vx: 0, vz: 0,
       get forwardX() { return Math.sin(this.heading); },
       get forwardZ() { return -Math.cos(this.heading); },
@@ -105,10 +108,51 @@ export class Traffic {
     scene.add(this.mesh);
     this._o = new THREE.Object3D();
     this.enabled = true;
+    this.blocked = new Set();          // road edges (RoadGraph.edgeKey) closed by a road event
+    this._cam = { x: 0, z: 0 };
   }
 
+  // Off the roads (a new run). Parked vehicles are the road events' to let go of.
   clear() {
-    for (const c of this.cars) { c.on = false; c.mesh.visible = false; }
+    for (const c of this.cars) if (!c.parked) { c.on = false; c.mesh.visible = false; }
+    this._write();
+  }
+
+  _closed(a, b) { return this.blocked.size > 0 && this.blocked.has(RoadGraph.edgeKey(a, b)); }
+
+  // Stop a vehicle across the middle of the road from node `from` to `to`, slewed at an
+  // angle (a cart stuck in a washout, or broken down): a free slot, or else the one furthest
+  // from the view. Anything driving that stretch turns back. Returns the car.
+  park(from, to, body = 'cart') {
+    let c = this.cars.find((x) => !x.on), far = -1;
+    if (!c) {
+      for (const x of this.cars) {
+        if (x.parked) continue;
+        const d = Math.hypot(x.position.x - this._cam.x, x.position.z - this._cam.z);
+        if (d > far) { far = d; c = x; }
+      }
+    }
+    if (!c) return null;
+    const a = this.roads.nodes[from], b = this.roads.nodes[to];
+    c.on = true; c.parked = true; c.mesh.visible = true;
+    c.body = Math.max(0, BODIES.indexOf(body));
+    c.speed = c.cruise = c.stun = 0;
+    this._setLeg(c, from, to, 0);
+    c.t = c.len / 2;
+    c.position.set((a.x + b.x) / 2, 0, (a.z + b.z) / 2);
+    c.heading = Math.atan2(b.x - a.x, -(b.z - a.z)) + 1.2;
+    c.vx = c.vz = 0;
+    for (const x of this.cars) {
+      const same = (x.from === from && x.to === to) || (x.from === to && x.to === from);
+      if (x !== c && x.on && !x.parked && same) { [x.from, x.to] = [x.to, x.from]; x.t = x.len - x.t; this._place(x); }
+    }
+    this._write();
+    return c;
+  }
+
+  unpark(c) {
+    if (!c || !c.parked) return;
+    c.parked = false; c.on = false; c.mesh.visible = false;
     this._write();
   }
 
@@ -125,15 +169,17 @@ export class Traffic {
     const events = [];
     if (!this.enabled) return events;
     const p = player.position, cam = camera || p, want = this.want(p, hour);
+    this._cam.x = cam.x; this._cam.z = cam.z;
     let out = 0;
     for (const c of this.cars) {
+      if (c.parked) continue;
       if (c.on && Math.hypot(c.position.x - cam.x, c.position.z - cam.z) > T.despawn) { c.on = false; c.mesh.visible = false; }
       if (c.on) out++;
     }
     for (const c of this.cars) {
       if (!c.on && out < want && this._spawn(c, cam, player)) out++;
       if (!c.on) continue;
-      this._drive(c, dt, player);
+      if (!c.parked) this._drive(c, dt, player);
       const hit = this._collide(c, player);
       if (hit) events.push(hit);
     }
@@ -153,6 +199,7 @@ export class Traffic {
       const ahead = (a.x - player.position.x) * player.forwardX + (a.z - player.position.z) * player.forwardZ;
       if (ahead > 0 && ahead > d * 0.7) continue;                     // squarely ahead: you'd see it pop in
       const b = nodes[a.links[Math.floor(rng() * a.links.length)]];
+      if (this._closed(a.id, b.id)) continue;
       if (this.cars.some((o) => o.on && Math.hypot(o.position.x - a.x, o.position.z - a.z) < 12)) continue;
       const r = rng();
       c.body = r < T.mix[0] ? 0 : r < T.mix[0] + T.mix[1] ? 1 : 2;
@@ -202,7 +249,7 @@ export class Traffic {
     // At the end of a leg: on to a next one, not straight back (unless it's a dead end).
     while (c.t >= c.len) {
       const node = this.roads.nodes[c.to], over = c.t - c.len;
-      const next = node.links.filter((id) => id !== c.from);
+      const next = node.links.filter((id) => id !== c.from && !this._closed(node.id, id));
       const pick = next.length ? next[Math.floor(this.rng() * next.length)] : c.from;
       this._setLeg(c, c.to, pick, over);
     }

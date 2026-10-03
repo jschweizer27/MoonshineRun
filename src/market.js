@@ -51,9 +51,11 @@ export function priceOf(town, kind, state, extraSold = 0) {
   const day = dayOf(state);
   const drift = 1 + M.drift * wobble(town, kind, day);
   const ev = eventFor(day), event = ev && ev.town === town && ev.kind === kind ? ev.mult : 1;
+  // A road event's market day: the town pays more for everything until it's over.
+  const md = state.marketDay, marketDay = md && md.town === town && (state.clock || 0) < md.until ? md.mult : 1;
   const sold = (state.sold[`${town}:${kind}`] || 0) + extraSold;
   const glut = Math.max(M.glutFloor, 1 - M.glut * sold);
-  return Math.max(1, Math.round(base * drift * glut * event));
+  return Math.max(1, Math.round(base * drift * glut * event * marketDay));
 }
 
 // What selling every piece of `kind` (or everything when null) would fetch, piece by piece

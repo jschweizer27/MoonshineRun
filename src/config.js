@@ -218,6 +218,13 @@ export const CONFIG = {
     // collision circles; `stun` seconds a car stops after a knock; a hit harder than
     // `spill` (m/s) throws a piece out of the trunk. PLACEHOLDERS: tune after playtesting.
     traffic: { count: 8, county: 3, night: 0.5, spawn: [90, 220], despawn: 260, mix: [0.5, 0.3], speeds: [11, 9, 5], lane: 2.2, gap: 7, radius: 1.1, offset: 1.3, stun: 1.5, spill: 11 },
+    // Road events (src/roadevents.js): every `hours` game hours there's a `chance` of one
+    // (a washout, a broken-down cart, a fog bank, a market day), lasting the first `lasts`
+    // share of that time; the slots start `offset` hours after midnight, so an event never
+    // turns up at the same moment as the day's market demand. A blocked road's barrier is
+    // `span` metres across; on market day the town pays `marketDay` x. PLACEHOLDERS: tune
+    // after playtesting.
+    roadEvents: { hours: 4, offset: 2, chance: 0.6, lasts: 0.75, span: 14, marketDay: 1.15 },
     // Ranks: reputation (contracts, brews, rare finds) lifts Otto through them; each unlocks
     // recipes (CONFIG.dredge.brew), upgrade levels (`ranks` on each upgrade), abilities and,
     // at the top, the brewery deed. Reputation: a contract's pay / contracts.repPer, a brew's
