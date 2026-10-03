@@ -75,6 +75,58 @@ export function playTime(seconds) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
 }
 
+// ---------- Otto's barn ----------
+// The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
+// the truck's wear). Callbacks do the work; this draws and re-draws.
+export function showBarn(ui, { career, getTrunk, cap, onStore, onTake, onStoreAll, onRepair, onTrunk, onBack }) {
+  const render = () => {
+    const trunk = getTrunk(), d = career.data, body = $('barn-body');
+    const focusedId = document.activeElement?.dataset?.id;
+    $('barn-cash').textContent = money(career.cash);
+    body.textContent = '';
+    const inTrunk = {};
+    for (const p of trunk.pieces.values()) inTrunk[p.kind] = (inTrunk[p.kind] || 0) + 1;
+    const used = career.stashCells();
+    body.append(el('h3', { class: 'market-head' }, `THE STASH · ${used}/${cap} CELLS`));
+    const kinds = CONFIG.dredge.loot.kinds.filter((k) => inTrunk[k.id] || d.stash[k.id]);
+    if (!kinds.length) body.append(el('p', { class: 'hint' }, 'Nothing in the trunk or the stash. What you store here waits for you between runs.'));
+    for (const k of kinds) {
+      const n = inTrunk[k.id] || 0, m = d.stash[k.id] || 0;
+      const store = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `store-${k.id}` }, 'STORE');
+      store.disabled = !n || used + k.cells.length > cap;
+      store.addEventListener('click', () => { onStore(k.id); render(); });
+      const take = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `take-${k.id}` }, 'TAKE');
+      take.disabled = !m || !trunk.findSpot(k.id);
+      take.addEventListener('click', () => { onTake(k.id); render(); });
+      body.append(el('div', { class: 'upgrade' },
+        el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
+          el('b', {}, k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
+        el('span', { class: 'slot-buttons' }, store, take)));
+    }
+    // The garage.
+    body.append(el('h3', { class: 'market-head' }, 'THE GARAGE'));
+    const cost = career.repairCost(), health = Math.round((1 - d.wear) * 100);
+    const fix = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'repair' }, cost ? `REPAIR ${money(cost)}` : 'SOUND');
+    fix.disabled = !cost || career.cash < cost;
+    fix.addEventListener('click', () => { onRepair(); render(); });
+    body.append(el('div', { class: 'upgrade' },
+      el('div', {}, el('b', {}, `The truck: ${health}%`),
+        el('small', {}, d.wear > 0.01 ? 'Knocks and crashes wear it; a worn truck is slower until it’s mended.' : 'In good shape.')),
+      fix));
+    $('barn-store-all').disabled = !trunk.count || used >= cap;
+    $('barn-note').textContent = 'Store loot here to make room in the trunk, and take it when you need it.';
+    const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
+    if (again && !again.disabled) again.focus();
+    else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('barn')) ui.focusFirst();
+  };
+  $('barn-store-all').onclick = () => { onStoreAll(); render(); };
+  $('barn-trunk').onclick = () => onTrunk();
+  $('barn-done').onclick = () => onBack();
+  render();
+  ui.open('barn', { onBack });
+  return render;
+}
+
 // ---------- Saved games ----------
 // Three slots, each with what it holds and PLAY / NEW GAME / ERASE. `onPlay(slot)` loads a
 // slot and starts; `onNew(slot)` wipes it and starts fresh; `onErase(slot)` wipes it.

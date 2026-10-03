@@ -40,6 +40,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `market.markerRange`.
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
+- Otto's barn (`world.home`, a `county.js` barn with a stop point `stopX/stopZ` in its yard;
+  `CONFIG.dredge.barn`): `main.openBarn` / `showBarn` (stash as counts per kind in
+  `data.stash`, capped in trunk cells; the garage repairs `data.wear`, which hard knocks add
+  in `main._wear` and `_applyPerks` turns into lost top speed; `CONFIG.dredge.wear`). Its
+  marker joins `main.markers`, where only the nearest marker shows.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

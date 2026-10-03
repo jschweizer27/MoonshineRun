@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { loadJSON, saveJSON, removeKey } from './save.js';
-import { Trunk } from './trunk.js';
+import { Trunk, KINDS } from './trunk.js';
 
 // Otto's saved progress: cash, what's in the trunk, upgrade levels, the markets' memory
 // (gluts and the in-game clock), stats and a ledger. There are three save slots; slot 1
@@ -18,6 +18,8 @@ const DEFAULT = {
   trunk: null,               // Trunk.toJSON()
   upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0 },
   market: { sold: {}, clock: 0 },
+  stash: {},                 // loot kept at Otto's barn: kind -> count
+  wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
   story: {},                 // beat id -> true once its cards have played (story.js)
   flags: {},                 // milestones the story reads: valley (reached a valley town), ...
@@ -67,6 +69,8 @@ export class DredgeCareer {
     d.upgrades = { ...DEFAULT.upgrades, ...(d.upgrades || {}) };
     d.ledger = Array.isArray(d.ledger) ? d.ledger : [];
     d.story = { ...(d.story || {}) };
+    d.stash = { ...(d.stash || {}) };
+    d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     this.data = d;
   }
@@ -106,6 +110,27 @@ export class DredgeCareer {
   saveTrunk(trunk) {
     this.data.trunk = trunk.toJSON();
     this.save();
+  }
+
+  // The stash at the barn, in trunk cells.
+  stashCells() {
+    let n = 0;
+    for (const [kind, count] of Object.entries(this.data.stash)) n += (KINDS[kind]?.cells.length || 0) * count;
+    return n;
+  }
+
+  // What a repair costs now (worn more, costs more).
+  repairCost() { return Math.ceil(this.data.wear * CONFIG.dredge.wear.repairCost); }
+
+  repair() {
+    const cost = this.repairCost();
+    if (!cost || this.data.cash < cost) return false;
+    this.data.cash -= cost;
+    this.data.wear = 0;
+    this.data.ledger.unshift({ t: Date.now(), text: 'Repairs at the barn', amount: -cost });
+    this.data.ledger.length = Math.min(this.data.ledger.length, 40);
+    this.save();
+    return true;
   }
 
   // A sale at a market: cash, stats and a ledger line.

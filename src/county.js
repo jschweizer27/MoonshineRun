@@ -197,7 +197,7 @@ export function buildCounty(world, rng) {
   wallMesh.instanceMatrix.needsUpdate = true;
   scene.add(wallMesh);
 
-  return { barns: barnSpots };
+  return { barns: barnSpots, home };
 }
 
 // A barn at the end of a lane, its door facing back down the lane.
@@ -236,7 +236,9 @@ function barnAt(lane, from, name) {
   // Door faces the lane: -direction, snapped to an axis.
   const fx = alongX ? -Math.sign(ux) : 0, fz = alongX ? 0 : -Math.sign(uz);
   const x = lane[0] + ux * 22, z = lane[1] + uz * 22;
-  return { name, x, z, fx, fz, rot: alongX ? Math.PI / 2 : 0, laneX: lane[0], laneZ: lane[1] };
+  // Where a truck stops in the yard, between the lane's end and the door.
+  const stopX = lane[0] + ux * 7, stopZ = lane[1] + uz * 7;
+  return { name, x, z, fx, fz, rot: alongX ? Math.PI / 2 : 0, laneX: lane[0], laneZ: lane[1], stopX, stopZ };
 }
 
 function ribbonGeometry(edges, nodes) {

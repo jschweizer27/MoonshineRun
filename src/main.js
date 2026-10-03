@@ -11,7 +11,7 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, showSlots, playDialog, money } from './screens.js';
+import { showLedger, showMarket, showSlots, showBarn, playDialog, money } from './screens.js';
 import { BEATS, nextBeat } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
@@ -100,6 +100,12 @@ class Game {
       return m;
     });
     this._marketLeft = true;                                          // left the market since it last opened
+    // Otto's barn, the home base: its marker shares the rule (only the nearest shows).
+    const home = this.world.home;
+    this.barnMarker = makeMarker(this.scene, CONFIG.dredge.palette.cream, 'BARN', 'barn');
+    this.barnMarker.position.set(home.stopX, 0, home.stopZ);
+    this.markers = [...this.marketMarkers, this.barnMarker];
+    this._barnLeft = true;
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
     this.slowMo = 0;
@@ -284,9 +290,11 @@ class Game {
   // shows, how big the trunk is and which body it wears.
   _applyPerks() {
     const base = CONFIG.player, D = CONFIG.dredge, U = D.upgrades, lv = (id) => this.dredge.level(id);
+    // A worn truck loses some of its top speed until it's repaired.
+    const worn = 1 - this.dredge.data.wear * D.wear.maxSlow;
     const car = {
       ...base,
-      maxSpeed: base.maxSpeed + U.engine.step.maxSpeed * lv('engine'),
+      maxSpeed: (base.maxSpeed + U.engine.step.maxSpeed * lv('engine')) * worn,
       accel: base.accel + U.engine.step.accel * lv('engine'),
       grip: base.grip + U.handling.step.grip * lv('handling'),
       turnRate: base.turnRate + U.handling.step.turnRate * lv('handling'),
@@ -306,6 +314,7 @@ class Game {
     this.player.setLook(lv('trunk') > 0 ? 'reinforced' : 'stock');
     Object.assign(this.player.t, car);
     this.gripBase = car.grip;
+    this._updateWearPill();
   }
 
   // ---------- Screens ----------
@@ -441,6 +450,7 @@ class Game {
     this.loot.reset(this.player.position);
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
+    this._barnLeft = true;
     this.place = this._placeName();
     this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
@@ -638,6 +648,7 @@ class Game {
       this.feel.hit(this.player.impact / 20);
       this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
       this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
+      this._wear(this.player.impact);
     }
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
@@ -651,6 +662,7 @@ class Game {
     this._checkEvent();
     this._updateMarkers();
     this._checkMarket();
+    this._checkBarn();
     this._checkPlace();
     this._checkStory(dt);
     this.debris.update(dt);
@@ -724,11 +736,12 @@ class Game {
   _updateMarkers() {
     const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
     let near = null, nd = range;
-    for (const m of this.marketMarkers) {
+    for (const m of this.markers) {
+      if (m.userData.off) continue;
       const d = Math.hypot(m.position.x - cam.x, m.position.z - cam.z);
       if (d < nd) { nd = d; near = m; }
     }
-    for (const m of this.marketMarkers) {
+    for (const m of this.markers) {
       m.visible = m === near;
       animateMarker(m, this.time, cam);
     }
@@ -758,6 +771,69 @@ class Game {
     if (!this._marketLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
     this._marketLeft = false;
     this.openMarket(town);
+  }
+
+  // Stop in the barn's yard to open it; like a market, it waits until you've driven out.
+  _checkBarn() {
+    const h = this.world.home, p = this.player.position;
+    if (Math.hypot(p.x - h.stopX, p.z - h.stopZ) > CONFIG.dredge.barn.radius) { this._barnLeft = true; return; }
+    if (!this._barnLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    this._barnLeft = false;
+    this.openBarn();
+  }
+
+  // Otto's barn: the stash and the garage.
+  openBarn() {
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    if (this.state !== STATE.PAUSED) return;
+    const d = this.dredge.data, cap = CONFIG.dredge.barn.stashCells;
+    const changed = () => { this.dredge.saveTrunk(this.trunk); this._updateTrunkPill(); };
+    const store = (kind) => {
+      const p = [...this.trunk.pieces.values()].find((q) => q.kind === kind);
+      if (!p || this.dredge.stashCells() + p.cells.length > cap) return false;
+      this.trunk.remove(p.id);
+      d.stash[kind] = (d.stash[kind] || 0) + 1;
+      return true;
+    };
+    this._barnRender = showBarn(this.ui, {
+      career: this.dredge, getTrunk: () => this.trunk, cap,
+      onStore: (kind) => { if (store(kind)) changed(); },
+      onStoreAll: () => { for (const p of [...this.trunk.pieces.values()]) store(p.kind); changed(); },
+      onTake: (kind) => {
+        const spot = d.stash[kind] && this.trunk.findSpot(kind);
+        if (!spot) return;
+        this.trunk.place(kind, spot.x, spot.y, spot.rot);
+        if (--d.stash[kind] <= 0) delete d.stash[kind];
+        changed();
+      },
+      onRepair: () => {
+        const cost = this.dredge.repairCost();
+        if (!this.dredge.repair()) return;
+        this._applyPerks();
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`−${money(cost)}`);
+        this.audio.cash?.();
+      },
+      onTrunk: () => this.trunkScreen.open(this.trunk),
+      onBack: () => { this.ui.close('barn'); this._barnRender = null; if (!this.ui.anyOpen) this.resume(); },
+    });
+  }
+
+  // A hard knock wears the truck (it slows until mended at the barn).
+  _wear(impact) {
+    const W = CONFIG.dredge.wear, d = this.dredge.data;
+    if (impact <= W.from || d.wear >= 1) return;
+    const before = d.wear;
+    d.wear = Math.min(1, d.wear + (impact - W.from) * W.perImpact);
+    this._applyPerks();
+    if (before < W.warnAt && d.wear >= W.warnAt) this.hud.toast('The truck’s knocking. Get it to the barn for repairs.', '', 3500);
+  }
+
+  _updateWearPill() {
+    const w = this.dredge.data.wear, el = $('wear');
+    el.classList.toggle('hidden', w < 0.05);
+    el.classList.toggle('bad', w >= CONFIG.dredge.wear.warnAt);
+    el.textContent = `TRUCK ${Math.round((1 - w) * 100)}%`;
   }
 
   openMarket(town = this._nearestMarket().town) {
@@ -864,7 +940,8 @@ class Game {
   // What the radar and the map show: the markets, then loot within the spotter's range on
   // top (the rare find last, so it shows even on the rim over a far market).
   _mapMarkers() {
-    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })),
+    const h = this.world.home;
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ },
       ...this.loot.near(this.player.position, this.perks.mapRange)];
   }
 

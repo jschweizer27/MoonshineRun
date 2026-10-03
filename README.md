@@ -75,7 +75,10 @@ Enter, the D-pad and A/B, or touch.
 5. Spend your cash at any market on **upgrades**: a bigger bed (the trunk grows and the
    truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
    and a spotter for the radar.
-6. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
+   its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
+   slow it down until it's repaired.
+7. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.

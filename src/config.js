@@ -203,6 +203,13 @@ export const CONFIG = {
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
     // cream for low and mid, copper for high, and a strong amber for premium.
+    // Otto's barn, the home base: stop in its yard to open it. The stash holds this many
+    // trunk cells' worth of loot. PLACEHOLDERS: tune after playtesting.
+    barn: { radius: 9, stashCells: 40 },
+    // Wear: hard knocks (an impact over `from`) wear the truck, and a worn truck loses up
+    // to `maxSlow` of its top speed until it's repaired at the barn (`repairCost` for a
+    // full repair, less for less).
+    wear: { from: 6, perImpact: 0.02, maxSlow: 0.25, repairCost: 350, warnAt: 0.5 },
     lootTiers: {
       low: { color: 'olive', accent: 'cream', glow: { color: 'cream', strength: 0.32, size: 0.9 } },
       mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
