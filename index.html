@@ -147,6 +147,7 @@
         <li>With loot aboard, the arrow and the <span class="gold">gold route</span> on the radar lead to the nearest <span class="gold">&#11042; market</span>. Stop there to sell: <b>Lexington Market</b> in Baltimore, the <b>Monkton General Store</b> up York Road, or the <b>Glyndon Depot</b> out west. Each pays differently, the price drops as you sell more of one thing, and each day one town posts a demand: double for one kind of loot.</li>
         <li>Spend the cash on <b>upgrades</b> at any market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
         <li><b>Otto's barn</b> (&#8962; on the radar, just off York Road outside the city) is home: store loot in its stash, and mend the truck in its garage. Hard knocks wear the truck and slow it down.</li>
+        <li>At the barn's <b>still</b>, turn loot into shine: install a copper coil, then brew from what you've gathered (Corn Shine takes a sack and jugs). Keep the needle in the band for more crates. Shine sells only at the city's <b>speakeasies</b>: with crates aboard, the radar shows them.</li>
       </ol>
       <div class="controls-grid">
         <div><h3>Keyboard</h3><table id="help-keys"></table></div>
@@ -179,7 +180,7 @@
     <div class="overlay-card map-card">
       <h1 class="title small" id="map-title">MAP</h1>
       <canvas id="map-canvas" width="640" height="640" aria-label="City map"></canvas>
-      <p class="legend"><span class="me">&#9650; you</span> <span class="cream">&#11042; market</span> <span class="cream">&#8962; Otto's barn</span> <span class="amber">&#9632; loot</span> <span class="amber">&#9670; strongbox</span> <span class="amber">&#9733; rare find</span> <span class="gold">&#9473; route to a market</span></p>
+      <p class="legend"><span class="me">&#9650; you</span> <span class="cream">&#11042; market</span> <span class="cream">&#8962; Otto's barn</span> <span class="copper">&#9679; speakeasy (with shine aboard)</span> <span class="amber">&#9632; loot</span> <span class="amber">&#9670; strongbox</span> <span class="amber">&#9733; rare find</span> <span class="gold">&#9473; route to a market</span></p>
       <button id="map-done" class="btn" data-autofocus>CLOSE</button>
     </div>
   </div>
@@ -236,6 +237,23 @@
         <button id="barn-trunk" class="btn secondary">OPEN THE TRUNK</button>
         <button id="barn-done" class="btn" data-autofocus>BACK ON THE ROAD</button>
       </div>
+    </div>
+  </div>
+
+  <!-- The still: a batch of shine (src/screens.js showStill) -->
+  <div id="still" class="overlay hidden" role="dialog" aria-labelledby="still-title">
+    <div class="overlay-card">
+      <h1 class="title small" id="still-title">THE STILL</h1>
+      <p id="still-recipe" class="story"></p>
+      <div id="still-gauge" aria-hidden="true"><div id="still-band"></div><div id="still-scorch"></div><div id="still-needle"></div></div>
+      <div id="still-progress" aria-hidden="true"><i></i></div>
+      <p id="still-msg" class="hint" role="status" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="still-stoke" class="btn" data-autofocus>HOLD TO STOKE</button>
+        <button id="still-done" class="btn hidden">DONE</button>
+      </div>
+      <p class="hint small">Hold W, &uarr;, Space, RT, A or the button to stoke the fire; let go and it cools.<br>
+        Keep the needle inside the band, and out of the red.</p>
     </div>
   </div>
 

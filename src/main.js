@@ -11,7 +11,9 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, showSlots, showBarn, playDialog, money } from './screens.js';
+import { showLedger, showMarket, showSlots, showBarn, showStill, playDialog, money } from './screens.js';
+import { consume } from './brew.js';
+import { KINDS } from './trunk.js';
 import { BEATS, nextBeat } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
@@ -451,6 +453,7 @@ class Game {
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
     this._barnLeft = true;
+    this._dropLeft = true;
     this.place = this._placeName();
     this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
@@ -663,6 +666,7 @@ class Game {
     this._updateMarkers();
     this._checkMarket();
     this._checkBarn();
+    this._checkDrop();
     this._checkPlace();
     this._checkStory(dt);
     this.debris.update(dt);
@@ -796,7 +800,37 @@ class Game {
       return true;
     };
     this._barnRender = showBarn(this.ui, {
-      career: this.dredge, getTrunk: () => this.trunk, cap,
+      career: this.dredge, getTrunk: () => this.trunk, cap, rank: () => d.rank || 0,
+      // A copper coil for the still: from the stash first, then the trunk.
+      onInstall: () => {
+        if ((d.still || 0) >= CONFIG.dredge.brew.maxLevel) return;
+        if (d.stash.coil) { if (--d.stash.coil <= 0) delete d.stash.coil; } else {
+          const p = [...this.trunk.pieces.values()].find((q) => q.kind === 'coil');
+          if (!p) return;
+          this.trunk.remove(p.id);
+        }
+        d.still = (d.still || 0) + 1;
+        changed();
+        this.hud.toast(d.still === 1 ? 'The still is ready to run.' : `The still is at level ${d.still}.`, 'gold', 2500);
+      },
+      // A batch: the ingredients go in, the still screen runs it, the crates go to the stash.
+      onBrew: (recipe) => {
+        consume(recipe, this.trunk, d.stash);
+        changed();
+        this.stillScreen = showStill(this.ui, {
+          recipe, level: d.still,
+          onDone: (q, crates) => {
+            d.stash[recipe.id] = (d.stash[recipe.id] || 0) + crates;
+            d.stats.brews++;
+            d.ledger.unshift({ t: Date.now(), text: `Brewed ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name} (${Math.round(q * 100)}%)`, amount: 0 });
+            d.ledger.length = Math.min(d.ledger.length, 40);
+            this.dredge.save();
+            this.stillScreen = null;
+            this.audio.cash?.();
+            this._barnRender?.();
+          },
+        });
+      },
       onStore: (kind) => { if (store(kind)) changed(); },
       onStoreAll: () => { for (const p of [...this.trunk.pieces.values()]) store(p.kind); changed(); },
       onTake: (kind) => {
@@ -836,7 +870,34 @@ class Game {
     el.textContent = `TRUCK ${Math.round((1 - w) * 100)}%`;
   }
 
-  openMarket(town = this._nearestMarket().town) {
+  // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
+  // speakeasies buy. { kind: 'market' | 'drop', place: { x, z, ... }, dist, name }
+  _destination(p = this.player.position) {
+    let goods = false, shine = false;
+    for (const q of this.trunk.pieces.values()) { if (KINDS[q.kind].brewed) shine = true; else goods = true; }
+    if (goods || !shine) { const m = this._nearestMarket(p); return { kind: 'market', place: m.town, dist: m.dist, name: m.town?.town }; }
+    let best = null, bd = Infinity;
+    this.world.drops.forEach((d, i) => { const dist = Math.hypot(d.x - p.x, d.z - p.z); if (dist < bd) { bd = dist; best = { ...d, id: `drop:${i}` }; } });
+    return { kind: 'drop', place: best, dist: bd, name: best.name };
+  }
+
+  _carryingShine() {
+    for (const q of this.trunk.pieces.values()) if (KINDS[q.kind].brewed) return true;
+    return false;
+  }
+
+  // With shine aboard, stop at a speakeasy (a named city corner) to sell it.
+  _checkDrop() {
+    const p = this.player.position, R = CONFIG.dredge.speakeasy.radius;
+    const i = this.world.drops.findIndex((d) => Math.hypot(d.x - p.x, d.z - p.z) < R);
+    if (i < 0) { this._dropLeft = true; return; }
+    if (!this._dropLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed || !this._carryingShine()) return;
+    this._dropLeft = false;
+    const d = this.world.drops[i];
+    this.openMarket({ id: `drop:${i}`, name: d.name, town: d.name }, { upgrades: false });
+  }
+
+  openMarket(town = this._nearestMarket().town, { upgrades = true } = {}) {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
@@ -851,13 +912,13 @@ class Game {
         this.audio.cash?.();
         this._updateTrunkPill();
       },
-      onBuy: (id) => {
+      onBuy: upgrades ? (id) => {
         if (!this.dredge.buy(id)) return;
         this._applyPerks();
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`−${money(CONFIG.dredge.upgrades[id].costs[this.dredge.level(id) - 1])}`);
         this.audio.cash?.();
-      },
+      } : null,
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: close,
     });
@@ -876,7 +937,7 @@ class Game {
   // The banner: where to sell (with the arrow) once there's something aboard; before that,
   // the day's market event if there is one.
   _updateObjective() {
-    const { town, dist } = this._nearestMarket();
+    const { place: town, dist, name } = this._destination();
     if (!town || !this.trunk.count) {
       const ev = eventFor(dayOf(this.dredge.market));
       this.hud.setObjective(ev ? `Pick up loot · ${eventText(ev).replace(' today', '')}` : 'Pick up loot along the roads', null, 'roam');
@@ -884,13 +945,13 @@ class Game {
     }
     const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
-    this.hud.setObjective(`Deliver to ${town.town}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
+    this.hud.setObjective(`Deliver to ${name}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
   }
 
   // With loot aboard, the radar draws the way along the roads to the nearest market.
   _updateRoute(dt) {
-    const { town } = this._nearestMarket();
-    if (town && this.trunk.count) this.minimap.updateRoute(dt, this.player.position, town);
+    const { place } = this._destination();
+    if (place && this.trunk.count) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
   }
 
@@ -941,7 +1002,8 @@ class Game {
   // top (the rare find last, so it shows even on the rim over a far market).
   _mapMarkers() {
     const h = this.world.home;
-    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ },
+    const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
       ...this.loot.near(this.player.position, this.perks.mapRange)];
   }
 

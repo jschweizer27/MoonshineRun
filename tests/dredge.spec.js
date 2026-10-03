@@ -367,7 +367,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(problems).toEqual([]);
 });
 
-test('the thirteen loot kinds and two rare finds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
+test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -393,7 +393,7 @@ test('the thirteen loot kinds and two rare finds: their trunk shapes, one flat-s
   // jug cluster a T of 4, wooden crate 2x2, long crate 3x1, copper coil an S of 4, aged keg 2x3,
   // strongbox 1x1 (premium); and a bicycle (an arch of 5), a radio set (an L of 4) and a
   // sewing machine (a P of 5).
-  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox', 'pocket-watch', 'bonds']);
+  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox', 'pocket-watch', 'bonds', 'corn-shine', 'applejack', 'rye', 'lager']);
   const dims = (id) => [by[id].cells, by[id].w, by[id].h];
   expect(dims('small-crate')).toEqual([1, 1, 1]);
   expect(dims('bottle-case')).toEqual([2, 2, 1]);
@@ -428,6 +428,7 @@ test('the thirteen loot kinds and two rare finds: their trunk shapes, one flat-s
     'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive, bicycle: P.olive,
     barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick, radio: P.brick,
     coil: P.copper, keg: P.copper, 'sewing-machine': P.copper, strongbox: P.amber, 'pocket-watch': P.amber, bonds: P.amber,
+    'corn-shine': P.cream, applejack: P.cream, rye: P.cream, lager: P.cream,
   });
   // Value rises with the tier.
   const tierMax = (t) => Math.max(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));
@@ -441,13 +442,16 @@ test('the thirteen loot kinds and two rare finds: their trunk shapes, one flat-s
 test('loot drawing stays in budget: each kind draws only nearby pieces, the glow is one more call, nothing compiles', async ({ page }) => {
   await openGame(page);
   await startRun(page);
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(async () => {
+    const { CONFIG } = await import('/src/config.js');
     const g = window.shine.game, L = g.loot;
     g.renderer.setAnimationLoop(null);
     const before = window.shine.renderInfo();
-    // Every kind in view at once, just ahead of the truck.
+    // Every kind that lies on the roads in view at once, just ahead of the truck (brewed
+    // crates never do).
+    const road = CONFIG.dredge.loot.kinds.map((k, i) => (k.brewed ? -1 : i)).filter((i) => i >= 0);
     for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
-    for (let k = 0; k < L.meshes.length; k++) { L.kind[k] = k; L.active[k] = 1; L.x[k] = -9 + (k % 5) * 4.5; L.z[k] = 48 - Math.floor(k / 5) * 5; }
+    road.forEach((k, j) => { L.kind[j] = k; L.active[j] = 1; L.x[j] = -9 + (j % 5) * 4.5; L.z[j] = 48 - Math.floor(j / 5) * 5; });
     window.shine.teleport(0, 100, 0);
     window.shine.step(0.2);
     const all = window.shine.renderInfo();

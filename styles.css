@@ -166,7 +166,16 @@ body.touch-mode .hud-br { bottom: 250px; }
   padding: max(16px, env(safe-area-inset-top)) var(--gutter) max(16px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 35%, rgba(40, 30, 15, 0.55), rgba(3, 4, 7, 0.94));
 }
-#pause, #settings, #help, #map, #confirm, #ledger, #slots, #barn { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+/* The still's gauge: the band to keep the needle in, the scorch zone, and the batch's progress. */
+#still-gauge { position: relative; height: 44px; margin: 14px 0 8px; border: 1px solid var(--gold); border-radius: 3px; background: linear-gradient(to right, #1b2a33, #3a2a1a); overflow: hidden; }
+#still-band { position: absolute; top: 0; bottom: 0; background: rgba(242, 197, 92, 0.35); border-left: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+#still-scorch { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(200, 74, 58, 0.45); }
+#still-needle { position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #e8735a; box-shadow: 0 0 8px #e8735a; }
+#still-needle.in { background: #f2e3b0; box-shadow: 0 0 10px #f2c55c; }
+#still-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+#still-progress i { display: block; height: 100%; width: 0; background: var(--gold); }
+#still-stoke { touch-action: none; user-select: none; -webkit-user-select: none; }
+#pause, #settings, #help, #map, #confirm, #ledger, #slots, #barn, #still { background: rgba(3, 4, 7, 0.82); z-index: 25; }
 #dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
 #dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
 .dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
@@ -212,6 +221,7 @@ body.touch-mode .hud-br { bottom: 250px; }
 .gold { color: var(--gold); font-weight: bold; }
 .amber { color: var(--amber); font-weight: bold; }
 .cream { color: var(--paper); font-weight: bold; }
+.copper { color: #c8743a; font-weight: bold; }
 
 .btn-col { display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 360px; margin: 0 auto; }
 .btn-row { display: flex; gap: 10px; justify-content: center; }

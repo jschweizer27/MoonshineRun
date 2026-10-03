@@ -206,6 +206,30 @@ export const CONFIG = {
     // Otto's barn, the home base: stop in its yard to open it. The stash holds this many
     // trunk cells' worth of loot. PLACEHOLDERS: tune after playtesting.
     barn: { radius: 9, stashCells: 40 },
+    // Brewing at Otto's still. Each copper coil installed raises the still a level (up to
+    // three), widening the band the temperature has to stay in. A batch takes `seconds`:
+    // hold STOKE to raise the temperature (`heat.up` a second), let go and it falls
+    // (`heat.down`); the band drifts around `band.center`. Quality is the share of the
+    // batch spent in the band, less any time scorching above `scorch`, and sets how many
+    // crates it yields (`yields`: [least quality, crates], best first). A recipe needs its
+    // ingredients (loot kinds, from the trunk and the stash) and a rank (stage 7).
+    // PLACEHOLDERS: tune after playtesting.
+    brew: {
+      maxLevel: 3,
+      seconds: 20,
+      heat: { up: 0.42, down: 0.3 },
+      band: { center: 0.55, width: [0.2, 0.26, 0.32], drift: 0.16, speed: 0.55 },
+      scorch: 0.95,
+      yields: [[0.8, 3], [0.45, 2], [0, 1]],
+      recipes: [
+        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0 },
+        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 1 },
+        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3 },
+        { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4 },
+      ],
+    },
+    // The speakeasies (world.drops) buy shine, stopped at within `radius`.
+    speakeasy: { radius: 9 },
     // Wear: hard knocks (an impact over `from`) wear the truck, and a worn truck loses up
     // to `maxSlow` of its top speed until it's repaired at the barn (`repairCost` for a
     // full repair, less for less).
@@ -215,6 +239,7 @@ export const CONFIG = {
       mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
       high: { color: 'copper', accent: 'amber', glow: { color: 'copper', strength: 0.9, size: 1.2 } },
       premium: { color: 'amber', accent: 'brick', glow: { color: 'amber', strength: 1.6, size: 1.9 } },
+      brewed: { color: 'cream', accent: 'copper', glow: { color: 'amber', strength: 0.8, size: 1.1 } },
     },
     // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]
     // per cell, before rotation). VALUES AND WEIGHTS ARE PLACEHOLDERS: tune after
@@ -254,6 +279,12 @@ export const CONFIG = {
         // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
         { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 200, weight: 0, cells: [[0, 0]] },
         { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 240, weight: 0, cells: [[0, 0], [0, 1]] },
+        // Brewed at Otto's still (CONFIG.dredge.brew), never found on the roads (weight 0,
+        // `brewed`), and sold only at the city's speakeasies.
+        { id: 'corn-shine', name: 'Corn Shine', short: 'Corn', tier: 'brewed', brewed: true, value: 70, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'applejack', name: 'Applejack', short: 'Apple', tier: 'brewed', brewed: true, accent: 'olive', value: 95, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'rye', name: 'Barrel Rye', short: 'Rye', tier: 'brewed', brewed: true, accent: 'brick', value: 130, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
+        { id: 'lager', name: 'Highlandtown Lager', short: 'Lager', tier: 'brewed', brewed: true, accent: 'amber', value: 170, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {

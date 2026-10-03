@@ -78,7 +78,11 @@ Enter, the D-pad and A/B, or touch.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
    slow it down until it's repaired.
-7. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+7. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
+   gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
+   to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
+   Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
+8. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.

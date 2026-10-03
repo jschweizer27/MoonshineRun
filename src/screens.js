@@ -1,7 +1,8 @@
 import { el } from './ui.js';
 import { CONFIG } from './config.js';
-import { priceOf, quote, dayOf, eventFor, eventText } from './market.js';
-import { kindColors } from './trunk.js';
+import { priceOf, quote, dayOf, eventFor, eventText, buys } from './market.js';
+import { RECIPES, missing, newBatch, stepBatch, quality, yieldFor } from './brew.js';
+import { kindColors, KINDS } from './trunk.js';
 import { CAST } from './story.js';
 
 const $ = (id) => document.getElementById(id);
@@ -21,9 +22,11 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     const counts = {};
     for (const p of trunk.pieces.values()) counts[p.kind] = (counts[p.kind] || 0) + 1;
     const ev = eventFor(dayOf(career.market));
+    let unsold = 0;
     for (const k of CONFIG.dredge.loot.kinds) {
       const n = counts[k.id];
       if (!n) continue;
+      if (!buys(town.id, k.id)) { unsold += n; continue; }
       const each = priceOf(town.id, k.id, career.market);
       const q = quote(town.id, trunk, career.market, k.id);
       const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': k.id, 'data-total': q.total },
@@ -52,9 +55,12 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     sellAll.textContent = all.count ? `SELL EVERYTHING (${money(all.total)})` : 'SELL EVERYTHING';
     sellAll.dataset.total = all.total;
     sellAll.disabled = !all.count;
+    const speakeasy = String(town.id).startsWith('drop:');
     $('market-note').textContent = (all.count
       ? 'Prices change day to day, and drop as you sell more of the same thing here.'
-      : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.') + (ev ? ` ${eventText(ev)}.` : '');
+      : speakeasy ? 'Nothing aboard they want: a speakeasy only buys shine.' : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.')
+      + (unsold && all.count ? (speakeasy ? ' They only buy shine.' : ' Shine sells at the speakeasies, not the markets.') : '')
+      + (ev && !speakeasy ? ` ${eventText(ev)}.` : '');
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
     if (again && !again.disabled) again.focus();
     else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('market')) ui.focusFirst();
@@ -78,7 +84,7 @@ export function playTime(seconds) {
 // ---------- Otto's barn ----------
 // The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
 // the truck's wear). Callbacks do the work; this draws and re-draws.
-export function showBarn(ui, { career, getTrunk, cap, onStore, onTake, onStoreAll, onRepair, onTrunk, onBack }) {
+export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk(), d = career.data, body = $('barn-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -103,6 +109,29 @@ export function showBarn(ui, { career, getTrunk, cap, onStore, onTake, onStoreAl
           el('b', {}, k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
         el('span', { class: 'slot-buttons' }, store, take)));
     }
+    // The still: copper coils raise it a level; recipes need their ingredients and a rank.
+    const level = d.still || 0, have = { ...d.stash };
+    for (const p of trunk.pieces.values()) have[p.kind] = (have[p.kind] || 0) + 1;
+    body.append(el('h3', { class: 'market-head' }, `THE STILL · LEVEL ${level}/${CONFIG.dredge.brew.maxLevel}`));
+    const install = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'install-coil' }, 'INSTALL');
+    install.disabled = !have.coil || level >= CONFIG.dredge.brew.maxLevel;
+    install.addEventListener('click', () => { onInstall(); render(); });
+    body.append(el('div', { class: 'upgrade' },
+      el('div', {}, el('b', {}, level ? 'Another copper coil' : 'A copper coil'),
+        el('small', {}, level >= CONFIG.dredge.brew.maxLevel ? 'The still is as good as it gets.'
+          : level ? 'Each coil makes the still easier to run: a wider band to keep it in.' : 'The still needs a copper coil before it can run. They turn up on the roads.')),
+      install));
+    for (const r of RECIPES) {
+      const lacks = missing(r, have), locked = rank() < r.rank;
+      const need = Object.entries(r.needs).map(([kind, n]) => `${n} ${KINDS[kind].name.toLowerCase()}${n > 1 ? ' ×' : ''}`).join(', ');
+      const brew = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `brew-${r.id}` }, locked ? 'LOCKED' : 'BREW');
+      brew.disabled = locked || !level || lacks.length > 0;
+      brew.addEventListener('click', () => onBrew(r));
+      body.append(el('div', { class: 'upgrade' },
+        el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(r.id).main}`, 'aria-hidden': 'true' }), el('b', {}, r.name),
+          el('small', {}, locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${lacks.map(([k, n]) => `${n} ${KINDS[k].name.toLowerCase()}`).join(', ')}.` : `Needs ${need}. Ready to brew.`)),
+        brew));
+    }
     // The garage.
     body.append(el('h3', { class: 'market-head' }, 'THE GARAGE'));
     const cost = career.repairCost(), health = Math.round((1 - d.wear) * 100);
@@ -125,6 +154,76 @@ export function showBarn(ui, { career, getTrunk, cap, onStore, onTake, onStoreAl
   render();
   ui.open('barn', { onBack });
   return render;
+}
+
+// ---------- The still ----------
+// A batch: hold STOKE (W / Up / Space, RT or A, or the button) to raise the temperature and
+// let go to let it fall, keeping the needle in the drifting band. Runs on its own clock
+// (the drive is paused under it); `step(dt, stoke)` drives it by hand in tests. Calls
+// `onDone(quality, crates)` when the batch is finished and DONE is pressed.
+export function showStill(ui, { recipe, level, onDone }) {
+  const b = newBatch(level);
+  let held = false, raf = 0, last = 0, finished = false;
+  const STOKE_KEYS = new Set(['KeyW', 'ArrowUp', 'Space']);
+  const stokeBtn = $('still-stoke'), done = $('still-done');
+  const draw = () => {
+    const B = CONFIG.dredge.brew;
+    $('still-band').style.left = `${(b.center - b.width / 2) * 100}%`;
+    $('still-band').style.width = `${b.width * 100}%`;
+    $('still-scorch').style.left = `${B.scorch * 100}%`;
+    $('still-needle').style.left = `${b.temp * 100}%`;
+    $('still-needle').classList.toggle('in', Math.abs(b.temp - b.center) <= b.width / 2);
+    $('still-progress').firstElementChild.style.width = `${(b.t / B.seconds) * 100}%`;
+    if (b.done) {
+      const q = quality(b), crates = yieldFor(q);
+      $('still-msg').textContent = `Quality ${Math.round(q * 100)}%: ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name}, to the stash.`;
+    }
+  };
+  const finish = () => {
+    if (!b.done || finished) return;
+    finished = true;
+    cleanup();
+    ui.close('still');
+    onDone(quality(b), yieldFor(quality(b)));
+  };
+  const step = (dt, stoke = held) => {
+    stepBatch(b, dt, stoke);
+    draw();
+    if (b.done) { stokeBtn.classList.add('hidden'); done.classList.remove('hidden'); done.focus(); cancelAnimationFrame(raf); }
+    return b;
+  };
+  const padStoke = () => [...(navigator.getGamepads?.() || [])].some((p) => p && ((p.buttons[7]?.value || 0) > 0.2 || p.buttons[0]?.pressed));
+  const tick = (now) => {
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    if (!b.done) step(dt, held || padStoke());
+    if (!b.done && raf) raf = requestAnimationFrame(tick);
+  };
+  const keyDown = (e) => { if (STOKE_KEYS.has(e.code) && !b.done) { held = true; e.preventDefault(); e.stopPropagation(); } };
+  const keyUp = (e) => { if (STOKE_KEYS.has(e.code)) held = false; };
+  const down = (e) => { held = true; e.preventDefault(); };
+  const up = () => { held = false; };
+  window.addEventListener('keydown', keyDown, true);
+  window.addEventListener('keyup', keyUp, true);
+  stokeBtn.addEventListener('pointerdown', down);
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) stokeBtn.addEventListener(ev, up);
+  const cleanup = () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener('keydown', keyDown, true);
+    window.removeEventListener('keyup', keyUp, true);
+    stokeBtn.removeEventListener('pointerdown', down);
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) stokeBtn.removeEventListener(ev, up);
+  };
+  $('still-recipe').textContent = `${recipe.name}: keep the needle in the band.`;
+  $('still-msg').textContent = '';
+  stokeBtn.classList.remove('hidden');
+  done.classList.add('hidden');
+  done.onclick = finish;
+  ui.open('still', { onBack: () => finish() });
+  draw();
+  raf = requestAnimationFrame(tick);
+  // `manual()` stops the screen's own clock, for stepping it by hand (tests).
+  return { batch: b, step, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
 }
 
 // ---------- Saved games ----------

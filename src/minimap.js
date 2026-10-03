@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
-const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, barn: P.cream, me: '#ece3cf' };
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, barn: P.cream, drop: P.copper, me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {

@@ -45,6 +45,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `data.stash`, capped in trunk cells; the garage repairs `data.wear`, which hard knocks add
   in `main._wear` and `_applyPerks` turns into lost top speed; `CONFIG.dredge.wear`). Its
   marker joins `main.markers`, where only the nearest marker shows.
+- Brewing: `src/brew.js` is pure logic (recipes in `CONFIG.dredge.brew`, ingredients from the
+  trunk and the stash, `newBatch` / `stepBatch` / `quality` / `yieldFor`); `showStill` in
+  `screens.js` runs a batch on its own clock (`manual()` + `step()` in tests). Brewed kinds
+  are loot kinds with `brewed: true` (weight 0); `market.buys` keeps them out of the markets
+  and lets the speakeasies (`world.drops`, town ids `drop:<n>`) buy only them.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

@@ -20,6 +20,7 @@ const DEFAULT = {
   market: { sold: {}, clock: 0 },
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
+  still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
   story: {},                 // beat id -> true once its cards have played (story.js)
   flags: {},                 // milestones the story reads: valley (reached a valley town), ...
