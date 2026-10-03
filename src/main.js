@@ -20,9 +20,11 @@ import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
 import { Loot } from './loot.js';
+import { Traffic } from './traffic.js';
+import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
+import { sell, passTime, dayOf, eventFor, eventText, townOpen } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -48,6 +50,7 @@ export const OPTIONS = {
   painterly: !params.has('test') || params.has('painterly'),
   story: !params.has('test') || params.has('story'),
   hints: !params.has('test') || params.has('hints'),
+  traffic: !params.has('test') || params.has('traffic'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -95,6 +98,9 @@ class Game {
     // Crates, barrels and signs the truck knocks flying, and debris from heavy crashes (juice).
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pickups along the roads
+    this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
+    this.traffic.enabled = OPTIONS.traffic;
+    this.roadEvents = new RoadEvents(this.world, this.traffic);   // washouts, breakdowns, fog, market days
     this.dredge = new DredgeCareer();                                // the save: cash, trunk, upgrades
     // Town markets: a marker each, built now and shown only near the camera (_updateMarkers).
     this.marketMarkers = CONFIG.dredge.towns.map((t) => {
@@ -123,7 +129,7 @@ class Game {
     this.chase = new ChaseCamera(this.camera, this.world.collision);
     this.particles = new Particles(this.scene);
     this.feel = new VehicleFeel(this.scene, this.player, this.particles, this.headlight);
-    this._cars = [this.player];   // what knocks props over
+    this._cars = [this.player, ...this.traffic.cars];   // what knocks props over
 
     this.hud = new HUD();
     this.input = new Input(this.settings.bindings);
@@ -135,6 +141,7 @@ class Game {
     });
     this.audio = new Audio();
     this.minimap = new MiniMap(this.world, $('minimap'), $('map-canvas'));
+    this.minimap.blocked = this.roadEvents.blocked;              // the route goes around closed roads
     this.input.onAction = (a, dev) => this._onAction(a, dev);
     this.input.onDevice = () => { this._applyTouch(); this._updateStartHint(); };
 
@@ -468,8 +475,11 @@ class Game {
     this.particles.clear();
     this.props.reset();
     this.loot.reset(this.player.position);
+    this.roadEvents.reset(this.dredge.market);
+    this.traffic.clear();
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
+    this._closedLeft = true;
     this._barnLeft = true;
     this._dropLeft = true;
     this._jobLeft = true;
@@ -674,15 +684,8 @@ class Game {
     // Hitting a wall: a thud, sparks and a shake; the hard ones throw debris and hold the
     // action for a beat (hit-stop).
     const p = this.player.position;
-    if (this.player.impact > 6 && this.time - this._lastRam > 0.3) {
-      this._lastRam = this.time;
-      this.audio.crash(Math.min(0.6, this.player.impact / 25));
-      this.chase.shake(Math.min(0.5, this.player.impact / 30));
-      this.feel.hit(this.player.impact / 20);
-      this.particles.sparks(p.x + this.player.forwardX * 3, p.z + this.player.forwardZ * 3, this.player.impact / 20);
-      this._impact(this.player.impact / 20, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
-      this._wear(this.player.impact);
-    }
+    if (this.player.impact > 6) this._crash(this.player.impact, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
+    for (const e of this.traffic.update(dt, this.player, this.camera.position, this.env.hour)) this._onTraffic(e);
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
@@ -692,6 +695,8 @@ class Game {
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
+    const road = this.roadEvents.update(this.dredge.market.clock, this.env, this.dredge.market);
+    if (road) this.hud.toast(road.what === 'start' ? road.ev.text : RoadEvents.endText(road.ev), road.what === 'start' ? 'gold' : '', road.what === 'start' ? 5000 : 2500);
     this._checkEvent();
     this._updateMarkers();
     this._tickAbilities();
@@ -756,10 +761,12 @@ class Game {
     this._guideLine('trunk-guide', newKind ? 'Move it with the arrows, turn it with R, and press Enter to put it down. Pieces can’t overlap; X leaves it on the road.' : '');
   }
 
-  // The nearest market, and whether the truck is inside it.
+  // The nearest market that deals with Otto at his rank, and whether the truck is inside it.
   _nearestMarket(p = this.player.position) {
     let best = null, bd = Infinity;
+    const rank = this.dredge.data.rank || 0;
     for (const t of CONFIG.dredge.towns) {
+      if (!townOpen(t, rank)) continue;
       const d = Math.hypot(t.x - p.x, t.z - p.z);
       if (d < bd) { bd = d; best = t; }
     }
@@ -770,7 +777,9 @@ class Game {
   // four draw calls, so however many towns there are it's four at most (the radar always
   // shows every market).
   _updateMarkers() {
-    const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
+    const cam = this.camera.position, range = CONFIG.dredge.market.markerRange, rank = this.dredge.data.rank || 0;
+    // A town that doesn't deal with Otto yet shows no marker.
+    CONFIG.dredge.towns.forEach((t, i) => { this.marketMarkers[i].userData.off = !townOpen(t, rank); });
     let near = null, nd = range;
     for (const m of this.markers) {
       if (m.userData.off) continue;
@@ -802,11 +811,23 @@ class Game {
 
   // Stop in a market to open it; it won't open again until you've driven out.
   _checkMarket() {
+    this._checkClosed();
     const { town, inside } = this._nearestMarket();
     if (!inside) { this._marketLeft = true; return; }
     if (!this._marketLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
     this._marketLeft = false;
     this.openMarket(town);
+  }
+
+  // A market that doesn't deal with Otto yet (a town's `rank`): stopping there says when it
+  // will, once a visit.
+  _checkClosed() {
+    const p = this.player.position, rank = this.dredge.data.rank || 0;
+    const t = CONFIG.dredge.towns.find((x) => !townOpen(x, rank) && Math.hypot(x.x - p.x, x.z - p.z) < x.radius);
+    if (!t) { this._closedLeft = true; return; }
+    if (!this._closedLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    this._closedLeft = false;
+    this.hud.toast(`The ${t.name} only deals with runners it knows. Come back when you’re a ${CONFIG.dredge.ranks[t.rank].name}.`, '', 4000);
   }
 
   // Stop in the barn's yard to open it; like a market, it waits until you've driven out.
@@ -884,6 +905,35 @@ class Game {
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: () => { this.ui.close('barn'); this._barnRender = null; if (!this.ui.anyOpen) this.resume(); },
     });
+  }
+
+  // Hitting a car, van or cart: a crash like a wall's (the impact is picked up with the
+  // player's), and a hard one throws a piece out of the trunk onto the road.
+  _onTraffic(e) {
+    if (e.impact > 6) this._crash(e.impact, e.x, e.z);
+    if (e.impact < CONFIG.dredge.traffic.spill || !this.trunk.count) return;
+    const pieces = [...this.trunk.pieces.values()];
+    const p = pieces[Math.floor(Math.random() * pieces.length)];
+    const kind = this.loot.kindIndex(p.kind);
+    const back = this.perks.pickupRadius + 4;               // past the magnet's reach, so it isn't picked straight back up
+    if (!this.loot.drop(kind, e.x - this.player.forwardX * back, e.z - this.player.forwardZ * back)) return;
+    this.trunk.remove(p.id);
+    this.dredge.saveTrunk(this.trunk);
+    this._updateTrunkPill();
+    this.hud.toast(`The ${KINDS[p.kind].name.toLowerCase()} bounced out of the trunk!`, '', 2500);
+  }
+
+  // A crash (a wall, a car): a thud, sparks and a shake; the hard ones throw debris, hold
+  // the action for a beat (hit-stop) and wear the truck.
+  _crash(impact, x, z) {
+    if (this.time - this._lastRam <= 0.3) return;
+    this._lastRam = this.time;
+    this.audio.crash(Math.min(0.6, impact / 25));
+    this.chase.shake(Math.min(0.5, impact / 30));
+    this.feel.hit(impact / 20);
+    this.particles.sparks(x, z, impact / 20);
+    this._impact(impact / 20, x, z);
+    this._wear(impact);
   }
 
   // A hard knock wears the truck (it slows until mended at the barn).
@@ -1015,7 +1065,7 @@ class Game {
     d.taken[offer.id] = true;
     this.dredge.save();
     this._updateJobMarker();
-    this.hud.toast(`Job taken: ${wantsText(offer.wants)} to ${offer.name}`, 'gold', 3000);
+    this.hud.toast(`Job taken: ${wantsText(offer.wants)} for ${offer.name}${offer.place ? `, ${offer.place}` : ''}`, 'gold', 3000);
     return true;
   }
 
@@ -1216,7 +1266,10 @@ class Game {
     const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
     const c = this.dredge.data.contract;
     if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
-    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
+    const re = this.roadEvents.active;
+    if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
+    const rank = this.dredge.data.rank || 0;
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: townOpen(t, rank) ? 'market' : 'market-closed', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
       ...this.loot.near(this.player.position, this.time < this.abil.tip.until ? Infinity : this.perks.mapRange)];
   }
 

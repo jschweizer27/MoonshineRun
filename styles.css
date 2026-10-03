@@ -421,6 +421,9 @@ html.dredge .event-badge { display: inline-block; margin-left: 8px; padding: 1px
 html.dredge .upgrade.slot.current { border-color: var(--d-amber); }
 .slot-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: -1px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-cream) 30%, transparent); }
+/* A contact on the job board: their initials on their colour, and what they say. */
+.upgrade .face { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 8px; border-radius: 50%; font-style: normal; font-weight: bold; font-size: calc(10px * var(--ts)); letter-spacing: 0.5px; color: #12141b; vertical-align: 1px; }
+.upgrade small.says { font-style: italic; color: var(--paper); opacity: 0.8; }
 html.dredge .pill.bad, .pill.bad { color: #e8735a; border-color: #e8735a; }
 html.dredge .hud-banner, html.dredge .pill {
   background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);

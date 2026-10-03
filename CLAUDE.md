@@ -25,9 +25,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `CONFIG.player` is the truck, `CONFIG.dredge` the run (below), `CONFIG.look` the night
   palette (exposure, FogExp2, teal fill, moonlight, the painterly pass).
 - The run (it was built as "the dredge run" beside the old bootlegging loop, which it
-  replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh per
-  kind; the pool's last slot is the rare find, timed by `loot.rare` and kept out of the
-  scatter and the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
+  replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh for every
+  kind: the kinds share one geometry tagged per vertex (`aKind`) and each piece picks its own
+  (`iKind`), so all the loot is one draw call; `loot.kindIndex(id)`, `loot.drawn[k]`; the
+  pool's last slot is the rare find, timed by `loot.rare` and kept out of the scatter and
+  the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
   drift and gluts; `marker.js` the markers) and upgrades, all saved in one of three slots
   (`dredgecareer.js`: cash, the trunk, upgrade levels, market memory, stats, ledger; slot 1
   is `shine.dredge.v1`, slots 2 and 3 add `.s2` / `.s3`, `shine.dredge.slot` is the last one
@@ -37,7 +39,10 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   palette, towns, prices, market, trunk, upgrades and loot; the palette themes every screen
   through `--d-*` CSS variables under `html.dredge` (set by `hud.js`). A market's marker
   costs four draw calls, so only the one nearest the camera shows, within
-  `market.markerRange`.
+  `market.markerRange`. A town with a `rank` (Cockeysville) only deals with Otto from that
+  rank (`market.townOpen`): until then `main._nearestMarket` skips it (so does the route), its
+  marker is off, the radar shows it barred (`market-closed`) and `main._checkClosed` says
+  when. Market events and market days only come to the towns without one (`openTowns`).
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
 - Otto's barn (`world.home`, a `county.js` barn with a stop point `stopX/stopZ` in its yard;
@@ -50,8 +55,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `screens.js` runs a batch on its own clock (`manual()` + `step()` in tests). Brewed kinds
   are loot kinds with `brewed: true` (weight 0); `market.buys` keeps them out of the markets
   and lets the speakeasies (`world.drops`, town ids `drop:<n>`) buy only them.
-- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms;
-  `offersFor(day, ...)` rolls the day's jobs like `eventFor`; `progress` / `handOver`).
+- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms,
+  and Sheriff Hale's lockup in Cockeysville from his `rank`; `offersFor(day, ...)` rolls the
+  day's jobs like `eventFor`; `progress` / `handOver`). Every contact is a character: `who`
+  on `DROPS` (world.js) and `BARNS` (county.js) names a `CAST` entry in `story.js`, whose
+  `asks` lines go on the board with each job (`line`).
   `main._jobs()` is the board the market and barn screens show; `data.contract` is the job in
   hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
   earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
@@ -62,6 +70,18 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main.useAbility`, HUD chips in `#abilities`; actions `ability1-3`, the d-pad's left / up /
   right while driving). The ending is the deed (`CONFIG.dredge.deed`, bought in
   `main._deed` at Lexington Market), which sets `flags.deed` for the last story beat.
+- Traffic: `src/traffic.js`, a pool of `CONFIG.dredge.traffic.count` kinematic vehicles on
+  the road graph near the camera (right-hand lane, turning at junctions, keeping a gap),
+  drawn as one InstancedMesh with the loot's kind-selecting trick (three bodies). They join
+  `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
+  `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
+  road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Road events: `src/roadevents.js`, rolled per slot of game hours (`CONFIG.dredge.roadEvents`,
+  offset from midnight so they never land with the daily demand). A blocked road gets an
+  edge key in `blocked` (shared with traffic and `minimap.blocked`, so routes and cars go
+  around), a capsule collider and a parked traffic cart (`traffic.park`). Market day is
+  `market.marketDay` in the saved market state, which `priceOf` reads. `main` shows the
+  toasts and the radar's ⚠.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game
@@ -104,7 +124,7 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `CONFIG.look.atmosphere`.
 - `src/world.js` city generation (seeded; `world.drops` are the named corners, where the
   speakeasy jazz plays), `county.js` (the valley, barns, the villages in `VILLAGES`:
-  Monkton and Glyndon), `collision.js` (2D grid colliders + the line-of-sight test the
+  Monkton, Glyndon and Cockeysville with its quarry yard), `collision.js` (2D grid colliders + the line-of-sight test the
   camera pulls in by), `roadgraph.js` (pathfinding, the radar's GPS route), `vehicle.js`
   (physics), `hud.js` (DOM).
 - Input/UI: `input.js` (remappable keys via `e.code`, gamepad polling, touch controls)

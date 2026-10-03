@@ -10,18 +10,18 @@ import { ATLAS, region, makePaintedAtlas, atlasMaterial, uvToRegion } from './at
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 
 // Named corners around the city, each with its sign over the door (at night there's jazz
-// from the speakeasies among them).
+// from the speakeasies among them). `who` is the contact there who posts jobs (story.js CAST).
 export const DROPS = [
-  { name: 'Highlandtown Speakeasy', sign: 'PRIVATE CLUB', x: 176, z: 44 },
-  { name: 'Fells Point Docks', sign: 'PIER 5', x: 132, z: 176 },
-  { name: 'Mount Vernon Hotel', sign: 'HOTEL', x: 0, z: -132 },
-  { name: 'Little Italy Social Club', sign: 'SOCIAL CLUB', x: 44, z: 132 },
-  { name: 'Hampden Mill', sign: 'HAMPDEN MILL', x: -176, z: -132 },
-  { name: 'Canton Cannery', sign: 'CANNERY', x: 220, z: 132 },
-  { name: 'Federal Hill Tavern', sign: 'TAVERN', x: -88, z: 176 },
-  { name: 'Station North Jazz Club', sign: 'JAZZ CLUB', x: 88, z: -176 },
-  { name: 'Charles Village Drugstore', sign: 'DRUGSTORE', x: -88, z: -88 },
-  { name: 'Paca Street Pawnshop', sign: 'PAWNSHOP', x: -132, z: 44 },
+  { name: 'Highlandtown Speakeasy', sign: 'PRIVATE CLUB', x: 176, z: 44, who: 'kessler' },
+  { name: 'Fells Point Docks', sign: 'PIER 5', x: 132, z: 176, who: 'orourke' },
+  { name: 'Mount Vernon Hotel', sign: 'HOTEL', x: 0, z: -132, who: 'abernathy' },
+  { name: 'Little Italy Social Club', sign: 'SOCIAL CLUB', x: 44, z: 132, who: 'romano' },
+  { name: 'Hampden Mill', sign: 'HAMPDEN MILL', x: -176, z: -132, who: 'hummel' },
+  { name: 'Canton Cannery', sign: 'CANNERY', x: 220, z: 132, who: 'pryor' },
+  { name: 'Federal Hill Tavern', sign: 'TAVERN', x: -88, z: 176, who: 'healy' },
+  { name: 'Station North Jazz Club', sign: 'JAZZ CLUB', x: 88, z: -176, who: 'banks' },
+  { name: 'Charles Village Drugstore', sign: 'DRUGSTORE', x: -88, z: -88, who: 'wexler' },
+  { name: 'Paca Street Pawnshop', sign: 'PAWNSHOP', x: -132, z: 44, who: 'feld' },
 ];
 const SIGN_WORDS = ['CAFE', 'DINER', 'BARBER', 'THEATRE', 'JAZZ', 'CIGARS', 'BANK', 'GARAGE', 'TAILOR', 'BAKERY', 'RADIO', 'DANCING', 'BILLIARDS', 'SHOES', 'LUNCH', 'HOTEL'];
 const AWNINGS = [0xd84a3a, 0x3f9a6a, 0x4a72b8, 0xd8a040, 0xb85a8a];
@@ -816,6 +816,7 @@ export class World {
       { text: 'HAMPDEN', x: -175, z: -154 }, { text: 'FEDERAL HILL', x: -110, z: 198 },
       { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
       { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 }, { text: 'GLYNDON', x: -390, z: -742 },
+      { text: 'COCKEYSVILLE', x: 392, z: -702 },
     ];
   }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Art-direction screenshots of the whole game (streets, skyline, county, the truck, loot,
-// the trunk, the markets, both towns): `npm run shots -- dredge-s9 [--day] [--rain] [--plain]`
+// the trunk, the markets, the towns): `npm run shots -- dredge-s9 [--day] [--rain] [--plain]`
 // (any label starting with "dredge" lands here from scripts/shoot.mjs). Starts the game
 // headless, sets up each view, and saves artifacts/shots/<label>-*.png, a contact sheet
 // artifacts/shots/<label>.png, and the render counts (draw calls, shadow calls, lights,
@@ -219,6 +219,24 @@ try {
   });
   await shoot('glyndon-market', 'Glyndon Depot: copper and crates pay');
   await page.evaluate(() => { window.shine.game.ui.back(); });
+
+  // Cockeysville, out east: the quarry town (its store waits for a Runner), from the road and
+  // from above, then its store and the job board's contacts for a Runner.
+  await page.evaluate(() => { window.shine.teleport(394, -606, 0); window.shine.step(0.4); });
+  await shoot('cockeysville', 'Cockeysville at night, up the road from the south');
+  await count('cockeysville');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(468, 40, -598); g.camera.lookAt(405, 0, -652); });
+  await shoot('cockeysville-above', 'Cockeysville from above: pale stone houses and the quarry yard');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.dredge.data.rank = 2;
+    g.trunk.clear(); for (const k of ['coil', 'keg', 'barrel']) { const p = g.trunk.findSpot(k); if (p) g.trunk.place(k, p.x, p.y, p.rot); }
+    g.openMarket(g._nearestMarket({ x: 400, z: -650 }).town);
+  });
+  await shoot('cockeysville-market', 'Cockeysville Quarry Store: copper, kegs and barrels pay');
+  await page.evaluate(() => { document.querySelector('#market-body .job')?.scrollIntoView({ block: 'center' }); });
+  await shoot('contacts', 'The job board: who wants what, in their own words');
+  await page.evaluate(() => { const g = window.shine.game; g.ui.back(); g.dredge.data.rank = 0; });
 
   // Upgrades: the market's list with cash to spend, then the trunk upgraded twice (6x4)
   // and the reinforced truck.

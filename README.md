@@ -69,7 +69,9 @@ Enter, the D-pad and A/B, or touch.
 4. With loot aboard, the banner's arrow and the **gold route** on the radar lead to the
    nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, the
    **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
-   in the valley. Each town pays differently,
+   in the valley. Out east, the quarry town of **Cockeysville** has a company store that pays
+   best for copper, kegs and barrels, but it only deals with a **Runner** (see ranks, below);
+   until then its mark on the radar is barred. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
@@ -79,22 +81,32 @@ Enter, the D-pad and A/B, or touch.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
    slow it down until it's repaired.
-7. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
+7. The roads aren't empty: motor cars, delivery vans and horse carts go about their
+   business, busier in the city than the valley and quieter late at night. Hit one and it's a
+   crash like any other: it wears the truck, and a hard one can throw a piece out of the
+   trunk onto the road. Now and then something happens out there for a few hours: rain
+   washes out a valley road, a farm cart breaks down across one (a ⚠ on the radar; the
+   route goes around), a fog bank rolls in, or a town holds its **market day** and pays 15%
+   more for everything.
+8. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
    gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
    to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
    Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
-8. **Contracts**: the speakeasies and the farms post jobs each day, on the board at any market,
-   speakeasy or the barn. Take one (one at a time), bring what they want before it's due, and
+9. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
+   board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
+   Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
+   own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
+   Cockeysville. Take one job (one at a time), bring what they want before it's due, and
    stop at their door: they pay well over the market. Keeping your word builds your
    reputation; dropping a job or missing its deadline costs some.
-9. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
+10. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
    Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
    recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
    three **abilities**: the **Jockey's Tip** (every piece of loot on the radar for a while),
    **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
-10. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
+11. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
    That's the end of the story so far; the roads stay open after it.
-11. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+12. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.
@@ -199,9 +211,12 @@ src/
   config.js     all tuning numbers
   world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, named corners
   atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
-  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton and Glyndon
+  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton, Glyndon and
+                Cockeysville (with its quarry yard)
   environment.js  day/night cycle and weather
-  loot.js       loot along the roads (pooled, instanced per kind)
+  loot.js       loot along the roads (pooled, one instanced mesh for every kind)
+  traffic.js    cars, vans and carts on the roads near the view (pooled, one instanced mesh)
+  roadevents.js washouts, broken-down carts, fog banks and market days
   trunk.js, trunkscreen.js   the trunk grid and its screen
   market.js     prices and selling (drift, gluts)
   dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger

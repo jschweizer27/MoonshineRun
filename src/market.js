@@ -25,6 +25,13 @@ function roll(salt, day) {
 
 export function townById(id) { return CONFIG.dredge.towns.find((t) => t.id === id); }
 
+// Whether a town's market deals with Otto at his rank (a town with a `rank` waits for it).
+export const townOpen = (town, rank = 0) => !town.rank || rank >= town.rank;
+
+// The towns every player can trade in from the start: the market events and market days,
+// which are the same for everyone, only come to these.
+export const openTowns = () => CONFIG.dredge.towns.filter((t) => !t.rank);
+
 // The in-game day a market state is on (the clock counts hours from the start).
 export const dayOf = (state) => Math.floor((state.clock || 0) / 24);
 
@@ -33,7 +40,7 @@ export const dayOf = (state) => Math.floor((state.clock || 0) / 24);
 // game) has none. Returns { town, townName, kind, kindName, mult } or null.
 export function eventFor(day) {
   if (day < 1) return null;
-  const towns = CONFIG.dredge.towns, kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed);
+  const towns = openTowns(), kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed);
   const pick = (list, salt) => list[Math.floor(roll(salt, day) * list.length)];
   const town = pick(towns, 'town'), kind = pick(kinds, 'kind');
   return { town: town.id, townName: town.town, kind: kind.id, kindName: kind.name, mult: M.event.multiplier };
@@ -51,9 +58,11 @@ export function priceOf(town, kind, state, extraSold = 0) {
   const day = dayOf(state);
   const drift = 1 + M.drift * wobble(town, kind, day);
   const ev = eventFor(day), event = ev && ev.town === town && ev.kind === kind ? ev.mult : 1;
+  // A road event's market day: the town pays more for everything until it's over.
+  const md = state.marketDay, marketDay = md && md.town === town && (state.clock || 0) < md.until ? md.mult : 1;
   const sold = (state.sold[`${town}:${kind}`] || 0) + extraSold;
   const glut = Math.max(M.glutFloor, 1 - M.glut * sold);
-  return Math.max(1, Math.round(base * drift * glut * event));
+  return Math.max(1, Math.round(base * drift * glut * event * marketDay));
 }
 
 // What selling every piece of `kind` (or everything when null) would fetch, piece by piece
