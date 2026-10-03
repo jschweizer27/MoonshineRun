@@ -245,9 +245,9 @@ export const CONFIG = {
       { name: 'Junk Hauler', rep: 0 },
       { name: 'Scavenger', rep: 30, unlocks: 'Applejack, Jockey’s Tip (1), tyres and lamps' },
       { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4, the Cockeysville Quarry Store' },
-      { name: 'Brewer', rep: 180, unlocks: 'Barrel Rye, Sweet Talk (3), Sheriff Hale’s jobs' },
-      { name: 'Bootlegger', rep: 320, unlocks: 'Highlandtown Lager, upgrade level 5' },
-      { name: 'King of York Road', rep: 500, unlocks: 'the Braun & Sons deed, at Lexington Market' },
+      { name: 'Brewer', rep: 150, unlocks: 'Barrel Rye, Sweet Talk (3), Sheriff Hale’s jobs' },
+      { name: 'Bootlegger', rep: 250, unlocks: 'Highlandtown Lager, upgrade level 5' },
+      { name: 'King of York Road', rep: 360, unlocks: 'the Braun & Sons deed, at Lexington Market' },
     ],
     repPerBrew: 6,
     repPerFind: 5,
@@ -300,8 +300,8 @@ export const CONFIG = {
     speakeasy: { radius: 9 },
     // Wear: hard knocks (an impact over `from`) wear the truck, and a worn truck loses up
     // to `maxSlow` of its top speed until it's repaired at the barn (`repairCost` for a
-    // full repair, less for less).
-    wear: { from: 6, perImpact: 0.02, maxSlow: 0.25, repairCost: 350, warnAt: 0.5 },
+    // full repair, less for less). A hard 28 m/s crash wears about 12%.
+    wear: { from: 8, perImpact: 0.006, maxSlow: 0.25, repairCost: 350, warnAt: 0.5 },
     lootTiers: {
       low: { color: 'olive', accent: 'cream', glow: { color: 'cream', strength: 0.32, size: 0.9 } },
       mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
