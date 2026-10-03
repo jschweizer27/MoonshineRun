@@ -10,8 +10,11 @@ import { kindColors } from './trunk.js';
 // only its pieces near the truck (`count`) and its bounds are refitted, so it's culled when
 // they're off screen: a kind with nothing nearby costs no draw call. All kinds share one
 // material. A faint amber glow sprite behind each piece (one more instanced mesh) makes loot
-// read from a distance at night; premium pieces glow brighter.
+// read from a distance at night; premium pieces glow brighter. The last pool slot is kept
+// for a rare find (L.rare): one at a time, far out in the county, shown on the radar at any
+// range, gone if left too long.
 const L = CONFIG.dredge.loot;
+const R = L.rare;
 const P = CONFIG.dredge.palette;
 
 
@@ -35,6 +38,15 @@ const MODELS = {
     add(new THREE.DodecahedronGeometry(0.34).scale(1, 0.75, 0.9), c.main, 0.34, 0.26, 0.18);
     add(cyl(0.08, 0.12, 0.22, 6), c.accent, -0.22, 0.66, 0);
   },
+  // Bicycle: two spoked wheels (dark), a frame, saddle and handlebars.
+  bicycle: (add, c) => {
+    for (const x of [-0.48, 0.48]) add(new THREE.TorusGeometry(0.3, 0.04, 4, 12), c.accent, x, 0.32, 0);
+    add(box(0.9, 0.06, 0.06), c.main, 0, 0.62, 0);
+    add(box(0.06, 0.52, 0.06).rotateZ(0.55), c.main, -0.12, 0.44, 0);
+    add(box(0.05, 0.42, 0.05), c.main, 0.47, 0.52, 0);
+    add(box(0.24, 0.06, 0.12), c.accent, -0.3, 0.72, 0);
+    add(cyl(0.025, 0.025, 0.42, 5).rotateX(Math.PI / 2), c.accent, 0.45, 0.76, 0);
+  },
   // Barrel: an upright barrel with iron hoops.
   barrel: (add, c) => {
     add(cyl(0.38, 0.34, 1.0, 10), c.main, 0, 0.5, 0);
@@ -57,6 +69,13 @@ const MODELS = {
     add(box(1.6, 0.42, 0.5), c.main, 0, 0.21, 0);
     add(box(0.34, 0.44, 0.52), c.accent, 0, 0.22, 0);
   },
+  // Radio set: a cathedral cabinet with a round top, a cloth grille and two knobs.
+  radio: (add, c) => {
+    add(box(0.6, 0.62, 0.36), c.main, 0, 0.31, 0);
+    add(cyl(0.3, 0.3, 0.36, 12).rotateX(Math.PI / 2), c.main, 0, 0.62, 0);
+    add(box(0.36, 0.34, 0.03), c.accent, 0, 0.5, 0.18);
+    for (const x of [-0.15, 0.15]) add(cyl(0.045, 0.045, 0.05, 6).rotateX(Math.PI / 2), c.accent, x, 0.16, 0.19);
+  },
   // Copper coil: a still's worm, three turns on a stand.
   coil: (add, c) => {
     for (let k = 0; k < 3; k++) add(new THREE.TorusGeometry(0.32, 0.06, 5, 10).rotateX(Math.PI / 2), c.main, 0, 0.2 + k * 0.18, 0);
@@ -68,11 +87,37 @@ const MODELS = {
     for (const x of [-0.42, 0.42]) add(cyl(0.52, 0.52, 0.08, 10).rotateZ(Math.PI / 2), c.accent, x, 0.6, 0);
     for (const x of [-0.35, 0.35]) add(box(0.16, 0.18, 0.9), P.slate, x, 0.09, 0);
   },
+  // Sewing machine: the machine's arm and head on a treadle table with iron legs.
+  'sewing-machine': (add, c) => {
+    add(box(0.9, 0.06, 0.5), c.accent, 0, 0.62, 0);
+    for (const x of [-0.38, 0.38]) add(box(0.06, 0.6, 0.42), P.slate, x, 0.3, 0);
+    add(box(0.56, 0.1, 0.24), c.main, 0, 0.7, 0);
+    add(box(0.13, 0.3, 0.16), c.main, 0.2, 0.9, 0);
+    add(box(0.52, 0.11, 0.15), c.main, 0, 1.0, 0);
+    add(box(0.11, 0.2, 0.15), c.main, -0.22, 0.88, 0);
+    add(cyl(0.1, 0.1, 0.04, 8).rotateX(Math.PI / 2), c.accent, 0.3, 0.95, 0.1);
+  },
   // Strongbox: a brass-bound box with a strap and an iron lock plate (premium: it glows).
   strongbox: (add, c) => {
     add(box(0.62, 0.42, 0.44), c.main, 0, 0.21, 0);
     add(box(0.64, 0.1, 0.46), c.accent, 0, 0.3, 0);
     add(box(0.14, 0.16, 0.04), P.slate, 0, 0.22, 0.23);
+  },
+  // Gold pocket watch (rare): a fat gold case on its chain, open, on a velvet pad.
+  'pocket-watch': (add, c) => {
+    add(box(0.6, 0.06, 0.6), P.brick, 0, 0.03, 0);
+    add(cyl(0.22, 0.22, 0.08, 14), c.main, 0, 0.1, 0);
+    add(cyl(0.18, 0.18, 0.02, 14), P.cream, 0, 0.15, 0);
+    add(cyl(0.21, 0.21, 0.03, 14).rotateX(-1.2), c.main, 0, 0.26, -0.24);
+    add(cyl(0.04, 0.04, 0.08, 6), c.accent, 0, 0.1, 0.25);
+    add(new THREE.TorusGeometry(0.16, 0.02, 4, 10).rotateX(Math.PI / 2), c.accent, 0.18, 0.08, 0.32);
+  },
+  // Case of bonds (rare): a leather document case, strapped, with certificates showing.
+  bonds: (add, c) => {
+    add(box(0.5, 0.36, 1.0), c.accent, 0, 0.18, 0);
+    add(box(0.42, 0.06, 0.92), P.cream, 0, 0.39, 0);
+    for (const z of [-0.3, 0.3]) add(box(0.54, 0.4, 0.07), c.main, 0, 0.2, z);
+    add(box(0.12, 0.08, 0.2), c.main, 0, 0.46, 0);
   },
 };
 
@@ -105,7 +150,12 @@ export class Loot {
   constructor(scene, world, seed = 1) {
     this.world = world;
     this.rng = createRng(seed ^ 0x10075);
-    const n = this.n = L.count;
+    const n = this.n = L.count + 1;
+    this.rareSlot = L.count;
+    this._pool = L.kinds.map((k, i) => i).filter((i) => !L.kinds[i].rare && L.kinds[i].weight > 0);
+    this._rareKinds = L.kinds.map((k, i) => i).filter((i) => L.kinds[i].rare);
+    this.rareIn = R.first;                 // seconds until the next rare find turns up
+    this.rareLeft = 0;                     // seconds before the one out there is gone
     this.kind = new Uint8Array(n);
     this.x = new Float32Array(n);
     this.z = new Float32Array(n);
@@ -155,17 +205,23 @@ export class Loot {
   reset(player = null) {
     this.timer.fill(0);
     for (let i = 0; i < this.n; i++) {
-      this.active[i] = 1;
-      this._place(i, player, 30);
+      this.active[i] = i !== this.rareSlot;
+      if (this.active[i]) this._place(i, player, 30);
     }
+    this.rareIn = R.first;
+    this.rareLeft = 0;
     this._writeAll(0, player);
   }
 
-  // Pick a weighted kind and a free spot on a road, at least `away` metres from the player.
-  _place(i, player, away) {
-    const rng = this.rng, c = this.world.collision;
-    let r = rng() * L.kinds.reduce((s, k) => s + k.weight, 0), kind = 0;
-    while (kind < L.kinds.length - 1 && r > L.kinds[kind].weight) { r -= L.kinds[kind].weight; kind++; }
+  // Pick a weighted kind (unless given one) and a free spot on a road, at least `away` metres
+  // from the player (and where `ok(x, z)` allows).
+  _place(i, player, away, kind = -1, ok = null) {
+    const rng = this.rng, c = this.world.collision, pool = this._pool;
+    if (kind < 0) {
+      let r = rng() * pool.reduce((s, k) => s + L.kinds[k].weight, 0), j = 0;
+      while (j < pool.length - 1 && r > L.kinds[pool[j]].weight) { r -= L.kinds[pool[j]].weight; j++; }
+      kind = pool[j];
+    }
     for (let tries = 0; tries < 40; tries++) {
       let d = rng() * this.totalLength, l = this.links[0];
       for (const link of this.links) { if (d < link[2]) { l = link; break; } d -= link[2]; }
@@ -174,6 +230,7 @@ export class Loot {
       const x = a.x + (b.x - a.x) * t + nx * side, z = a.z + (b.z - a.z) * t + nz * side;
       if (player && Math.hypot(x - player.x, z - player.z) < away) continue;
       if (c.resolveCircle(x, z, 0.9).hit) continue;
+      if (ok && !ok(x, z)) continue;
       this.kind[i] = kind; this.x[i] = x; this.z[i] = z; this.yaw[i] = rng() * Math.PI * 2;
       return true;
     }
@@ -203,7 +260,7 @@ export class Loot {
       const grow = Math.min(G.maxScale, Math.max(1, d / G.near));
       o.position.set(this.x[i] - fx * 0.7, G.height, this.z[i] - fz * 0.7);
       o.rotation.set(0, Math.atan2(fx, fz), 0);
-      o.scale.setScalar(G.size * kindColors(kind).glow.size * grow * (0.9 + 0.1 * Math.sin(time * 3 + i)));
+      o.scale.setScalar(G.size * kindColors(kind).glow.size * grow * (0.9 + 0.1 * Math.sin(time * 3 + i)) * (i === this.rareSlot ? R.glow : 1));
       o.updateMatrix();
       this.glow.setColorAt(glows, this._tint[k]);
       this.glow.setMatrixAt(glows++, o.matrix);
@@ -222,12 +279,14 @@ export class Loot {
   }
 
   // Pieces bob and turn; the truck picks up anything within reach; picked-up pieces come
-  // back elsewhere after a while. Returns events: { type: 'loot', kind, index, x, z }.
+  // back elsewhere after a while; a rare find turns up now and then, and goes if left.
+  // Returns events: { type: 'loot' | 'rare' | 'rare-gone', kind, index, x, z }.
   update(dt, time, player, { radius = L.pickupRadius, canTake = () => true, camera = null } = {}) {
     const events = [];
     const p = player.position;
     for (let i = 0; i < this.n; i++) {
       if (!this.active[i]) {
+        if (i === this.rareSlot) continue;
         this.timer[i] -= dt;
         if (this.timer[i] <= 0 && this._place(i, p, L.respawnMin)) this.active[i] = 1;
         continue;
@@ -236,8 +295,20 @@ export class Loot {
       if (dx * dx + dz * dz < radius * radius && canTake(L.kinds[this.kind[i]], i)) {
         this.active[i] = 0;
         this.timer[i] = L.respawn;
-        events.push({ type: 'loot', kind: L.kinds[this.kind[i]], index: i, x: this.x[i], z: this.z[i] });
+        if (i === this.rareSlot) this.rareIn = R.every;
+        events.push({ type: 'loot', kind: L.kinds[this.kind[i]], index: i, x: this.x[i], z: this.z[i], rare: i === this.rareSlot });
       }
+    }
+    const s = this.rareSlot;
+    if (this.active[s]) {
+      this.rareLeft -= dt;
+      if (this.rareLeft <= 0) {
+        this.active[s] = 0;
+        this.rareIn = R.every;
+        events.push({ type: 'rare-gone', kind: L.kinds[this.kind[s]], index: s, x: this.x[s], z: this.z[s] });
+      }
+    } else if ((this.rareIn -= dt) <= 0) {
+      this.spawnRare(p, events);
     }
     this._writeAll(time, p, camera || p);
     // A slow warm glint so pieces show up at night.
@@ -245,14 +316,33 @@ export class Loot {
     return events;
   }
 
-  // Pieces within `range` metres, for the radar (premium ones stand out).
+  // A rare find: a rare kind, out in the county, far from the truck. Pushes a 'rare' event.
+  spawnRare(p, events = []) {
+    const s = this.rareSlot, kind = this._rareKinds[Math.floor(this.rng() * this._rareKinds.length)];
+    if (!this._place(s, p, R.minDistance, kind, (x, z) => this.world.inCounty({ x, z }))) { this.rareIn = 5; return events; }
+    this.active[s] = 1;
+    this.rareLeft = R.lasts;
+    events.push({ type: 'rare', kind: L.kinds[kind], index: s, x: this.x[s], z: this.z[s] });
+    return events;
+  }
+
+  // The rare find out there, if any: { kind, x, z, left } (seconds left).
+  rare() {
+    const s = this.rareSlot;
+    return this.active[s] ? { kind: L.kinds[this.kind[s]], x: this.x[s], z: this.z[s], left: this.rareLeft } : null;
+  }
+
+  // Pieces within `range` metres, for the radar (premium ones stand out); the rare find shows
+  // at any range.
   near(p, range) {
     const out = [];
+    const s = this.rareSlot;
     for (let i = 0; i < this.n; i++) {
-      if (this.active[i] && Math.hypot(this.x[i] - p.x, this.z[i] - p.z) < range) {
+      if (i !== s && this.active[i] && Math.hypot(this.x[i] - p.x, this.z[i] - p.z) < range) {
         out.push({ kind: L.kinds[this.kind[i]].tier === 'premium' ? 'loot-premium' : 'loot', x: this.x[i], z: this.z[i] });
       }
     }
+    if (this.active[s]) out.push({ kind: 'loot-rare', x: this.x[s], z: this.z[s] });
     return out;
   }
 }

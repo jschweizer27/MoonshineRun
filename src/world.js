@@ -814,7 +814,7 @@ export class World {
       { text: 'MOUNT VERNON', x: 0, z: -110 }, { text: 'LITTLE ITALY', x: 60, z: 110 },
       { text: 'HAMPDEN', x: -175, z: -154 }, { text: 'FEDERAL HILL', x: -110, z: 198 },
       { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
-      { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 },
+      { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 }, { text: 'GLYNDON', x: -390, z: -742 },
     ];
   }
 

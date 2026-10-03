@@ -52,7 +52,7 @@ export async function startRun(page, { loot = true } = {}) {
 // Take every piece of loot off the roads (and stop it coming back), for tests that drive
 // about and mustn't have a pickup open the trunk mid-drive.
 export function clearLoot(page) {
-  return page.evaluate(() => { const L = window.shine.game.loot; L.active.fill(0); L.timer.fill(1e9); L._writeAll(0, null); });
+  return page.evaluate(() => { const L = window.shine.game.loot; L.active.fill(0); L.timer.fill(1e9); L.rareIn = 1e9; L._writeAll(0, null); });
 }
 
 // Run the simulation deterministically for `seconds` with a fixed input.

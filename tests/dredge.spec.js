@@ -366,7 +366,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(problems).toEqual([]);
 });
 
-test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
+test('the thirteen loot kinds and two rare finds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -390,8 +390,9 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   const by = Object.fromEntries(r.kinds.map((k) => [k.id, k]));
   // The shapes asked for: small crate 1x1, bottle case 2x1, burlap sack an L of 3, barrel 1x2,
   // jug cluster a T of 4, wooden crate 2x2, long crate 3x1, copper coil an S of 4, aged keg 2x3,
-  // strongbox 1x1 (premium).
-  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'barrel', 'jugs', 'crate', 'long-crate', 'coil', 'keg', 'strongbox']);
+  // strongbox 1x1 (premium); and a bicycle (an arch of 5), a radio set (an L of 4) and a
+  // sewing machine (a P of 5).
+  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox', 'pocket-watch', 'bonds']);
   const dims = (id) => [by[id].cells, by[id].w, by[id].h];
   expect(dims('small-crate')).toEqual([1, 1, 1]);
   expect(dims('bottle-case')).toEqual([2, 2, 1]);
@@ -406,6 +407,14 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   expect(dims('keg')).toEqual([6, 2, 3]);
   expect(dims('strongbox')).toEqual([1, 1, 1]);
   expect(by.strongbox.tier).toBe('premium');
+  expect(dims('bicycle')).toEqual([5, 3, 2]);
+  expect(by.bicycle.cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [1, 0], [2, 0], [2, 1]]));     // arch
+  expect(dims('radio')).toEqual([4, 2, 3]);
+  expect(by.radio.cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [0, 2], [1, 2]]));              // L
+  expect(dims('sewing-machine')).toEqual([5, 3, 2]);
+  expect(by['sewing-machine'].cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]]));  // P
+  expect([by.bicycle.tier, by.radio.tier, by['sewing-machine'].tier]).toEqual(['low', 'mid', 'high']);
+  expect([dims('pocket-watch'), dims('bonds')]).toEqual([[1, 1, 1], [2, 1, 2]]);                  // the rare finds
   // One instanced mesh per kind, one shared flat-shaded material.
   expect(r.meshes).toEqual(r.kinds.map((k) => ({ name: `loot-${k.id}`, instanced: true })));
   expect(r.oneMaterial).toBe(true);
@@ -415,9 +424,9 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   expect(r.paletteKeys).toEqual(['amber', 'brick', 'copper', 'cream', 'duskRose', 'olive', 'shadowTeal', 'slate', 'taillight']);
   const P = r.palette;
   expect(r.tierColours).toEqual({
-    'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive,
-    barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick,
-    coil: P.copper, keg: P.copper, strongbox: P.amber,
+    'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive, bicycle: P.olive,
+    barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick, radio: P.brick,
+    coil: P.copper, keg: P.copper, 'sewing-machine': P.copper, strongbox: P.amber, 'pocket-watch': P.amber, bonds: P.amber,
   });
   // Value rises with the tier.
   const tierMax = (t) => Math.max(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));
@@ -449,7 +458,7 @@ test('loot drawing stays in budget: each kind draws only nearby pieces, the glow
     const idle = L.meshes.filter((m) => m.visible).length + (L.glow.visible ? 1 : 0);
     return { before, all, none, drawing, idle, glow: L.glow.count };
   });
-  expect(r.drawing).toBe(10);
+  expect(r.drawing).toBe(15);
   expect(r.all.calls).toBeLessThan(60);
   expect(r.all.lights).toBe(12);
   expect(r.all.programs).toBe(r.before.programs);
@@ -644,9 +653,68 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.prices.sack[1]).toBeLessThan(r.prices.sack[0]);           // farm goods less
   expect(r.toast).toContain('Monkton');
   expect(r.calls).toBeLessThan(60);
-  expect(r.markers).toBe(2);
+  expect(r.markers).toBe(3);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('MONKTON GENERAL STORE');
+  expect(r.programs).toBe(0);
+  expect(r.geometries).toBe(0);
+});
+
+test('a third town: Glyndon out west has its own depot and prices, and only the nearest market shows its marker', async ({ page }) => {
+  await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const g = window.shine.game, w = g.world;
+    const { CONFIG } = await import('/src/config.js');
+    const { priceOf } = await import('/src/market.js');
+    const [city, monkton, glyndon] = CONFIG.dredge.towns;
+    const a = w.roads.nearest(city.x, city.z), b = w.roads.nearest(glyndon.x, glyndon.z);
+    const path = w.roads.path(a.id, b.id) || [];
+    const seg = (x, z, p, q) => { const dx = q.x - p.x, dz = q.z - p.z, t = Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - p.x - dx * t, z - p.z - dz * t); };
+    const houses = w.buildings.filter((h) => h.barn && Math.hypot((h.minX + h.maxX) / 2 - glyndon.x, (h.minZ + h.maxZ) / 2 - glyndon.z) < 90);
+    const onRoad = houses.filter((h) => w.countyEdges.some(([p, q, rw]) => seg((h.minX + h.maxX) / 2, (h.minZ + h.maxZ) / 2, p, q) < rw / 2 + Math.min(h.maxX - h.minX, h.maxZ - h.minZ) / 2));
+    const state = g.dredge.market;
+    const prices = {};
+    for (const k of ['coil', 'jugs']) prices[k] = ['baltimore', 'monkton', 'glyndon'].map((t) => priceOf(t, k, state));
+    const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
+    // Down the western lane into Glyndon: its name shows on arrival.
+    window.shine.teleport(-381, -580, Math.PI);
+    window.shine.step(0.2);
+    window.shine.teleport(-386, -645, Math.PI);
+    window.shine.step(0.3);
+    const toast = document.getElementById('toast').textContent;
+    g.renderFrame();
+    const calls = window.shine.renderInfo().calls;
+    const shown = g.marketMarkers.map((m) => m.visible);
+    // At Monkton, Glyndon is in range too, but only Monkton's marker shows.
+    window.shine.teleport(0, -640, Math.PI);
+    window.shine.step(0.2);
+    const shownMonkton = g.marketMarkers.map((m) => m.visible);
+    g.trunk.place('coil', 0, 0);
+    window.shine.teleport(glyndon.x, glyndon.z + 4, Math.PI);
+    window.shine.step(0.5);
+    return {
+      roadB: Math.hypot(b.x - glyndon.x, b.z - glyndon.z), path: path.length, villages: w.villages.map((v) => v.name),
+      houses: houses.length, onRoad: onRoad.length, prices, toast, calls, shown, shownMonkton,
+      market: document.getElementById('market-title').textContent, marketOpen: g.ui.isOpen('market'),
+      programs: g.renderer.info.programs.length - programs, geometries: g.renderer.info.memory.geometries - geometries,
+      gap: Math.hypot(monkton.x - glyndon.x, monkton.z - glyndon.z),
+    };
+  });
+  expect(r.villages).toEqual(['Monkton', 'Glyndon']);
+  expect(r.roadB).toBeLessThan(1);
+  expect(r.path).toBeGreaterThan(2);
+  expect(r.houses).toBeGreaterThan(6);
+  expect(r.onRoad).toBe(0);
+  expect(r.prices.coil[2]).toBeGreaterThan(Math.max(r.prices.coil[0], r.prices.coil[1]));   // the depot pays for copper
+  expect(r.prices.jugs[2]).toBeLessThan(Math.min(r.prices.jugs[0], r.prices.jugs[1]));      // and little for jugs
+  expect(r.toast).toContain('Glyndon');
+  expect(r.calls).toBeLessThan(60);
+  expect(r.shown).toEqual([false, false, true]);
+  expect(r.gap).toBeLessThan(450);
+  expect(r.shownMonkton).toEqual([false, true, false]);
+  expect(r.marketOpen).toBe(true);
+  expect(r.market).toBe('GLYNDON DEPOT');
   expect(r.programs).toBe(0);
   expect(r.geometries).toBe(0);
 });
@@ -658,6 +726,7 @@ test('the game explains itself: the intro and How to Play tell the loot run, not
   await page.click('#intro-help');
   await expect(page.locator('#help ol.rules')).toBeVisible();
   await expect(page.locator('#help ol.rules')).toContainText('Monkton General Store');
+  await expect(page.locator('#help ol.rules')).toContainText('Glyndon Depot');
   await expect(page.locator('#help-keys')).toContainText('Open the trunk');
   const text = await page.evaluate(() => document.body.innerText);
   for (const old of [/\bthe still\b/i, /\bheat\b/i, /\bbust/i, /\bFeds\b/, /shine aboard/i, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);
@@ -682,4 +751,133 @@ test('gluts ease as the in-game hours pass: five sold knock 30% off, ten hours l
   expect(r.later).toBeLessThan(r.fresh);
   expect(r.recovered).toBe(r.fresh);
   expect(r.left).toEqual({});
+});
+
+test('market events: from day 1 a town pays double for one kind, announced when the day turns and badged at its market', async ({ page }) => {
+  await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const { eventFor, priceOf, eventText } = await import('/src/market.js');
+    const { CONFIG } = await import('/src/config.js');
+    const g = window.shine.game, M = CONFIG.dredge.market;
+    const none = eventFor(0);
+    const ev = eventFor(2), again = eventFor(2);
+    const days = new Set(Array.from({ length: 12 }, (_, d) => { const e = eventFor(d + 1); return `${e.town}:${e.kind}`; })).size;
+    // The multiplier is in the price: the same day's price with and without it.
+    const at = { sold: {}, clock: 2 * 24 + 1 };
+    const doubled = priceOf(ev.town, ev.kind, at);
+    M.event.multiplier = 1;
+    const plain = priceOf(ev.town, ev.kind, at);
+    M.event.multiplier = 2;
+    // The day turns from 1 to 2: a toast, and the empty-trunk banner names the demand.
+    g.dredge.market.clock = 47.99; g._eventDay = 1;
+    window.shine.step(1 / 60);
+    g.dredge.market.clock = 48.01;
+    window.shine.step(1 / 60);
+    const toast = document.getElementById('toast').textContent, banner = document.getElementById('objective-text').textContent;
+    // At that town's market, a piece of that kind is badged.
+    g.trunk.place(ev.kind, 0, 0);
+    g.openMarket(CONFIG.dredge.towns.find((t) => t.id === ev.town));
+    const badge = document.querySelector(`#market-body [data-id="${ev.kind}"]`)?.closest('.upgrade')?.querySelector('.event-badge')?.textContent;
+    return { none, same: JSON.stringify(ev) === JSON.stringify(again), days, ratio: doubled / plain, toast, banner, badge, text: eventText(ev), note: document.getElementById('market-note').textContent };
+  });
+  expect(r.none).toBe(null);                        // a new game (and ?test, clock stopped) has none
+  expect(r.same).toBe(true);
+  expect(r.days).toBeGreaterThan(4);                // it changes from day to day
+  expect(r.ratio).toBeGreaterThan(1.9);
+  expect(r.ratio).toBeLessThan(2.1);
+  expect(r.toast).toBe(r.text);
+  expect(r.text).toMatch(/pays double for every .+ today/);
+  expect(r.banner).toContain('Pick up loot');
+  expect(r.banner).toContain('pays double');
+  expect(r.badge).toBe('2× TODAY');
+  expect(r.note).toContain(r.text);
+  await screenshot(page, 'dredge-event-market');
+});
+
+test('rare finds: one turns up far out in the county with word of where, shows on the radar at any range, goes if left, and pays big at its town', async ({ page }) => {
+  const problems = await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const g = window.shine.game, L = g.loot;
+    const { CONFIG } = await import('/src/config.js');
+    const { priceOf, eventFor } = await import('/src/market.js');
+    const toast = () => document.getElementById('toast').textContent;
+    const out = {};
+    // Not in the normal scatter, nor in the daily demand.
+    out.scattered = L.kind.slice(0, L.rareSlot).some((k) => CONFIG.dredge.loot.kinds[k].rare);
+    out.inEvents = Array.from({ length: 60 }, (_, d) => eventFor(d + 1)).some((e) => CONFIG.dredge.loot.kinds.find((k) => k.id === e.kind).rare);
+    // Spawn: word of it, far out in the county.
+    L.rareIn = 0.05;
+    window.shine.step(0.1);
+    const rare = L.rare(), p = g.player.position;
+    out.spawned = !!rare;
+    out.toast = toast();
+    out.county = rare && g.world.inCounty(rare);
+    out.dist = rare && Math.hypot(rare.x - p.x, rare.z - p.z);
+    out.onRadar = g._mapMarkers().some((m) => m.kind === 'loot-rare' && m.x === rare.x);
+    out.mapRange = g.perks.mapRange;
+    // Drawn near it with nothing new compiled or uploaded (the meshes exist from boot).
+    const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
+    window.shine.teleport(rare.x, rare.z + 14, 0);
+    window.shine.step(0.1);
+    g.renderFrame();
+    const info = window.shine.renderInfo();
+    out.calls = info.calls;
+    out.drawn = L.meshes.find((m) => m.name === `loot-${rare.kind.id}`).count;
+    out.programs = g.renderer.info.programs.length - programs;
+    out.geometries = g.renderer.info.memory.geometries - geometries;
+    // Left too long: gone, with word of it, and not straight back.
+    L.rareLeft = 0.05;
+    window.shine.step(0.1);
+    out.gone = L.rare() === null;
+    out.goneToast = toast();
+    window.shine.step(2);
+    out.stillGone = L.rare() === null;
+    out.nextIn = L.rareIn;
+    // The next one: drive onto it and the trunk opens with it in hand.
+    window.shine.teleport(0, 100, 0);
+    L.rareIn = 0.05;
+    window.shine.step(0.1);
+    const next = L.rare();
+    window.shine.teleport(next.x, next.z + 20, 0);   // into the county first (its name shows)
+    window.shine.step(0.1);
+    window.shine.teleport(next.x, next.z, 0);
+    window.shine.step(0.1);
+    out.taken = g.trunkScreen.isOpen && g.trunkScreen.hand?.kind === next.kind.id;
+    out.takenToast = toast();
+    out.afterTake = L.rare() === null && L.rareIn > CONFIG.dredge.loot.rare.every - 1;   // the clock restarts
+    // Prices: big at its town, little elsewhere.
+    const state = g.dredge.market;
+    out.prices = CONFIG.dredge.loot.kinds.filter((k) => k.rare).map((k) => ({
+      best: priceOf(k.paysAt, k.id, state),
+      other: Math.max(...CONFIG.dredge.towns.filter((t) => t.id !== k.paysAt).map((t) => priceOf(t.id, k.id, state))),
+      strongbox: Math.max(...CONFIG.dredge.towns.map((t) => priceOf(t.id, 'strongbox', state))),
+    }));
+    return out;
+  });
+  expect(r.scattered).toBe(false);
+  expect(r.inEvents).toBe(false);
+  expect(r.spawned).toBe(true);
+  expect(r.toast).toMatch(/^Word of a (gold pocket watch|case of bonds) out near \S/);
+  expect(r.county).toBe(true);
+  expect(r.dist).toBeGreaterThanOrEqual(350);
+  expect(r.dist).toBeGreaterThan(r.mapRange);       // ...yet on the radar
+  expect(r.onRadar).toBe(true);
+  expect(r.drawn).toBe(1);
+  expect(r.calls).toBeLessThan(60);
+  expect(r.programs).toBe(0);
+  expect(r.geometries).toBe(0);
+  expect(r.gone).toBe(true);
+  expect(r.goneToast).toContain('someone else found');
+  expect(r.stillGone).toBe(true);
+  expect(r.nextIn).toBeGreaterThan(200);
+  expect(r.taken).toBe(true);
+  expect(r.takenToast).toMatch(/^Found the .* pays best in (Monkton|Baltimore)/);
+  expect(r.afterTake).toBe(true);
+  for (const p of r.prices) {
+    expect(p.best).toBeGreaterThan(2 * p.other);
+    expect(p.best).toBeGreaterThan(p.strongbox);     // the best price for any find on the roads
+  }
+  expect(problems).toEqual([]);
 });

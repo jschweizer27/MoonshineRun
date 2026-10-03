@@ -141,24 +141,37 @@ export const CONFIG = {
   dredge: {
     palette: PALETTE,
     spawn: { x: 0, z: 100, heading: 0 },   // York Road, just inside the city
-    // Towns with a market (stop inside the radius to sell): the city, and Monkton, a village
-    // at the York Road crossroads in the valley (county.js VILLAGE). `area` is how far out
+    // Towns with a market (stop inside the radius to sell): the city, Monkton at the York
+    // Road crossroads in the valley and Glyndon out west (county.js VILLAGES). `area` is how far out
     // the town's name shows when you arrive.
     towns: [
       { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
       { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95 },
+      { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90 },
     ],
     // What each town pays, as a multiple of each kind's base value.
     prices: {
       baltimore: {
         'small-crate': 1.0, 'bottle-case': 1.1, sack: 0.85, barrel: 0.95, jugs: 1.0,
         crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
+        bicycle: 1.1, radio: 1.25, 'sewing-machine': 1.0,
+        'pocket-watch': 0.6, bonds: 1.8,   // the city's brokers buy bonds
       },
       // The village pays well for what's scarce out there (bottled goods, kegs, cash) and
       // little for farm goods it has plenty of. PLACEHOLDERS: tune after playtesting.
       monkton: {
         'small-crate': 1.1, 'bottle-case': 1.35, sack: 0.7, barrel: 0.8, jugs: 1.3,
         crate: 1.0, 'long-crate': 1.2, coil: 0.85, keg: 1.4, strongbox: 1.15,
+        bicycle: 1.2, radio: 0.9, 'sewing-machine': 1.3,
+        'pocket-watch': 1.8, bonds: 0.6,   // the village jeweller wants the watch
+      },
+      // Glyndon's rail depot ships crates and copper to the city: it pays for those, and
+      // little for what the farms round it have plenty of. PLACEHOLDERS: tune after playtesting.
+      glyndon: {
+        'small-crate': 1.05, 'bottle-case': 0.85, sack: 0.95, barrel: 1.0, jugs: 0.7,
+        crate: 1.25, 'long-crate': 1.35, coil: 1.4, keg: 0.9, strongbox: 1.2,
+        bicycle: 0.9, radio: 1.0, 'sewing-machine': 0.85,
+        'pocket-watch': 0.6, bonds: 0.6,
       },
     },
     market: {
@@ -169,6 +182,9 @@ export const CONFIG = {
       stopSpeed: 3,         // m/s: slow to this inside a market to open it
       markerRange: 450,     // metres: a market's marker shows within this (the radar always does);
                             // each costs four draw calls, so a far town's stays hidden
+      // Each in-game day from the second on, one town pays this multiple for one kind of
+      // loot (rolled from the day, so it's the same for everyone). PLACEHOLDER: tune.
+      event: { multiplier: 2 },
     },
     // The trunk: a grid to pack loot into (the trunk upgrade grows it).
     trunk: { cols: 5, rows: 3 },
@@ -211,17 +227,35 @@ export const CONFIG = {
       // distance (x distance / `near`, up to `maxScale`) so loot still reads far down a road.
       glow: { size: 1.6, height: 0.6, opacity: 0.5, near: 25, maxScale: 3.5 },
       kinds: [
-        { id: 'small-crate', name: 'Small crate', short: 'Small', tier: 'low', value: 20, weight: 0.18, cells: [[0, 0]] },
-        { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.14, cells: [[0, 0], [1, 0]] },
-        { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.12, cells: [[0, 0], [0, 1], [1, 1]] },
-        { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.12, cells: [[0, 0], [0, 1]] },
-        { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.1, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
-        { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.1, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-        { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.08, cells: [[0, 0], [1, 0], [2, 0]] },
-        { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.07, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'small-crate', name: 'Small crate', short: 'Small', tier: 'low', value: 20, weight: 0.15, cells: [[0, 0]] },
+        { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.12, cells: [[0, 0], [1, 0]] },
+        { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.1, cells: [[0, 0], [0, 1], [1, 1]] },
+        // A bicycle: cheap and awkward, an arch of five cells (a wheel at each end).
+        { id: 'bicycle', name: 'Bicycle', short: 'Bike', tier: 'low', value: 40, weight: 0.05, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1]] },
+        { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.1, cells: [[0, 0], [0, 1]] },
+        { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.09, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+        { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.09, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.07, cells: [[0, 0], [1, 0], [2, 0]] },
+        // A cathedral radio set: an L of four (the cabinet and its horn speaker).
+        { id: 'radio', name: 'Radio set', short: 'Radio', tier: 'mid', value: 70, weight: 0.05, cells: [[0, 0], [0, 1], [0, 2], [1, 2]] },
+        { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.06, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'keg', name: 'Aged keg', short: 'Keg', tier: 'high', value: 110, weight: 0.05, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
+        // A treadle sewing machine on its table: a P of five.
+        { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 105, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
+        // Rare finds: never in the normal scatter (weight 0, `rare`); one turns up now and then
+        // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
+        { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 200, weight: 0, cells: [[0, 0]] },
+        { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 240, weight: 0, cells: [[0, 0], [0, 1]] },
       ],
+      // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
+      rare: {
+        first: 120,         // the first turns up this long into a run
+        every: 420,         // the next, this long after one is taken or lost
+        lasts: 180,         // left lying, it's gone after this long (someone else found it)
+        minDistance: 350,   // metres from the truck when it turns up
+        glow: 1.8,          // its glow, times a premium piece's
+      },
     },
   },
 };

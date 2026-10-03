@@ -18,7 +18,7 @@ import { Props } from './props.js';
 import { Loot } from './loot.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime } from './market.js';
+import { sell, passTime, dayOf, eventFor, eventText } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -409,6 +409,7 @@ class Game {
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
     this.place = this._placeName();
+    this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
     this.hitStop = 0;
     this.slowMo = 0;
@@ -549,10 +550,13 @@ class Game {
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
-    const [got] = this.loot.update(dt, this.time, this.player, { radius: this.perks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
+    const found = this.loot.update(dt, this.time, this.player, { radius: this.perks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
+    for (const e of found) if (e.type !== 'loot') this._onRare(e);
+    const got = found.find((e) => e.type === 'loot');
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
+    this._checkEvent();
     this._updateMarkers();
     this._checkMarket();
     this._checkPlace();
@@ -576,9 +580,27 @@ class Game {
     this._updateAudio();
   }
 
+  // A rare find turned up (word of it, and where), or was lost to someone else.
+  _onRare(e) {
+    const name = e.kind.name.toLowerCase();
+    if (e.type === 'rare') this.hud.toast(`Word of a ${name} out near ${this._landmark(e.x, e.z)}`, 'gold', 5000);
+    else this.hud.toast(`Too late: someone else found the ${name}`, '', 3000);
+  }
+
+  // The named place nearest a spot in the county: a farm or a village.
+  _landmark(x, z) {
+    let best = 'the valley', bd = Infinity;
+    for (const p of [...(this.world.barns || []), ...(this.world.villages || [])]) {
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (p.name && d < bd) { bd = d; best = p.name; }
+    }
+    return best;
+  }
+
   // Picked up a piece of loot: the trunk opens with it in hand to pack it.
   _onLoot(e) {
-    this.hud.toast(`Picked up: ${e.kind.name}`, 'gold', 1600);
+    const pays = e.kind.paysAt && CONFIG.dredge.towns.find((t) => t.id === e.kind.paysAt);
+    this.hud.toast(e.rare && pays ? `Found the ${e.kind.name.toLowerCase()}! It pays best in ${pays.town}` : `Picked up: ${e.kind.name}`, 'gold', e.rare ? 3500 : 1600);
     this.audio.pickup?.();
     this.particles.sparks(e.x, e.z, 0.25);
     this.openTrunk(e.kind.id);
@@ -601,12 +623,18 @@ class Game {
     return { town: best, dist: bd, inside: best && bd < best.radius };
   }
 
-  // A market's marker shows only near the camera: each costs four draw calls, so the far
-  // town's stays hidden (the radar always shows both).
+  // Only the market nearest the camera shows its marker, and only within range: each costs
+  // four draw calls, so however many towns there are it's four at most (the radar always
+  // shows every market).
   _updateMarkers() {
     const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
+    let near = null, nd = range;
     for (const m of this.marketMarkers) {
-      m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < range;
+      const d = Math.hypot(m.position.x - cam.x, m.position.z - cam.z);
+      if (d < nd) { nd = d; near = m; }
+    }
+    for (const m of this.marketMarkers) {
+      m.visible = m === near;
       animateMarker(m, this.time, cam);
     }
   }
@@ -662,10 +690,24 @@ class Game {
     });
   }
 
-  // The banner: where to sell (with the arrow) once there's something aboard.
+  // A new in-game day posts a new market event: say so.
+  _checkEvent() {
+    const day = dayOf(this.dredge.market);
+    if (day === this._eventDay) return;
+    this._eventDay = day;
+    const ev = eventFor(day);
+    if (ev) this.hud.toast(eventText(ev), 'gold', 4000);
+  }
+
+  // The banner: where to sell (with the arrow) once there's something aboard; before that,
+  // the day's market event if there is one.
   _updateObjective() {
     const { town, dist } = this._nearestMarket();
-    if (!town || !this.trunk.count) { this.hud.setObjective('Pick up loot along the roads', null, 'roam'); return; }
+    if (!town || !this.trunk.count) {
+      const ev = eventFor(dayOf(this.dredge.market));
+      this.hud.setObjective(ev ? `Pick up loot · ${eventText(ev).replace(' today', '')}` : 'Pick up loot along the roads', null, 'roam');
+      return;
+    }
     const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
     const bearing = Math.atan2(dx, -dz) - this.chase.heading;
     this.hud.setObjective(`Deliver to ${town.town}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
@@ -721,10 +763,11 @@ class Game {
     return Math.max(0, 1 - best / 70);
   }
 
-  // What the radar and the map show: loot within the spotter's range, and the markets.
+  // What the radar and the map show: the markets, then loot within the spotter's range on
+  // top (the rare find last, so it shows even on the rim over a far market).
   _mapMarkers() {
-    return [...this.loot.near(this.player.position, this.perks.mapRange),
-      ...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z }))];
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })),
+      ...this.loot.near(this.player.position, this.perks.mapRange)];
   }
 
   // Draw one frame of the 3D view.

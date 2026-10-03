@@ -120,10 +120,12 @@ try {
 
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
   await page.evaluate(() => {
-    const g = window.shine.game, L = g.loot, K = 10;
+    // Every kind but the bonds: only one rare find is ever out, so this is the most loot
+    // that can be on screen at once.
+    const g = window.shine.game, L = g.loot, K = L.meshes.length - 1;
     for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
-    // Two staggered rows so nothing hides behind anything: low and mid tiers in front, the
-    // rest behind.
+    // Staggered rows of five so nothing hides behind anything: the cheap kinds in front, the
+    // dearer ones behind.
     for (let k = 0; k < K; k++) { const row = Math.floor(k / 5); L.kind[k] = k; L.active[k] = 1; L.x[k] = -9 + (k % 5) * 4.5 + row * 2.25; L.z[k] = 48 - row * 5; L.yaw[k] = 0.6; }
     window.shine.teleport(0, 100, 0);
     window.shine.step(0.3);
@@ -200,6 +202,20 @@ try {
     g.openMarket(g._nearestMarket({ x: 0, z: -660 }).town);
   });
   await shoot('monkton-market', 'Monkton General Store: its own prices');
+  await page.evaluate(() => { window.shine.game.ui.back(); });
+
+  // Glyndon, out west: driving in down the western lane, and its depot.
+  await page.evaluate(() => { window.shine.teleport(-385, -648, Math.PI); window.shine.step(0.4); });
+  await shoot('glyndon', 'Glyndon at night, down the western lane');
+  await count('glyndon');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(-320, 40, -640); g.camera.lookAt(-390, 0, -695); });
+  await shoot('glyndon-above', 'Glyndon from above: houses round the depot crossroads');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.trunk.clear(); for (const k of ['coil', 'long-crate', 'jugs']) { const p = g.trunk.findSpot(k); if (p) g.trunk.place(k, p.x, p.y, p.rot); }
+    g.openMarket(g._nearestMarket({ x: -390, z: -690 }).town);
+  });
+  await shoot('glyndon-market', 'Glyndon Depot: copper and crates pay');
   await page.evaluate(() => { window.shine.game.ui.back(); });
 
   // Upgrades: the market's list with cash to spend, then the trunk upgraded twice (6x4)

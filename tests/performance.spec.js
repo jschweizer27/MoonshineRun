@@ -14,8 +14,8 @@ test('the light count is fixed and no shaders compile as loot, the markets and t
     // Drive down the avenue: the lamp lights hop from lamp to lamp, loot comes and goes.
     window.shine.teleport(0, 200, 0);
     for (let i = 0; i < 6; i++) { window.shine.step(0.5, { throttle: 1 }); g.renderFrame(); }
-    // Up to each market: its marker comes into view (the other one hides).
-    for (const [x, z] of [[-44, 70], [0, -620]]) { window.shine.teleport(x, z, 0); window.shine.step(0.1); g.renderFrame(); }
+    // Up to each market: its marker comes into view (the others hide).
+    for (const [x, z] of [[-44, 70], [0, -620], [-386, -640]]) { window.shine.teleport(x, z, 0); window.shine.step(0.1); g.renderFrame(); }
     return window.shine.renderInfo();
   });
   expect(after.lights).toBe(before.lights);
