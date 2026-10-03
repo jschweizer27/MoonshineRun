@@ -120,10 +120,10 @@ try {
 
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
   await page.evaluate(() => {
-    const g = window.shine.game, L = g.loot, K = 10;
+    const g = window.shine.game, L = g.loot, K = L.meshes.length;
     for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
-    // Two staggered rows so nothing hides behind anything: low and mid tiers in front, the
-    // rest behind.
+    // Staggered rows of five so nothing hides behind anything: the cheap kinds in front, the
+    // dearer ones behind.
     for (let k = 0; k < K; k++) { const row = Math.floor(k / 5); L.kind[k] = k; L.active[k] = 1; L.x[k] = -9 + (k % 5) * 4.5 + row * 2.25; L.z[k] = 48 - row * 5; L.yaw[k] = 0.6; }
     window.shine.teleport(0, 100, 0);
     window.shine.step(0.3);

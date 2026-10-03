@@ -366,7 +366,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(problems).toEqual([]);
 });
 
-test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
+test('the thirteen loot kinds: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -390,8 +390,9 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   const by = Object.fromEntries(r.kinds.map((k) => [k.id, k]));
   // The shapes asked for: small crate 1x1, bottle case 2x1, burlap sack an L of 3, barrel 1x2,
   // jug cluster a T of 4, wooden crate 2x2, long crate 3x1, copper coil an S of 4, aged keg 2x3,
-  // strongbox 1x1 (premium).
-  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'barrel', 'jugs', 'crate', 'long-crate', 'coil', 'keg', 'strongbox']);
+  // strongbox 1x1 (premium); and a bicycle (an arch of 5), a radio set (an L of 4) and a
+  // sewing machine (a P of 5).
+  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox']);
   const dims = (id) => [by[id].cells, by[id].w, by[id].h];
   expect(dims('small-crate')).toEqual([1, 1, 1]);
   expect(dims('bottle-case')).toEqual([2, 2, 1]);
@@ -406,6 +407,13 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   expect(dims('keg')).toEqual([6, 2, 3]);
   expect(dims('strongbox')).toEqual([1, 1, 1]);
   expect(by.strongbox.tier).toBe('premium');
+  expect(dims('bicycle')).toEqual([5, 3, 2]);
+  expect(by.bicycle.cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [1, 0], [2, 0], [2, 1]]));     // arch
+  expect(dims('radio')).toEqual([4, 2, 3]);
+  expect(by.radio.cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [0, 2], [1, 2]]));              // L
+  expect(dims('sewing-machine')).toEqual([5, 3, 2]);
+  expect(by['sewing-machine'].cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]]));  // P
+  expect([by.bicycle.tier, by.radio.tier, by['sewing-machine'].tier]).toEqual(['low', 'mid', 'high']);
   // One instanced mesh per kind, one shared flat-shaded material.
   expect(r.meshes).toEqual(r.kinds.map((k) => ({ name: `loot-${k.id}`, instanced: true })));
   expect(r.oneMaterial).toBe(true);
@@ -415,9 +423,9 @@ test('the ten loot kinds: their trunk shapes, one flat-shaded instanced mesh eac
   expect(r.paletteKeys).toEqual(['amber', 'brick', 'copper', 'cream', 'duskRose', 'olive', 'shadowTeal', 'slate', 'taillight']);
   const P = r.palette;
   expect(r.tierColours).toEqual({
-    'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive,
-    barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick,
-    coil: P.copper, keg: P.copper, strongbox: P.amber,
+    'small-crate': P.olive, 'bottle-case': P.olive, sack: P.olive, bicycle: P.olive,
+    barrel: P.brick, jugs: P.cream, crate: P.brick, 'long-crate': P.brick, radio: P.brick,
+    coil: P.copper, keg: P.copper, 'sewing-machine': P.copper, strongbox: P.amber,
   });
   // Value rises with the tier.
   const tierMax = (t) => Math.max(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));
@@ -449,7 +457,7 @@ test('loot drawing stays in budget: each kind draws only nearby pieces, the glow
     const idle = L.meshes.filter((m) => m.visible).length + (L.glow.visible ? 1 : 0);
     return { before, all, none, drawing, idle, glow: L.glow.count };
   });
-  expect(r.drawing).toBe(10);
+  expect(r.drawing).toBe(13);
   expect(r.all.calls).toBeLessThan(60);
   expect(r.all.lights).toBe(12);
   expect(r.all.programs).toBe(r.before.programs);

@@ -154,18 +154,21 @@ export const CONFIG = {
       baltimore: {
         'small-crate': 1.0, 'bottle-case': 1.1, sack: 0.85, barrel: 0.95, jugs: 1.0,
         crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
+        bicycle: 1.1, radio: 1.25, 'sewing-machine': 1.0,
       },
       // The village pays well for what's scarce out there (bottled goods, kegs, cash) and
       // little for farm goods it has plenty of. PLACEHOLDERS: tune after playtesting.
       monkton: {
         'small-crate': 1.1, 'bottle-case': 1.35, sack: 0.7, barrel: 0.8, jugs: 1.3,
         crate: 1.0, 'long-crate': 1.2, coil: 0.85, keg: 1.4, strongbox: 1.15,
+        bicycle: 1.2, radio: 0.9, 'sewing-machine': 1.3,
       },
       // Glyndon's rail depot ships crates and copper to the city: it pays for those, and
       // little for what the farms round it have plenty of. PLACEHOLDERS: tune after playtesting.
       glyndon: {
         'small-crate': 1.05, 'bottle-case': 0.85, sack: 0.95, barrel: 1.0, jugs: 0.7,
         crate: 1.25, 'long-crate': 1.35, coil: 1.4, keg: 0.9, strongbox: 1.2,
+        bicycle: 0.9, radio: 1.0, 'sewing-machine': 0.85,
       },
     },
     market: {
@@ -221,15 +224,21 @@ export const CONFIG = {
       // distance (x distance / `near`, up to `maxScale`) so loot still reads far down a road.
       glow: { size: 1.6, height: 0.6, opacity: 0.5, near: 25, maxScale: 3.5 },
       kinds: [
-        { id: 'small-crate', name: 'Small crate', short: 'Small', tier: 'low', value: 20, weight: 0.18, cells: [[0, 0]] },
-        { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.14, cells: [[0, 0], [1, 0]] },
-        { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.12, cells: [[0, 0], [0, 1], [1, 1]] },
-        { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.12, cells: [[0, 0], [0, 1]] },
-        { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.1, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
-        { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.1, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-        { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.08, cells: [[0, 0], [1, 0], [2, 0]] },
-        { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.07, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'small-crate', name: 'Small crate', short: 'Small', tier: 'low', value: 20, weight: 0.15, cells: [[0, 0]] },
+        { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.12, cells: [[0, 0], [1, 0]] },
+        { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.1, cells: [[0, 0], [0, 1], [1, 1]] },
+        // A bicycle: cheap and awkward, an arch of five cells (a wheel at each end).
+        { id: 'bicycle', name: 'Bicycle', short: 'Bike', tier: 'low', value: 30, weight: 0.05, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1]] },
+        { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.1, cells: [[0, 0], [0, 1]] },
+        { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.09, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+        { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.09, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.07, cells: [[0, 0], [1, 0], [2, 0]] },
+        // A cathedral radio set: an L of four (the cabinet and its horn speaker).
+        { id: 'radio', name: 'Radio set', short: 'Radio', tier: 'mid', value: 65, weight: 0.05, cells: [[0, 0], [0, 1], [0, 2], [1, 2]] },
+        { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.06, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'keg', name: 'Aged keg', short: 'Keg', tier: 'high', value: 110, weight: 0.05, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
+        // A treadle sewing machine on its table: a P of five.
+        { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 95, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
       ],
     },

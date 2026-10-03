@@ -53,7 +53,8 @@ Enter, the D-pad and A/B, or touch.
 1. Press **Enter** (or click **START DRIVING**). Otto's truck starts on **York Road**, just
    inside the city.
 2. Drive the roads. **Glowing loot** lies beside them (crates, bottle cases, sacks, barrels,
-   jugs, kegs, copper coils, a strongbox); the radar shows what's near. Its colour tells you
+   jugs, kegs, copper coils, bicycles, radio sets, sewing machines, a strongbox); the radar
+   shows what's near. Its colour tells you
    what it's worth: olive is cheap, brick and cream middling, copper good, amber best.
 3. Drive over a piece to pick it up. The **trunk** opens with it in hand: turn it and fit it
    in; pieces can't overlap. Leave behind what won't fit, or press **T** any time to

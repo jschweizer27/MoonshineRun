@@ -35,6 +35,15 @@ const MODELS = {
     add(new THREE.DodecahedronGeometry(0.34).scale(1, 0.75, 0.9), c.main, 0.34, 0.26, 0.18);
     add(cyl(0.08, 0.12, 0.22, 6), c.accent, -0.22, 0.66, 0);
   },
+  // Bicycle: two spoked wheels (dark), a frame, saddle and handlebars.
+  bicycle: (add, c) => {
+    for (const x of [-0.48, 0.48]) add(new THREE.TorusGeometry(0.3, 0.04, 4, 12), c.accent, x, 0.32, 0);
+    add(box(0.9, 0.06, 0.06), c.main, 0, 0.62, 0);
+    add(box(0.06, 0.52, 0.06).rotateZ(0.55), c.main, -0.12, 0.44, 0);
+    add(box(0.05, 0.42, 0.05), c.main, 0.47, 0.52, 0);
+    add(box(0.24, 0.06, 0.12), c.accent, -0.3, 0.72, 0);
+    add(cyl(0.025, 0.025, 0.42, 5).rotateX(Math.PI / 2), c.accent, 0.45, 0.76, 0);
+  },
   // Barrel: an upright barrel with iron hoops.
   barrel: (add, c) => {
     add(cyl(0.38, 0.34, 1.0, 10), c.main, 0, 0.5, 0);
@@ -57,6 +66,13 @@ const MODELS = {
     add(box(1.6, 0.42, 0.5), c.main, 0, 0.21, 0);
     add(box(0.34, 0.44, 0.52), c.accent, 0, 0.22, 0);
   },
+  // Radio set: a cathedral cabinet with a round top, a cloth grille and two knobs.
+  radio: (add, c) => {
+    add(box(0.6, 0.62, 0.36), c.main, 0, 0.31, 0);
+    add(cyl(0.3, 0.3, 0.36, 12).rotateX(Math.PI / 2), c.main, 0, 0.62, 0);
+    add(box(0.36, 0.34, 0.03), c.accent, 0, 0.5, 0.18);
+    for (const x of [-0.15, 0.15]) add(cyl(0.045, 0.045, 0.05, 6).rotateX(Math.PI / 2), c.accent, x, 0.16, 0.19);
+  },
   // Copper coil: a still's worm, three turns on a stand.
   coil: (add, c) => {
     for (let k = 0; k < 3; k++) add(new THREE.TorusGeometry(0.32, 0.06, 5, 10).rotateX(Math.PI / 2), c.main, 0, 0.2 + k * 0.18, 0);
@@ -67,6 +83,16 @@ const MODELS = {
     add(cyl(0.5, 0.5, 1.2, 10).rotateZ(Math.PI / 2), c.main, 0, 0.6, 0);
     for (const x of [-0.42, 0.42]) add(cyl(0.52, 0.52, 0.08, 10).rotateZ(Math.PI / 2), c.accent, x, 0.6, 0);
     for (const x of [-0.35, 0.35]) add(box(0.16, 0.18, 0.9), P.slate, x, 0.09, 0);
+  },
+  // Sewing machine: the machine's arm and head on a treadle table with iron legs.
+  'sewing-machine': (add, c) => {
+    add(box(0.9, 0.06, 0.5), c.accent, 0, 0.62, 0);
+    for (const x of [-0.38, 0.38]) add(box(0.06, 0.6, 0.42), P.slate, x, 0.3, 0);
+    add(box(0.56, 0.1, 0.24), c.main, 0, 0.7, 0);
+    add(box(0.13, 0.3, 0.16), c.main, 0.2, 0.9, 0);
+    add(box(0.52, 0.11, 0.15), c.main, 0, 1.0, 0);
+    add(box(0.11, 0.2, 0.15), c.main, -0.22, 0.88, 0);
+    add(cyl(0.1, 0.1, 0.04, 8).rotateX(Math.PI / 2), c.accent, 0.3, 0.95, 0.1);
   },
   // Strongbox: a brass-bound box with a strap and an iron lock plate (premium: it glows).
   strongbox: (add, c) => {
