@@ -1,9 +1,11 @@
-import { Music } from './music.js';
+import { Music, Radio } from './music.js';
 import { juice } from './juice.js';
 
 // Procedural audio (no asset files). Everything routes through master -> (music | sfx)
 // buses so volume settings, mute and pause apply everywhere. Created after a user
-// gesture so browsers allow it.
+// gesture so browsers allow it. The radio fades between four tunes (music.js, picked by
+// main); the towns have their own sounds (`update`); and the markets, jobs, ranks, rare
+// finds and the deed have theirs (bell, chime, fanfare).
 export class Audio {
   constructor() {
     this.ctx = null;
@@ -70,6 +72,9 @@ export class Audio {
     this.screechGain = loop(2400, 7);
     this.rainGain = loop(1200, 0.4, 'highpass');
     this.windGain = loop(520, 0.6);
+    this.crowdGain = loop(700, 0.5);       // the city's streets by day
+    this._ambAt = 0;
+    this._ambPlace = null;
 
     // Distant jazz from the speakeasies: the band again, quiet and muffled through a wall.
     const muffle = ctx.createBiquadFilter();
@@ -83,7 +88,7 @@ export class Audio {
     this.jazz.start();
     this._cricketAt = 0;
 
-    this.music = new Music(ctx, this.musicBus);
+    this.music = new Radio(ctx, this.musicBus);
     this.music.on = this.radio;
     this.music.start();
 
@@ -106,7 +111,7 @@ export class Audio {
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : this.volumes.master, t, 0.03);
     this.sfx.gain.setTargetAtTime(this.volumes.sfx, t, 0.03);
-    this.musicBus.gain.setTargetAtTime(this.volumes.music, t, 0.03);
+    this.musicBus.gain.setTargetAtTime(this.volumes.music * (this.hushed ? 0.6 : 1), t, 0.03);
   }
 
   toggleRadio() {
@@ -115,9 +120,14 @@ export class Audio {
     return this.radio;
   }
 
-  // s: { speed01, rpm01, throttle01, slip01, rain01, crickets, jazz01 }
+  // Fade the radio over to another tune (music.js TUNES).
+  setTune(id, seconds = 3) {
+    if (this.enabled && this.music.tune !== id) this.music.play(id, seconds);
+  }
+
+  // s: { speed01, rpm01, throttle01, slip01, rain01, crickets, jazz01, place, night, harbor01 }
   update(s) {
-    if (!this.enabled || !this.active) return;
+    if (!this.enabled || !this.active || this.hushed) return;
     const t = this.ctx.currentTime;
     const rpm = s.rpm01 ?? s.speed01, load = (s.throttle01 || 0) * juice('audio', 'engineLoad');
     this.engine.frequency.setTargetAtTime(38 + rpm * 95 + s.speed01 * 25, t, 0.06);
@@ -136,6 +146,22 @@ export class Audio {
       this._chirp(t);
       this._cricketAt = t + 0.6 + Math.random() * 2.2;
     }
+    this._ambience(s, t);
+  }
+
+  // The towns' sounds: the crowd in the city's streets by day and a ship's horn near the
+  // harbour; cattle and the church bell at Monkton; the train at Glyndon; the quarry's
+  // blasts at Cockeysville (by day). One now and then, the first soon after arriving.
+  _ambience(s, t) {
+    const on = juice('audio', 'ambience') || 0;
+    this.crowdGain.gain.setTargetAtTime(s.place === 'Baltimore' && !s.night ? 0.022 * on : 0, t, 1);
+    if (s.place !== this._ambPlace) { this._ambPlace = s.place; this._ambAt = t + 2 + Math.random() * 4; }
+    if (!on || t < this._ambAt) return;
+    this._ambAt = t + 14 + Math.random() * 20;
+    if (s.place === 'Monkton') { if (Math.random() < 0.6) this.moo(); else this.churchBell(); }
+    else if (s.place === 'Glyndon') this.whistle();
+    else if (s.place === 'Cockeysville' && !s.night) this.blast();
+    else if (s.place === 'Baltimore' && (s.harbor01 || 0) > 0.3) this.shipHorn();
   }
 
   // Fade the engine and the road to silence (the title screen).
@@ -143,19 +169,26 @@ export class Audio {
     this.active = on;
     if (!this.enabled) return;
     if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume().catch(() => {});
-    if (!on) {
-      const t = this.ctx.currentTime;
-      for (const g of [this.engineGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain]) g.gain.setTargetAtTime(0, t, 0.05);
-      this.putterDepth.gain.setTargetAtTime(0, t, 0.05);
-    }
+    if (!on) this._quietRoad();
   }
 
-  // Freeze all sound while the game is paused.
+  _quietRoad() {
+    const t = this.ctx.currentTime;
+    for (const g of [this.engineGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain, this.crowdGain]) g.gain.setTargetAtTime(0, t, 0.05);
+    this.putterDepth.gain.setTargetAtTime(0, t, 0.05);
+  }
+
+  // Paused (the pause menu): every sound freezes. Hushed (`'hush'`: a market, the barn, the
+  // trunk, a story card over the road): the engine and the road go quiet and the radio plays
+  // on softer, so the screen's own sounds (the bell, the till) are heard.
   setPaused(p) {
-    this.paused = p;
+    this.paused = p === true;
+    this.hushed = p === 'hush';
     if (!this.enabled) return;
-    if (p) this.ctx.suspend().catch(() => {});
+    if (this.paused) this.ctx.suspend().catch(() => {});
     else this.ctx.resume().catch(() => {});
+    if (this.hushed) this._quietRoad();
+    this.setVolumes({});
   }
 
   _ok() { return this.enabled && !this.paused; }
@@ -261,6 +294,191 @@ export class Audio {
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
     src.connect(f).connect(g).connect(this.sfx);
     src.start(t + 0.12, Math.random(), 0.2);
+  }
+
+  // A shop's door bell, on stopping at a market: two rings of a small bell.
+  bell() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    this._bell(1850, t, 0.09, 0.9);
+    this._bell(1850, t + 0.14, 0.06, 0.8);
+  }
+
+  // A knock on a speakeasy's door: shave and a haircut.
+  knock() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const at of [0, 0.22, 0.33, 0.44, 0.66]) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 380;
+      f.Q.value = 2.5;
+      const g = this._env(t + at, 0.5, 0.002, 0.01, 0.07);
+      src.connect(f).connect(g).connect(this.sfx);
+      src.start(t + at, Math.random(), 0.1);
+    }
+  }
+
+  // A job done: three rising notes on a bell.
+  chime() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    [1047, 1319, 1568].forEach((f, i) => this._bell(f, t + i * 0.12, 0.08, 1.4));
+  }
+
+  // Fanfares: `rank` (a new rank: a brass call), `rare` (word of a rare find: a sparkle)
+  // and `deed` (the deed bought back: the long one, ending on a chord).
+  fanfare(kind = 'rank') {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    if (kind === 'rare') {
+      [1319, 1568, 1976, 2637, 3136].forEach((f, i) => this._bell(f, t + i * 0.07, 0.05, 1.2));
+      return;
+    }
+    const notes = kind === 'deed'
+      ? [[523, 0, 0.16], [523, 0.18, 0.16], [523, 0.36, 0.16], [784, 0.54, 0.5], [659, 1.1, 0.2], [784, 1.32, 0.2], [1047, 1.54, 1.4]]
+      : [[392, 0, 0.14], [523, 0.16, 0.14], [659, 0.32, 0.14], [784, 0.48, 0.6]];
+    for (const [f, at, len] of notes) this._brass(f, t + at, len, 0.1);
+    if (kind === 'deed') for (const f of [262, 330, 392]) this._brass(f, t + 1.54, 1.4, 0.05);
+  }
+
+  // Town sounds, from a way off.
+  moo() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime, len = 1.2;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(118, t);
+    o.frequency.linearRampToValueAtTime(128, t + 0.3);
+    o.frequency.exponentialRampToValueAtTime(92, t + len);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 3;
+    f.frequency.setValueAtTime(520, t);
+    f.frequency.linearRampToValueAtTime(330, t + len);
+    const g = this._env(t, 0.05, 0.25, len, 0.3);
+    o.connect(f).connect(g).connect(this.sfx);
+    o.start(t);
+    o.stop(t + len + 0.4);
+  }
+
+  churchBell() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    for (let k = 0; k < 3; k++) { this._bell(392, t + k * 2.2, 0.05, 3.5); this._bell(196, t + k * 2.2, 0.03, 4); }
+  }
+
+  // A steam whistle's chord: a long blast and a short one.
+  whistle() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [at, len] of [[0, 1.4], [1.7, 0.5]]) {
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 1100;
+      f.Q.value = 0.9;
+      const g = this._env(t + at, 0.035, 0.08, len, 0.15);
+      for (const hz of [466, 554, 698]) {
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(hz * 0.97, t + at);
+        o.frequency.linearRampToValueAtTime(hz, t + at + 0.12);
+        o.connect(f);
+        o.start(t + at);
+        o.stop(t + at + len + 0.2);
+      }
+      f.connect(g).connect(this.sfx);
+    }
+  }
+
+  // A quarry blast: a boom, and its rumble coming back off the hills.
+  blast() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [at, vol] of [[0, 0.3], [0.38, 0.12]]) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 260;
+      const g = this._env(t + at, vol, 0.01, 0.1, 1.6);
+      src.connect(f).connect(g).connect(this.sfx);
+      src.start(t + at, Math.random(), 2);
+    }
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(55, t);
+    o.frequency.exponentialRampToValueAtTime(30, t + 0.8);
+    const g = this._env(t, 0.25, 0.01, 0.05, 0.9);
+    o.connect(g).connect(this.sfx);
+    o.start(t);
+    o.stop(t + 1.2);
+  }
+
+  // A ship's horn out on the harbour.
+  shipHorn() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime, len = 2.2;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 520;
+    const g = this._env(t, 0.06, 0.2, len, 0.5);
+    for (const hz of [87, 110]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = hz;
+      o.connect(f);
+      o.start(t);
+      o.stop(t + len + 0.6);
+    }
+    f.connect(g).connect(this.sfx);
+  }
+
+  // A gain envelope: up to `vol` in `attack`, held to `hold`, gone `release` later.
+  _env(t, vol, attack, hold, release) {
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.setValueAtTime(vol, t + Math.max(attack, hold));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(attack, hold) + release);
+    return g;
+  }
+
+  // A struck bell: a few inharmonic partials, each dying away faster than the one below.
+  _bell(freq, t, vol, decay) {
+    const ctx = this.ctx;
+    [[1, 1, 1], [2.76, 0.5, 0.6], [5.4, 0.25, 0.4], [8.93, 0.12, 0.25]].forEach(([mult, amp, life]) => {
+      const o = ctx.createOscillator();
+      o.frequency.value = freq * mult;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(vol * amp, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay * life);
+      o.connect(g).connect(this.sfx);
+      o.start(t);
+      o.stop(t + decay * life + 0.05);
+    });
+  }
+
+  // A brass note: two detuned saws through a filter that opens as it's blown.
+  _brass(freq, t, len, vol) {
+    const ctx = this.ctx;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(500, t);
+    f.frequency.linearRampToValueAtTime(2200, t + 0.06);
+    f.frequency.setTargetAtTime(1400, t + 0.06, 0.2);
+    const g = this._env(t, vol, 0.03, len, 0.12);
+    for (const detune of [-6, 6]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = freq;
+      o.detune.value = detune;
+      o.connect(f);
+      o.start(t);
+      o.stop(t + len + 0.2);
+    }
+    f.connect(g).connect(this.sfx);
   }
 
   _chirp(t) {
