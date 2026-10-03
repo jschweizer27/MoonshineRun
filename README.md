@@ -56,6 +56,9 @@ Enter, the D-pad and A/B, or touch.
    jugs, kegs, copper coils, bicycles, radio sets, sewing machines, a strongbox); the radar
    shows what's near. Its colour tells you
    what it's worth: olive is cheap, brick and cream middling, copper good, amber best.
+   Now and then word comes of a **rare find** out in the county (a gold pocket watch, a case of
+   bonds): a ★ on the radar shows where. Fetch it before someone else does, and sell it in
+   the one town that pays big for it.
 3. Drive over a piece to pick it up. The **trunk** opens with it in hand: turn it and fit it
    in; pieces can't overlap. Leave behind what won't fit, or press **T** any time to
    rearrange.

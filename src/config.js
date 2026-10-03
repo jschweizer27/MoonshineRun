@@ -155,6 +155,7 @@ export const CONFIG = {
         'small-crate': 1.0, 'bottle-case': 1.1, sack: 0.85, barrel: 0.95, jugs: 1.0,
         crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
         bicycle: 1.1, radio: 1.25, 'sewing-machine': 1.0,
+        'pocket-watch': 0.6, bonds: 1.8,   // the city's brokers buy bonds
       },
       // The village pays well for what's scarce out there (bottled goods, kegs, cash) and
       // little for farm goods it has plenty of. PLACEHOLDERS: tune after playtesting.
@@ -162,6 +163,7 @@ export const CONFIG = {
         'small-crate': 1.1, 'bottle-case': 1.35, sack: 0.7, barrel: 0.8, jugs: 1.3,
         crate: 1.0, 'long-crate': 1.2, coil: 0.85, keg: 1.4, strongbox: 1.15,
         bicycle: 1.2, radio: 0.9, 'sewing-machine': 1.3,
+        'pocket-watch': 1.8, bonds: 0.6,   // the village jeweller wants the watch
       },
       // Glyndon's rail depot ships crates and copper to the city: it pays for those, and
       // little for what the farms round it have plenty of. PLACEHOLDERS: tune after playtesting.
@@ -169,6 +171,7 @@ export const CONFIG = {
         'small-crate': 1.05, 'bottle-case': 0.85, sack: 0.95, barrel: 1.0, jugs: 0.7,
         crate: 1.25, 'long-crate': 1.35, coil: 1.4, keg: 0.9, strongbox: 1.2,
         bicycle: 0.9, radio: 1.0, 'sewing-machine': 0.85,
+        'pocket-watch': 0.6, bonds: 0.6,
       },
     },
     market: {
@@ -240,7 +243,19 @@ export const CONFIG = {
         // A treadle sewing machine on its table: a P of five.
         { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 95, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
+        // Rare finds: never in the normal scatter (weight 0, `rare`); one turns up now and then
+        // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
+        { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 300, weight: 0, cells: [[0, 0]] },
+        { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 360, weight: 0, cells: [[0, 0], [0, 1]] },
       ],
+      // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
+      rare: {
+        first: 120,         // the first turns up this long into a run
+        every: 300,         // the next, this long after one is taken or lost
+        lasts: 180,         // left lying, it's gone after this long (someone else found it)
+        minDistance: 350,   // metres from the truck when it turns up
+        glow: 1.8,          // its glow, times a premium piece's
+      },
     },
   },
 };

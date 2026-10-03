@@ -32,7 +32,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
           el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`),
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
-          el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.tier})`)), btn));
+          el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
     // Upgrades for the truck, paid from the same cash.
     if (onBuy) {

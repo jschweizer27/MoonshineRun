@@ -550,7 +550,9 @@ class Game {
     this.props.update(dt, this._cars);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
-    const [got] = this.loot.update(dt, this.time, this.player, { radius: this.perks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
+    const found = this.loot.update(dt, this.time, this.player, { radius: this.perks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
+    for (const e of found) if (e.type !== 'loot') this._onRare(e);
+    const got = found.find((e) => e.type === 'loot');
     if (got) this._onLoot(got);
     // Markets: the clock turns the day and eases gluts; stop in one to trade.
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
@@ -578,9 +580,27 @@ class Game {
     this._updateAudio();
   }
 
+  // A rare find turned up (word of it, and where), or was lost to someone else.
+  _onRare(e) {
+    const name = e.kind.name.toLowerCase();
+    if (e.type === 'rare') this.hud.toast(`Word of a ${name} out near ${this._landmark(e.x, e.z)}`, 'gold', 5000);
+    else this.hud.toast(`Too late: someone else found the ${name}`, '', 3000);
+  }
+
+  // The named place nearest a spot in the county: a farm or a village.
+  _landmark(x, z) {
+    let best = 'the valley', bd = Infinity;
+    for (const p of [...(this.world.barns || []), ...(this.world.villages || [])]) {
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (p.name && d < bd) { bd = d; best = p.name; }
+    }
+    return best;
+  }
+
   // Picked up a piece of loot: the trunk opens with it in hand to pack it.
   _onLoot(e) {
-    this.hud.toast(`Picked up: ${e.kind.name}`, 'gold', 1600);
+    const pays = e.kind.paysAt && CONFIG.dredge.towns.find((t) => t.id === e.kind.paysAt);
+    this.hud.toast(e.rare && pays ? `Found the ${e.kind.name.toLowerCase()}! It pays best in ${pays.town}` : `Picked up: ${e.kind.name}`, 'gold', e.rare ? 3500 : 1600);
     this.audio.pickup?.();
     this.particles.sparks(e.x, e.z, 0.25);
     this.openTrunk(e.kind.id);
@@ -743,10 +763,11 @@ class Game {
     return Math.max(0, 1 - best / 70);
   }
 
-  // What the radar and the map show: loot within the spotter's range, and the markets.
+  // What the radar and the map show: the markets, then loot within the spotter's range on
+  // top (the rare find last, so it shows even on the rim over a far market).
   _mapMarkers() {
-    return [...this.loot.near(this.player.position, this.perks.mapRange),
-      ...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z }))];
+    return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })),
+      ...this.loot.near(this.player.position, this.perks.mapRange)];
   }
 
   // Draw one frame of the 3D view.

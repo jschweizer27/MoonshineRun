@@ -26,7 +26,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   palette (exposure, FogExp2, teal fill, moonlight, the painterly pass).
 - The run (it was built as "the dredge run" beside the old bootlegging loop, which it
   replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh per
-  kind), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
+  kind; the pool's last slot is the rare find, timed by `loot.rare` and kept out of the
+  scatter and the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
   drift and gluts; `marker.js` the markers) and upgrades, all saved under `shine.dredge.v1`
   (`dredgecareer.js`: cash, the trunk, upgrade levels, market memory, stats, ledger).
   `main._applyPerks` turns the upgrade levels into the truck's tuning, `game.perks`

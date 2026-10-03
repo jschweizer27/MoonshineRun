@@ -120,7 +120,9 @@ try {
 
   // One of each loot kind, in a row across York Road ahead of the truck (out of reach).
   await page.evaluate(() => {
-    const g = window.shine.game, L = g.loot, K = L.meshes.length;
+    // Every kind but the bonds: only one rare find is ever out, so this is the most loot
+    // that can be on screen at once.
+    const g = window.shine.game, L = g.loot, K = L.meshes.length - 1;
     for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
     // Staggered rows of five so nothing hides behind anything: the cheap kinds in front, the
     // dearer ones behind.
