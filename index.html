@@ -86,9 +86,11 @@
       <h1 class="title" id="intro-title">SHINE</h1>
       <p class="subtitle">Baltimore, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
       <p class="story">
-        You are <strong>Otto Braun</strong>, and the roads out of Baltimore are littered with what
-        other people lost: crates, kegs, copper. Work the night roads between the city and the
-        Green Spring Valley, pack what you find into the truck, and sell it where it pays best.
+        You are <strong>Otto Braun</strong>. Last night the Temperance Alliance burned your
+        Highlandtown brewery to the ground. What's left is a truck, your father's old barn up the
+        Green Spring Valley, and the roads out of Baltimore, littered with what other people lost:
+        crates, kegs, copper. Work the roads, pack what you find into the truck, sell it where it
+        pays best, and buy back what was yours.
       </p>
       <p class="hint">Drive over <span class="gold">glowing loot</span> to pick it up, fit it into the
         trunk, then stop at a <span class="gold">&#11042; market</span> to sell and upgrade the truck.</p>
@@ -219,6 +221,18 @@
       <h1 class="title small" id="slots-title">SAVED GAMES</h1>
       <div id="slots-body"></div>
       <button id="slots-done" class="btn">BACK</button>
+    </div>
+  </div>
+
+  <!-- Story dialogue (src/story.js, played by playDialog in src/screens.js) -->
+  <div id="dialog" class="overlay hidden" role="dialog" aria-labelledby="dialog-name">
+    <div class="overlay-card dialog-card">
+      <div class="dialog-head"><span id="dialog-face"></span><span id="dialog-name"></span></div>
+      <p id="dialog-text" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="dialog-skip" class="btn secondary">SKIP</button>
+        <button id="dialog-next" class="btn" data-autofocus>NEXT</button>
+      </div>
     </div>
   </div>
 

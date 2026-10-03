@@ -2,6 +2,7 @@ import { el } from './ui.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote, dayOf, eventFor, eventText } from './market.js';
 import { kindColors } from './trunk.js';
+import { CAST } from './story.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -131,3 +132,48 @@ export function showLedger(ui, career) {
 }
 
 export { money };
+
+// ---------- Story dialogue ----------
+// Plays lines one card at a time (typed out unless motion is reduced). Resolves when
+// finished or skipped.
+export function playDialog(ui, lines, { reducedMotion = false } = {}) {
+  return new Promise((resolve) => {
+    let i = 0, typing = null, full = '';
+    const text = $('dialog-text'), who = $('dialog-name'), face = $('dialog-face');
+    const next = $('dialog-next'), skip = $('dialog-skip');
+    const show = () => {
+      const [speaker, line] = lines[i];
+      const c = CAST[speaker];
+      who.textContent = c.name;
+      face.textContent = c.initials;
+      face.style.borderColor = c.color;
+      face.style.color = c.color;
+      face.classList.toggle('hidden', !c.initials);
+      $('dialog').classList.toggle('narration', !c.name);
+      next.textContent = i === lines.length - 1 ? 'CONTINUE' : 'NEXT';
+      full = line;
+      clearInterval(typing);
+      if (reducedMotion) { text.textContent = full; typing = null; return; }
+      let n = 0;
+      text.textContent = '';
+      typing = setInterval(() => {
+        n += 2;
+        text.textContent = full.slice(0, n);
+        if (n >= full.length) { clearInterval(typing); typing = null; }
+      }, 24);
+    };
+    const done = () => {
+      clearInterval(typing);
+      next.onclick = skip.onclick = null;
+      ui.close('dialog');
+      resolve();
+    };
+    next.onclick = () => {
+      if (typing) { clearInterval(typing); typing = null; text.textContent = full; return; }
+      if (++i >= lines.length) done(); else show();
+    };
+    skip.onclick = done;
+    ui.open('dialog', { onBack: done });
+    show();
+  });
+}

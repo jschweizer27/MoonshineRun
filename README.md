@@ -1,8 +1,10 @@
 # SHINE — Roads of 1922 Baltimore
 
-Baltimore, 1922. You are **Otto Braun**, and the roads out of the city are littered with what
-other people lost: crates, kegs, copper. Work the roads between Baltimore and the Green
-Spring Valley, pack what you find into the truck, and sell it where it pays best.
+Baltimore, 1922. You are **Otto Braun**, and last night the Temperance Alliance burned your
+Highlandtown brewery to the ground. The roads out of the city are littered with what other
+people lost: crates, kegs, copper. Work the roads between Baltimore and the Green Spring
+Valley, pack what you find into the truck, sell it where it pays best, and buy back what was
+yours. The story plays out in short dialogue cards as you go (skip any with Esc).
 
 This repository has two parts:
 

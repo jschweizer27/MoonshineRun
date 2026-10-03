@@ -18,7 +18,9 @@ const DEFAULT = {
   trunk: null,               // Trunk.toJSON()
   upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0 },
   market: { sold: {}, clock: 0 },
-  stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0 },
+  stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
+  story: {},                 // beat id -> true once its cards have played (story.js)
+  flags: {},                 // milestones the story reads: valley (reached a valley town), ...
   ledger: [],                // newest first, capped
 };
 
@@ -64,6 +66,8 @@ export class DredgeCareer {
     d.stats = { ...DEFAULT.stats, ...(d.stats || {}) };
     d.upgrades = { ...DEFAULT.upgrades, ...(d.upgrades || {}) };
     d.ledger = Array.isArray(d.ledger) ? d.ledger : [];
+    d.story = { ...(d.story || {}) };
+    d.flags = { ...(d.flags || {}) };
     this.data = d;
   }
 

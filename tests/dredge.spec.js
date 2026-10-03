@@ -5,7 +5,7 @@ import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './h
 // upgrades to buy. (It was built as "the dredge run" beside the old bootlegging game, which
 // it replaced; the code still calls it that: CONFIG.dredge, dredgecareer.js, html.dredge.)
 
-test('the game boots into free roam on York Road: no police, no heat, no story', async ({ page }) => {
+test('the game boots into free roam on York Road: no police and no heat (and under ?test, no story cards)', async ({ page }) => {
   const problems = await openGame(page);
   await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
   await startRun(page);
@@ -15,12 +15,13 @@ test('the game boots into free roam on York Road: no police, no heat, no story',
     const g = window.shine.game;
     return {
       gone: ['mission', 'police', 'career', 'tutorial', 'fire', 'waypoint'].filter((k) => k in g),
-      hud: ['heat', 'bust', 'hint', 'status-pill', 'siren-flash', 'gameover', 'orders', 'garage', 'dialog'].filter((id) => document.getElementById(id)),
+      hud: ['heat', 'bust', 'hint', 'status-pill', 'siren-flash', 'gameover', 'orders', 'garage'].filter((id) => document.getElementById(id)),
+      dialog: document.getElementById('dialog').classList.contains('hidden'),
       objective: document.getElementById('objective-text').textContent,
       pill: document.getElementById('cargo').textContent,
     };
   });
-  expect(setup).toEqual({ gone: [], hud: [], objective: 'Pick up loot along the roads', pill: 'TRUNK 0/15' });
+  expect(setup).toEqual({ gone: [], hud: [], dialog: true, objective: 'Pick up loot along the roads', pill: 'TRUNK 0/15' });
 
   // Drive up York Road into the county: no one comes after you.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });

@@ -161,7 +161,15 @@ body.touch-mode .hud-br { bottom: 250px; }
   padding: max(16px, env(safe-area-inset-top)) var(--gutter) max(16px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 35%, rgba(40, 30, 15, 0.55), rgba(3, 4, 7, 0.94));
 }
-#pause, #settings, #help, #map, #confirm, #ledger { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#pause, #settings, #help, #map, #confirm, #ledger, #slots { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
+#dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
+.dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
+#dialog-face { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--gold); border-radius: 50%; font-weight: bold; letter-spacing: 1px; }
+#dialog-face.hidden { display: none; }
+#dialog-name { font-size: calc(15px * var(--ts)); letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+#dialog-text { font-size: calc(clamp(17px, 3.6vw, 20px) * var(--ts)); line-height: 1.55; min-height: 4.8em; margin: 0 0 18px; color: var(--paper); }
+#dialog.narration #dialog-text { font-style: italic; color: #d8cfb8; }
 #ledger { z-index: 26; }
 #confirm { z-index: 30; }
 /* Menus stack on top of each other, so their cards are solid (nothing bleeds through). */

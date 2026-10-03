@@ -11,7 +11,8 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, showSlots, money } from './screens.js';
+import { showLedger, showMarket, showSlots, playDialog, money } from './screens.js';
+import { BEATS, nextBeat } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
@@ -41,6 +42,7 @@ export const OPTIONS = {
   time: !params.has('test') || params.has('time'),
   models: params.get('models') !== '0',
   painterly: !params.has('test') || params.has('painterly'),
+  story: !params.has('test') || params.has('story'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -464,11 +466,31 @@ class Game {
     this.clock.getDelta();
   }
 
-  // START DRIVING / CONTINUE on the title screen.
+  // START DRIVING / CONTINUE on the title screen. A new game opens with the prologue.
   start() {
     this.resetRun();
-    if (!this.dredge.data.started) { this.dredge.data.started = true; this.dredge.save(); }
+    const fresh = !this.dredge.data.started;
+    if (fresh) { this.dredge.data.started = true; this.dredge.save(); }
     this._enterPlaying();
+    if (fresh) this._story('prologue');
+  }
+
+  // Play a story beat's cards (once per save): the drive pauses under them.
+  async _story(id) {
+    if (!OPTIONS.story || this.dredge.data.story[id]) return;
+    this.dredge.data.story[id] = true;
+    this.dredge.save();
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    await playDialog(this.ui, BEATS[id].lines, { reducedMotion: !!this.settings.reducedMotion });
+    if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
+  }
+
+  // Twice a second: a beat whose moment has come plays, when nothing else is on screen.
+  _checkStory(dt) {
+    if (!OPTIONS.story || (this._storyT = (this._storyT || 0) - dt) > 0) return;
+    this._storyT = 0.5;
+    const id = nextBeat(this.dredge.data);
+    if (id) this._story(id);
   }
 
   pause({ showMenu = true } = {}) {
@@ -588,6 +610,7 @@ class Game {
     this._updateMarkers();
     this._checkMarket();
     this._checkPlace();
+    this._checkStory(dt);
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -680,6 +703,8 @@ class Game {
     if (place !== this.place) {
       if (this.place) this.hud.toast(place, 'gold', 2200);
       this.place = place;
+      // The first valley town reached (the Jockey's beat).
+      if (place !== 'Baltimore' && place !== 'Green Spring Valley') this.dredge.data.flags.valley = true;
     }
   }
 
