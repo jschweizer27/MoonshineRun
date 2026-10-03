@@ -65,6 +65,9 @@ export class Music {
   _schedule() {
     if (this.ctx.state !== 'running') return;
     const step = 60 / 104 / 2;                     // eighth notes at 104 bpm
+    // After a stall (a busy page, a background tab) skip the notes missed rather than play
+    // them all at once: a burst of new nodes would only slow a struggling page further.
+    if (this._next < this.ctx.currentTime) this._next = this.ctx.currentTime + 0.05;
     while (this._next < this.ctx.currentTime + 0.2) {
       this._play(this._bar, this._eighth, this._next, step);
       this._next += step * (this._eighth % 2 === 0 ? 1.08 : 0.92);   // a little swing
