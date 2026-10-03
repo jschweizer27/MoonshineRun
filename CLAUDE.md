@@ -96,7 +96,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   is held in `main._loop` (real time), so `window.shine.step` tests are unaffected; so is
   slow-mo (`JUICE.cinematic`, `game.timeScale`). `JUICE.ui` drives the HUD animations
   (`hud.js` + `styles.css`), `JUICE.audio` the extra sound (wind, engine load, jazz near
-  the speakeasies, crickets in the county). Speed lines live in the grade pass (`uRush`).
+  the speakeasies, crickets in the county, the towns' sounds). Speed lines live in the grade
+  pass (`uRush`).
   Juice is visual only; `J` toggles it. `camera.js` reads `JUICE.camera`.
 - Visual review loop: `npm run shots -- <label>` (or `dredge-<label>` for the full set of
   views with draw-call counts), `npm run reel -- <label>` and `node scripts/playtest.mjs
@@ -106,6 +107,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   economy (a road-following autopilot with the clock on: $ per game minute, pickups, each
   sale; `rare` also fetches rare finds); set prices and upgrade costs in `CONFIG.dredge`
   against it. One seed is one loot layout and runs vary a lot: compare several seeds.
+  `node scripts/progress.mjs [loot $/min]` projects the long game from the tuning (jobs,
+  brews and rare finds on top of that income): the hour each rank and the deed come.
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
   parts need no new material. Its headlight beams are additive cones
@@ -132,7 +135,15 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   overlay must be opened through `game.ui.open(id)` so keyboard/controller users can reach
   it. Preferences live in `settings.js` (localStorage).
 - States: `intro` → `playing` ⇄ `paused` (menus, the map, the trunk and the markets all
-  pause). Pausing stops simulation and rendering and suspends audio.
+  pause). Pausing stops simulation and rendering. The pause menu suspends audio; a screen
+  over the road (`pause({ showMenu: false })`: a market, the barn, the trunk, the map, a
+  story card) only hushes it (`audio.setPaused('hush')`: the engine and road go quiet, the
+  radio plays on softer), so its own sounds (the bell, the till) are heard.
+- Sound (`audio.js`, `music.js`, all generated): the radio (`Radio`) fades between four
+  tunes (`TUNES`: stride, blues, waltz, rag) that `main._tuneFor` picks by place, time and
+  Lead Foot (`_updateTune` waits two seconds before a change, except for the rag). The
+  towns' sounds come from `audio._ambience` by `place`; markets ring a bell, speakeasies get
+  a knock, a job done a chime, and a rank, a rare find and the deed a `fanfare`.
 - Tests: `startRun(page, { loot: false })` / `clearLoot(page)` (tests/helpers.js) take the
   loot off the roads for tests that drive about; a pickup would open the trunk mid-drive.
 - North is −Z. The county spans z −247…−1040; York Road leaves the city through a gap in
