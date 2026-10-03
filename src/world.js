@@ -21,7 +21,7 @@ export const DROPS = [
   { name: 'Federal Hill Tavern', sign: 'TAVERN', x: -88, z: 176 },
   { name: 'Station North Jazz Club', sign: 'JAZZ CLUB', x: 88, z: -176 },
   { name: 'Charles Village Drugstore', sign: 'DRUGSTORE', x: -88, z: -88 },
-  { name: 'Lexington Market', sign: 'MARKET', x: -132, z: 44 },
+  { name: 'Paca Street Pawnshop', sign: 'PAWNSHOP', x: -132, z: 44 },
 ];
 const SIGN_WORDS = ['CAFE', 'DINER', 'BARBER', 'THEATRE', 'JAZZ', 'CIGARS', 'BANK', 'GARAGE', 'TAILOR', 'BAKERY', 'RADIO', 'DANCING', 'BILLIARDS', 'SHOES', 'LUNCH', 'HOTEL'];
 const AWNINGS = [0xd84a3a, 0x3f9a6a, 0x4a72b8, 0xd8a040, 0xb85a8a];

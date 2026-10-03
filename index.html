@@ -96,6 +96,7 @@
       <div class="btn-col">
         <button id="start-btn" class="btn" data-autofocus>START DRIVING</button>
         <div class="btn-row">
+          <button id="intro-saves" class="btn secondary">SAVED GAMES</button>
           <button id="intro-help" class="btn secondary">HOW TO PLAY</button>
           <button id="intro-settings" class="btn secondary">SETTINGS</button>
         </div>
@@ -136,7 +137,7 @@
         <li>Drive the roads: <span class="gold">glowing loot</span> turns up beside them, and the radar shows what's near. Now and then word comes of a <b>rare find</b> out in the county (a <span class="gold">&#9733;</span> on the radar): fetch it before someone else does, and sell it where it pays best.</li>
         <li>Picking a piece up opens the <b>trunk</b>. Move it, turn it (R, or LB/RB) and fit it in; pieces can't overlap. Leave behind what won't fit.</li>
         <li>With loot aboard, the arrow and the <span class="gold">gold route</span> on the radar lead to the nearest <span class="gold">&#11042; market</span>. Stop there to sell: <b>Lexington Market</b> in Baltimore, the <b>Monkton General Store</b> up York Road, or the <b>Glyndon Depot</b> out west. Each pays differently, the price drops as you sell more of one thing, and each day one town posts a demand: double for one kind of loot.</li>
-        <li>Spend the cash on <b>upgrades</b> at either market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
+        <li>Spend the cash on <b>upgrades</b> at any market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
       </ol>
       <div class="controls-grid">
         <div><h3>Keyboard</h3><table id="help-keys"></table></div>
@@ -209,6 +210,15 @@
       <div id="ledger-totals"></div>
       <table id="ledger-runs"></table>
       <button id="ledger-done" class="btn" data-autofocus>CLOSE THE BOOK</button>
+    </div>
+  </div>
+
+  <!-- Saved games: three slots (filled in by src/screens.js) -->
+  <div id="slots" class="overlay hidden" role="dialog" aria-labelledby="slots-title">
+    <div class="overlay-card wide">
+      <h1 class="title small" id="slots-title">SAVED GAMES</h1>
+      <div id="slots-body"></div>
+      <button id="slots-done" class="btn">BACK</button>
     </div>
   </div>
 

@@ -1,26 +1,64 @@
 import { CONFIG } from './config.js';
-import { loadJSON, saveJSON } from './save.js';
+import { loadJSON, saveJSON, removeKey } from './save.js';
 import { Trunk } from './trunk.js';
 
 // Otto's saved progress: cash, what's in the trunk, upgrade levels, the markets' memory
-// (gluts and the in-game clock), stats and a ledger. (The key dates from when this run was
-// built beside the bootlegging game; old bootlegging saves are simply ignored.)
-const KEY = 'shine.dredge.v1';
+// (gluts and the in-game clock), stats and a ledger. There are three save slots; slot 1
+// keeps the original key, so saves from before the slots carry straight over. (The key
+// dates from when this run was built beside the bootlegging game; old bootlegging saves
+// are simply ignored.)
+export const SLOTS = 3;
+const BASE = 'shine.dredge.v1';
+const SLOT_KEY = 'shine.dredge.slot';     // the slot played last
+const keyFor = (slot) => (slot === 1 ? BASE : `${BASE}.s${slot}`);
 const DEFAULT = {
   version: 1,
+  started: false,            // a run has been started in this slot
   cash: 0,
   trunk: null,               // Trunk.toJSON()
   upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0 },
   market: { sold: {}, clock: 0 },
-  stats: { earned: 0, sold: 0, playSeconds: 0 },
+  stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0 },
   ledger: [],                // newest first, capped
 };
 
+// Whether a slot's data has been played (saves from before `started` count by their stats).
+const played = (d) => !!(d.started || d.stats?.playSeconds > 0 || d.stats?.earned > 0 || d.cash > 0);
+
 export class DredgeCareer {
-  constructor() { this.load(); }
+  constructor(slot = DredgeCareer.lastSlot()) {
+    this.slot = slot;
+    this.load();
+  }
+
+  static lastSlot() {
+    const s = loadJSON(SLOT_KEY, { slot: 1 }).slot;
+    return Number.isInteger(s) && s >= 1 && s <= SLOTS ? s : 1;
+  }
+
+  // A slot at a glance, for the saved-games screen, without switching to it.
+  static summary(slot) {
+    const d = loadJSON(keyFor(slot), DEFAULT), st = { ...DEFAULT.stats, ...(d.stats || {}) };
+    return { slot, started: played(d), cash: d.cash || 0, sold: st.sold, earned: st.earned, playSeconds: st.playSeconds };
+  }
+
+  // Play from another slot (it becomes the one loaded next visit too).
+  useSlot(slot) {
+    this.slot = slot;
+    saveJSON(SLOT_KEY, { slot });
+    this.load();
+  }
+
+  // Wipe a slot (the loaded one is left empty and ready for a new game).
+  erase(slot = this.slot) {
+    removeKey(keyFor(slot));
+    if (slot === this.slot) this.load();
+  }
+
+  get started() { return played(this.data); }
 
   load() {
-    const d = loadJSON(KEY, DEFAULT);
+    const d = loadJSON(keyFor(this.slot), DEFAULT);
     d.market = { ...DEFAULT.market, ...(d.market || {}) };
     d.market.sold = { ...(d.market.sold || {}) };
     d.stats = { ...DEFAULT.stats, ...(d.stats || {}) };
@@ -29,7 +67,7 @@ export class DredgeCareer {
     this.data = d;
   }
 
-  save() { saveJSON(KEY, this.data); }
+  save() { saveJSON(keyFor(this.slot), this.data); }
 
   reset() {
     this.data = structuredClone(DEFAULT);

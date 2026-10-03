@@ -69,12 +69,13 @@ Enter, the D-pad and A/B, or touch.
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
-5. Spend your cash at either market on **upgrades**: a bigger bed (the trunk grows and the
+5. Spend your cash at any market on **upgrades**: a bigger bed (the trunk grows and the
    truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
    and a spotter for the radar.
 6. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
-   cash, upgrades and whatever is in the trunk.
+   cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
+   three slots: continue one, start a new game in another, or erase one.
 
 Settings → Help also lets you **roll a new city layout** or **copy a link** to share yours.
 

@@ -68,15 +68,56 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
 
 // ---------- Otto's ledger ----------
 // The totals, then the latest entries: what sold where, and what the upgrades cost.
+// Time played, as "42 min" or "2 h 05 min".
+export function playTime(seconds) {
+  const m = Math.round((seconds || 0) / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+}
+
+// ---------- Saved games ----------
+// Three slots, each with what it holds and PLAY / NEW GAME / ERASE. `onPlay(slot)` loads a
+// slot and starts; `onNew(slot)` wipes it and starts fresh; `onErase(slot)` wipes it.
+export function showSlots(ui, { summary, current, onPlay, onNew, onErase, onBack }) {
+  const render = () => {
+    const body = $('slots-body');
+    body.textContent = '';
+    for (const s of [1, 2, 3].map(summary)) {
+      const what = s.started
+        ? `${money(s.cash)} on hand · ${s.sold} piece${s.sold === 1 ? '' : 's'} sold · ${playTime(s.playSeconds)}`
+        : 'Empty';
+      const btn = (label, id, fn) => {
+        const b = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `${id}-${s.slot}` }, label);
+        b.addEventListener('click', fn);
+        return b;
+      };
+      const buttons = [btn(s.started ? 'PLAY' : 'START', 'slot-play', () => onPlay(s.slot))];
+      if (s.started) {
+        buttons.push(btn('NEW GAME', 'slot-new', async () => {
+          if (await ui.confirm('START OVER?', `Wipe slot ${s.slot} and start a new game in it? This can’t be undone.`, 'START OVER')) onNew(s.slot);
+        }));
+        buttons.push(btn('ERASE', 'slot-erase', async () => {
+          if (await ui.confirm('ERASE SLOT?', `Erase slot ${s.slot}? This can’t be undone.`, 'ERASE')) { onErase(s.slot); render(); ui.focusFirst(); }
+        }));
+      }
+      body.append(el('div', { class: `upgrade slot${s.slot === current() ? ' current' : ''}` },
+        el('div', {}, el('b', {}, `Slot ${s.slot}${s.slot === current() ? ' · current' : ''}`), el('small', {}, what)),
+        el('span', { class: 'slot-buttons' }, ...buttons)));
+    }
+  };
+  $('slots-done').onclick = () => onBack();
+  render();
+  ui.open('slots', { onBack });
+}
+
 export function showLedger(ui, career) {
   const s = career.data.stats;
-  const mins = Math.round(s.playSeconds / 60);
   const upgrades = Object.keys(CONFIG.dredge.upgrades).reduce((n, id) => n + career.level(id), 0);
   $('ledger-totals').innerHTML = '';
   const rows = [
     ['Cash on hand', money(career.cash)], ['Earned, all time', money(s.earned)],
     ['Pieces sold', s.sold.toLocaleString()], ['Upgrades bought', upgrades],
-    ['Time on the road', `${mins} min`],
+    ['Rare finds', (s.rares || 0).toLocaleString()], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
+    ['Time on the road', playTime(s.playSeconds)],
   ];
   for (const [k, v] of rows) $('ledger-totals').append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));
   const table = $('ledger-runs');

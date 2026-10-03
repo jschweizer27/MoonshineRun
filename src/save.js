@@ -9,6 +9,10 @@ export function loadJSON(key, fallback) {
   }
 }
 
+export function removeKey(key) {
+  try { localStorage.removeItem(key); } catch { /* private mode: nothing stored anyway */ }
+}
+
 export function saveJSON(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));

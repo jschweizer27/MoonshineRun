@@ -390,6 +390,8 @@ html.dredge .btn.secondary:hover, html.dredge .btn.secondary:focus-visible { bac
 html.dredge .btn:focus-visible, html.dredge .text-btn:focus-visible { outline-color: var(--d-cream); }
 html.dredge .upgrade { border-color: var(--d-slate); background: color-mix(in srgb, var(--d-slate) 40%, transparent); }
 html.dredge .event-badge { display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: calc(11px * var(--ts)); letter-spacing: 1.5px; color: var(--d-shadow-teal); background: var(--d-amber); border-radius: 2px; vertical-align: 1px; }
+html.dredge .upgrade.slot.current { border-color: var(--d-amber); }
+.slot-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: -1px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-cream) 30%, transparent); }
 html.dredge .hud-banner, html.dredge .pill {
   background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);

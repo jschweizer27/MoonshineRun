@@ -3,7 +3,7 @@
 > **Frozen: the bootlegging design.** This project mirrors the game's first design, the
 > bootlegging run (stills and drops, heat and evasion, the bust meter, patrols, wanted
 > tiers, pay). The playable web demo in the repo root has since replaced that loop with a
-> loot-and-sell run (pick up loot, pack the trunk, sell in two towns, buy upgrades), and
+> loot-and-sell run (pick up loot, pack the trunk, sell in the towns, buy upgrades), and
 > this project has **not** followed it. It is kept as it was, still checked by CI, as a
 > reference and a starting point; nothing in the web game has to be mirrored here.
 

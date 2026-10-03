@@ -11,7 +11,7 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, money } from './screens.js';
+import { showLedger, showMarket, showSlots, money } from './screens.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
@@ -308,6 +308,7 @@ class Game {
   _bindUI() {
     const on = (id, fn) => $(id).addEventListener('click', fn);
     on('start-btn', () => this.start());
+    on('intro-saves', () => this.openSlots());
     on('intro-help', () => this.ui.open('help'));
     on('intro-settings', () => this.openSettings());
     on('pause-resume', () => this.resume());
@@ -332,11 +333,36 @@ class Game {
     this.ui.open('intro', { onBack: () => {} });
   }
 
-  // The title screen's line about the save: cash on hand and what's been sold so far.
+  // The title screen's line about the save (cash on hand and what's been sold so far), and
+  // CONTINUE once this slot has been played.
   _updateIntroBest() {
-    const s = this.dredge.data.stats;
+    const s = this.dredge.data.stats, slot = this.dredge.slot;
+    $('start-btn').textContent = this.dredge.started ? 'CONTINUE' : 'START DRIVING';
     $('intro-best').textContent = s.sold
-      ? `Cash on hand: ${money(this.dredge.cash)} · Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}` : '';
+      ? `Slot ${slot} · Cash on hand: ${money(this.dredge.cash)} · Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}`
+      : this.dredge.started ? `Slot ${slot}` : '';
+  }
+
+  // The saved games: play a slot, start a new game in one, or erase one.
+  openSlots() {
+    showSlots(this.ui, {
+      summary: (slot) => DredgeCareer.summary(slot),
+      current: () => this.dredge.slot,
+      onPlay: (slot) => { this._loadSlot(slot); this.start(); },
+      onNew: (slot) => { this.dredge.erase(slot); this._loadSlot(slot); this.start(); },
+      onErase: (slot) => { this.dredge.erase(slot); if (slot === this.dredge.slot) this._loadSlot(slot); this._updateIntroBest(); },
+      onBack: () => { this.ui.close('slots'); this._updateIntroBest(); },
+    });
+  }
+
+  // Switch to a save slot: its cash, upgrades and trunk.
+  _loadSlot(slot) {
+    this.dredge.useSlot(slot);
+    this.trunk = this.dredge.loadTrunk();
+    this._applyPerks();
+    this.hud.setCash(this.dredge.cash);
+    this._updateTrunkPill();
+    this._updateIntroBest();
   }
 
   openSettings() {
@@ -356,9 +382,9 @@ class Game {
       const url = `${location.origin}${location.pathname}?seed=${this.citySeed}`;
       navigator.clipboard?.writeText(url).then(() => { share.textContent = 'Link copied ✓'; }, () => { share.textContent = url; });
     });
-    const reset = el('button', { type: 'button', class: 'text-btn' }, 'Erase saved progress');
+    const reset = el('button', { type: 'button', class: 'text-btn' }, `Erase saved progress (slot ${this.dredge.slot})`);
     reset.addEventListener('click', async () => {
-      if (await this.ui.confirm('ERASE PROGRESS?', 'Delete your cash, upgrades, what’s in the trunk and the ledger? This can’t be undone.', 'ERASE')) {
+      if (await this.ui.confirm('ERASE PROGRESS?', `Delete slot ${this.dredge.slot}: your cash, upgrades, what’s in the trunk and the ledger? This can’t be undone.`, 'ERASE')) {
         this.eraseProgress();
         reset.textContent = 'Progress erased ✓';
       }
@@ -438,9 +464,10 @@ class Game {
     this.clock.getDelta();
   }
 
-  // START DRIVING on the title screen.
+  // START DRIVING / CONTINUE on the title screen.
   start() {
     this.resetRun();
+    if (!this.dredge.data.started) { this.dredge.data.started = true; this.dredge.save(); }
     this._enterPlaying();
   }
 
@@ -530,6 +557,7 @@ class Game {
     this.time += dt;
     this.runTime += dt;
     this.dredge.data.stats.playSeconds += dt;
+    this.dredge.data.stats.distance += Math.abs(this.player.speed) * dt;
     const fx = this.env.effects;
     this._updateSurface(dt);
     this.player.speedFactor = this.surface;
@@ -599,6 +627,7 @@ class Game {
 
   // Picked up a piece of loot: the trunk opens with it in hand to pack it.
   _onLoot(e) {
+    if (e.rare) this.dredge.data.stats.rares++;
     const pays = e.kind.paysAt && CONFIG.dredge.towns.find((t) => t.id === e.kind.paysAt);
     this.hud.toast(e.rare && pays ? `Found the ${e.kind.name.toLowerCase()}! It pays best in ${pays.town}` : `Picked up: ${e.kind.name}`, 'gold', e.rare ? 3500 : 1600);
     this.audio.pickup?.();
