@@ -301,12 +301,11 @@ class Game {
   // shows, how big the trunk is and which body it wears.
   _applyPerks() {
     const base = CONFIG.player, D = CONFIG.dredge, U = D.upgrades, lv = (id) => this.dredge.level(id);
-    // A worn truck loses some of its top speed until it's repaired; Lead Foot opens it up.
-    const worn = 1 - this.dredge.data.wear * D.wear.maxSlow;
+    // Lead Foot opens the engine up (wear's lost speed is applied each step, in step()).
     const boost = this._leadFoot ? D.abilities.leadfoot : { speed: 1, accel: 1 };
     const car = {
       ...base,
-      maxSpeed: (base.maxSpeed + U.engine.step.maxSpeed * lv('engine')) * worn * boost.speed,
+      maxSpeed: (base.maxSpeed + U.engine.step.maxSpeed * lv('engine')) * boost.speed,
       accel: (base.accel + U.engine.step.accel * lv('engine')) * boost.accel,
       grip: base.grip + U.handling.step.grip * lv('handling'),
       turnRate: base.turnRate + U.handling.step.turnRate * lv('handling'),
@@ -667,7 +666,8 @@ class Game {
     this.dredge.data.stats.distance += Math.abs(this.player.speed) * dt;
     const fx = this.env.effects;
     this._updateSurface(dt);
-    this.player.speedFactor = this.surface;
+    // The fields slow the truck, and so does wear (until it's mended at the barn).
+    this.player.speedFactor = this.surface * (1 - this.dredge.data.wear * CONFIG.dredge.wear.maxSlow);
     this.player.t.grip = this.gripBase * (1 - (1 - fx.grip) * this.perks.wet) * (this.surface < 1 ? 0.85 : 1);
     this.player.update(dt, input);
     this._throttle = input.throttle || 0;
@@ -876,7 +876,7 @@ class Game {
       onRepair: () => {
         const cost = this.dredge.repairCost();
         if (!this.dredge.repair()) return;
-        this._applyPerks();
+        this._updateWearPill();
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`−${money(cost)}`);
         this.audio.cash?.();
@@ -892,7 +892,7 @@ class Game {
     if (impact <= W.from || d.wear >= 1) return;
     const before = d.wear;
     d.wear = Math.min(1, d.wear + (impact - W.from) * W.perImpact * this.perks.wear);
-    this._applyPerks();
+    this._updateWearPill();
     if (before < W.warnAt && d.wear >= W.warnAt) this.hud.toast('The truck’s knocking. Get it to the barn for repairs.', '', 3500);
   }
 

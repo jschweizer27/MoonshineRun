@@ -548,13 +548,15 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     return {
       broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.perks.pickupRadius, range: g.perks.mapRange,
       size: [g.trunk.cols, g.trunk.rows], look: g.player.look, calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
-      buttons: [...document.querySelectorAll('#market-body [data-id^="up-"]')].map((b) => b.textContent),
+      buttons: ['trunk', 'engine', 'handling', 'magnet', 'spotter'].map((id) => document.querySelector(`#market-body [data-id="up-${id}"]`).textContent),
+      later: ['tyres', 'lamps', 'plating'].map((id) => document.querySelector(`#market-body [data-id="up-${id}"]`).textContent),
     };
   });
   expect(before.broke).toBe(false);
   expect(before.size).toEqual([5, 3]);
   expect(before.look).toBe('stock');
   expect(before.buttons).toEqual(['BUY $300', 'BUY $350', 'BUY $300', 'BUY $250', 'BUY $200']);
+  expect(before.later).toEqual(['AT SCAVENGER', 'AT SCAVENGER', 'AT RUNNER']);    // the rank-gated ones
   // Buy one of each from the market screen, by keyboard focus and click.
   for (const id of ['trunk', 'engine', 'handling', 'magnet', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
   const after = await page.evaluate(() => {
@@ -603,7 +605,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     const g = window.shine.game;
     return { levels: { ...g.dredge.data.upgrades }, size: [g.trunk.cols, g.trunk.rows], maxSpeed: g.player.t.maxSpeed, look: g.player.look };
   });
-  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1 });
+  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1, tyres: 0, lamps: 0, plating: 0 });
   expect(reloaded.size).toEqual([6, 3]);
   expect(reloaded.maxSpeed).toBe(after.maxSpeed);
   expect(reloaded.look).toBe('reinforced');

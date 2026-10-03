@@ -61,15 +61,18 @@ test('wear: hard knocks slow the truck, the HUD shows it, and the barn’s garag
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   const r = await page.evaluate(() => {
-    const g = window.shine.game, top = g.player.t.maxSpeed;
+    // The effective top speed: the tuning's, times what the fields and wear leave of it.
+    const g = window.shine.game, cap = () => { window.shine.step(1 / 60); return g.player.t.maxSpeed * g.player.speedFactor; };
+    const top = cap(), tuned = g.player.t.maxSpeed;
     g._wear(4);                       // a bump: no wear
     const bump = g.dredge.data.wear;
     for (let k = 0; k < 4; k++) g._wear(14);
-    return { top, bump, wear: g.dredge.data.wear, slower: g.player.t.maxSpeed, pill: document.getElementById('wear').textContent, shown: !document.getElementById('wear').classList.contains('hidden'), toast: document.getElementById('toast').textContent };
+    return { top, bump, wear: g.dredge.data.wear, slower: cap(), sameTuning: g.player.t.maxSpeed === tuned, pill: document.getElementById('wear').textContent, shown: !document.getElementById('wear').classList.contains('hidden'), toast: document.getElementById('toast').textContent };
   });
   expect(r.bump).toBe(0);
   expect(r.wear).toBeCloseTo(0.64, 5);
   expect(r.slower).toBeLessThan(r.top * 0.9);
+  expect(r.sameTuning).toBe(true);    // wear doesn't touch the truck's tuning
   expect(r.shown).toBe(true);
   expect(r.pill).toBe('TRUCK 36%');
   expect(r.toast).toContain('Get it to the barn');
@@ -78,7 +81,7 @@ test('wear: hard knocks slow the truck, the HUD shows it, and the barn’s garag
   await page.evaluate(() => { const g = window.shine.game, h = g.world.home; g.dredge.data.cash = 1000; window.shine.teleport(h.stopX, h.stopZ, 0); window.shine.step(0.3); });
   await expect(page.locator('#barn [data-id="repair"]')).toHaveText('REPAIR $224');
   await page.click('#barn [data-id="repair"]');
-  const fixed = await page.evaluate(() => { const g = window.shine.game; return { wear: g.dredge.data.wear, cash: g.dredge.cash, top: g.player.t.maxSpeed, pill: document.getElementById('wear').classList.contains('hidden') }; });
+  const fixed = await page.evaluate(() => { const g = window.shine.game; g.resume(); window.shine.step(1 / 60); return { wear: g.dredge.data.wear, cash: g.dredge.cash, top: g.player.t.maxSpeed * g.player.speedFactor, pill: document.getElementById('wear').classList.contains('hidden') }; });
   expect(fixed).toEqual({ wear: 0, cash: 776, top: r.top, pill: true });
   await expect(page.locator('#barn [data-id="repair"]')).toBeDisabled();
   expect(problems).toEqual([]);
