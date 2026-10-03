@@ -136,6 +136,7 @@ test('keys can be remapped', async ({ page }) => {
 });
 
 test('with loot aboard, the minimap and full map draw the route to the nearest market', async ({ page }) => {
+  test.setTimeout(300_000);
   await openGame(page);
   await startRun(page);
   // An empty trunk: free roam, no route.
@@ -164,12 +165,18 @@ test('with loot aboard, the minimap and full map draw the route to the nearest m
       return { lit: -1, error: String(e && e.stack || e), ms: Math.round(performance.now() - t0) };
     }
   });
+  // A starved CI runner (two software-GL pages at once) can take most of a minute to
+  // answer. A slow check is waited on, not fired again on top of itself: after 45 s the
+  // main thread is sampled for the report, and the same answer is awaited a while longer.
   let lit = -1;
-  const deadline = Date.now() + 45_000;
+  const deadline = Date.now() + 150_000;
   while (lit <= 200 && Date.now() < deadline) {
-    const t0 = Date.now();
-    let r = await Promise.race([look(), new Promise((res) => setTimeout(() => res(null), 15_000))]);
-    if (!r) r = { lit: -1, error: 'no answer within 15 s', where: await mainThread(page) };
+    const t0 = Date.now(), answer = look();
+    let r = await Promise.race([answer, new Promise((res) => setTimeout(() => res(null), 45_000))]);
+    if (!r) {
+      const where = await mainThread(page);
+      r = (await Promise.race([answer, new Promise((res) => setTimeout(() => res(null), 60_000))])) || { lit: -1, error: 'no answer within 105 s', where };
+    }
     checks.push({ ...r, waited: Date.now() - t0 });
     lit = r.lit;
     if (lit <= 200) await page.waitForTimeout(250);
@@ -214,7 +221,7 @@ test('the pause menu: resume, map, ledger, settings, help and quit; the ledger k
   await openGame(page);
   await startRun(page);
   await page.keyboard.press('Escape');
-  const buttons = await page.locator('#pause button').allTextContents();
+  const buttons = await page.locator('#pause button:visible').allTextContents();
   expect(buttons).toEqual(['RESUME', 'MAP', 'LEDGER', 'SETTINGS', 'HOW TO PLAY', 'QUIT TO TITLE']);
   await page.click('#pause-ledger');
   await expect(page.locator('#ledger-runs')).toContainText('Nothing sold yet');
