@@ -165,13 +165,13 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
       install));
     for (const r of RECIPES) {
       const lacks = missing(r, have), locked = rank() < r.rank;
-      const need = Object.entries(r.needs).map(([kind, n]) => `${n} ${KINDS[kind].name.toLowerCase()}${n > 1 ? ' ×' : ''}`).join(', ');
+      const need = wantsText(r.needs);
       const brew = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `brew-${r.id}` }, locked ? 'LOCKED' : 'BREW');
       brew.disabled = locked || !level || lacks.length > 0;
       brew.addEventListener('click', () => onBrew(r));
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(r.id).main}`, 'aria-hidden': 'true' }), el('b', {}, r.name),
-          el('small', {}, locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${lacks.map(([k, n]) => `${n} ${KINDS[k].name.toLowerCase()}`).join(', ')}.` : `Needs ${need}. Ready to brew.`)),
+          el('small', {}, locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${wantsText(Object.fromEntries(lacks))}.` : `Needs ${need}. Ready to brew.`)),
         brew));
     }
     contractRows(body, jobs, trunk, render);
@@ -321,7 +321,7 @@ export function showLedger(ui, career) {
   table.append(el('tr', {}, el('th', {}, 'Entry'), el('th', {}, 'Money')));
   if (!career.data.ledger.length) table.append(el('tr', {}, el('td', { colspan: '2' }, 'Nothing sold yet. The first page is always blank.')));
   for (const r of career.data.ledger.slice(0, 15)) {
-    table.append(el('tr', { class: r.amount < 0 ? 'spent' : 'sale' }, el('td', {}, r.text || '—'), el('td', {}, money(r.amount || 0))));
+    table.append(el('tr', { class: r.amount < 0 ? 'spent' : 'sale' }, el('td', {}, r.text || '—'), el('td', {}, r.amount ? money(r.amount) : '—')));
   }
   ui.open('ledger');
 }

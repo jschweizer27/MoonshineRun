@@ -20,6 +20,7 @@ export function makeMarker(scene, color, text = 'MARKET', icon = 'stall') {
   glow.position.y = 0.06;
   const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(color, text, icon), transparent: true, depthWrite: false }));
   label.scale.set(9, 4.5, 1);
+  label.renderOrder = 2;          // after the beam, so its glow doesn't wash the sign out
   label.position.y = 8;
   group.add(beam, ring, glow, label);
   group.userData = { ring, beam };
@@ -60,8 +61,13 @@ function labelTexture(color, text, icon) {
     g.fillRect(-24, -6, 5, 34); g.fillRect(19, -6, 5, 34);
   }
   g.restore();
-  g.font = `bold ${text.length > 6 ? 40 : 50}px Georgia, serif`;
+  // The word, as large as fits between the icon and the plate's edge.
   g.textBaseline = 'middle';
+  let size = 50;
+  g.font = `bold ${size}px Georgia, serif`;
+  const room = 240 - 94;
+  const w = g.measureText(text).width;
+  if (w > room) { size = Math.floor((size * room) / w); g.font = `bold ${size}px Georgia, serif`; }
   g.fillText(text, 94, 66);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
