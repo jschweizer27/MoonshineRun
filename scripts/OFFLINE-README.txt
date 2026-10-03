@@ -31,7 +31,8 @@ THE RUN
   Drive the roads between Baltimore and the Green Spring Valley and pick up the
   glowing loot beside them. Pack each piece into the trunk; pieces can't overlap.
   Stop at a market (the hexagon on the radar) to sell: Lexington Market in the
-  city, or the Monkton General Store up York Road. Each pays differently, and a
+  city, the Monkton General Store up York Road, or the Glyndon Depot out west.
+  Each pays differently, and a
   price drops as you sell more of one thing. Spend the cash on upgrades there.
 
 TROUBLESHOOTING

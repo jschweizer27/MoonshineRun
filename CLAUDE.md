@@ -1,7 +1,7 @@
 # SHINE — project guide for Claude
 
 SHINE is a 1920s Baltimore driving game (Otto Braun, Baltimore/Green Spring Valley): free
-roam, loot along the roads, a Tetris-style trunk to pack, two market towns to sell in and
+roam, loot along the roads, a Tetris-style trunk to pack, three market towns to sell in and
 upgrades to buy, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
@@ -33,7 +33,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   (pickup radius, radar range, trunk size) and the truck's look. `CONFIG.dredge` holds the
   palette, towns, prices, market, trunk, upgrades and loot; the palette themes every screen
   through `--d-*` CSS variables under `html.dredge` (set by `hud.js`). A market's marker
-  costs four draw calls, so it only shows within `market.markerRange` of the camera.
+  costs four draw calls, so only the one nearest the camera shows, within
+  `market.markerRange`.
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
 - `src/juice.js` — **all game-feel values** (`JUICE`) plus `VehicleFeel` (sprung body roll /
@@ -69,9 +70,10 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   through the shared smoke pool (`particles.atmosphere`). Tuning: `CONFIG.look.skyDome`,
   `CONFIG.look.atmosphere`.
 - `src/world.js` city generation (seeded; `world.drops` are the named corners, where the
-  speakeasy jazz plays), `county.js` (the valley, barns, Monkton), `collision.js` (2D grid
-  colliders + the line-of-sight test the camera pulls in by), `roadgraph.js`
-  (pathfinding, the radar's GPS route), `vehicle.js` (physics), `hud.js` (DOM).
+  speakeasy jazz plays), `county.js` (the valley, barns, the villages in `VILLAGES`:
+  Monkton and Glyndon), `collision.js` (2D grid colliders + the line-of-sight test the
+  camera pulls in by), `roadgraph.js` (pathfinding, the radar's GPS route), `vehicle.js`
+  (physics), `hud.js` (DOM).
 - Input/UI: `input.js` (remappable keys via `e.code`, gamepad polling, touch controls)
   emits actions; `ui.js` is a screen stack with arrow/D-pad focus navigation. Every new
   overlay must be opened through `game.ui.open(id)` so keyboard/controller users can reach

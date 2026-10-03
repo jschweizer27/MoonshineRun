@@ -202,6 +202,20 @@ try {
   await shoot('monkton-market', 'Monkton General Store: its own prices');
   await page.evaluate(() => { window.shine.game.ui.back(); });
 
+  // Glyndon, out west: driving in down the western lane, and its depot.
+  await page.evaluate(() => { window.shine.teleport(-385, -648, Math.PI); window.shine.step(0.4); });
+  await shoot('glyndon', 'Glyndon at night, down the western lane');
+  await count('glyndon');
+  await page.evaluate(() => { const g = window.shine.game; g.camera.position.set(-320, 40, -640); g.camera.lookAt(-390, 0, -695); });
+  await shoot('glyndon-above', 'Glyndon from above: houses round the depot crossroads');
+  await page.evaluate(() => {
+    const g = window.shine.game;
+    g.trunk.clear(); for (const k of ['coil', 'long-crate', 'jugs']) { const p = g.trunk.findSpot(k); if (p) g.trunk.place(k, p.x, p.y, p.rot); }
+    g.openMarket(g._nearestMarket({ x: -390, z: -690 }).town);
+  });
+  await shoot('glyndon-market', 'Glyndon Depot: copper and crates pay');
+  await page.evaluate(() => { window.shine.game.ui.back(); });
+
   // Upgrades: the market's list with cash to spend, then the trunk upgraded twice (6x4)
   // and the reinforced truck.
   await page.evaluate(() => {

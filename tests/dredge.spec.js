@@ -644,9 +644,68 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.prices.sack[1]).toBeLessThan(r.prices.sack[0]);           // farm goods less
   expect(r.toast).toContain('Monkton');
   expect(r.calls).toBeLessThan(60);
-  expect(r.markers).toBe(2);
+  expect(r.markers).toBe(3);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('MONKTON GENERAL STORE');
+  expect(r.programs).toBe(0);
+  expect(r.geometries).toBe(0);
+});
+
+test('a third town: Glyndon out west has its own depot and prices, and only the nearest market shows its marker', async ({ page }) => {
+  await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const g = window.shine.game, w = g.world;
+    const { CONFIG } = await import('/src/config.js');
+    const { priceOf } = await import('/src/market.js');
+    const [city, monkton, glyndon] = CONFIG.dredge.towns;
+    const a = w.roads.nearest(city.x, city.z), b = w.roads.nearest(glyndon.x, glyndon.z);
+    const path = w.roads.path(a.id, b.id) || [];
+    const seg = (x, z, p, q) => { const dx = q.x - p.x, dz = q.z - p.z, t = Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - p.x - dx * t, z - p.z - dz * t); };
+    const houses = w.buildings.filter((h) => h.barn && Math.hypot((h.minX + h.maxX) / 2 - glyndon.x, (h.minZ + h.maxZ) / 2 - glyndon.z) < 90);
+    const onRoad = houses.filter((h) => w.countyEdges.some(([p, q, rw]) => seg((h.minX + h.maxX) / 2, (h.minZ + h.maxZ) / 2, p, q) < rw / 2 + Math.min(h.maxX - h.minX, h.maxZ - h.minZ) / 2));
+    const state = g.dredge.market;
+    const prices = {};
+    for (const k of ['coil', 'jugs']) prices[k] = ['baltimore', 'monkton', 'glyndon'].map((t) => priceOf(t, k, state));
+    const programs = g.renderer.info.programs.length, geometries = g.renderer.info.memory.geometries;
+    // Down the western lane into Glyndon: its name shows on arrival.
+    window.shine.teleport(-381, -580, Math.PI);
+    window.shine.step(0.2);
+    window.shine.teleport(-386, -645, Math.PI);
+    window.shine.step(0.3);
+    const toast = document.getElementById('toast').textContent;
+    g.renderFrame();
+    const calls = window.shine.renderInfo().calls;
+    const shown = g.marketMarkers.map((m) => m.visible);
+    // At Monkton, Glyndon is in range too, but only Monkton's marker shows.
+    window.shine.teleport(0, -640, Math.PI);
+    window.shine.step(0.2);
+    const shownMonkton = g.marketMarkers.map((m) => m.visible);
+    g.trunk.place('coil', 0, 0);
+    window.shine.teleport(glyndon.x, glyndon.z + 4, Math.PI);
+    window.shine.step(0.5);
+    return {
+      roadB: Math.hypot(b.x - glyndon.x, b.z - glyndon.z), path: path.length, villages: w.villages.map((v) => v.name),
+      houses: houses.length, onRoad: onRoad.length, prices, toast, calls, shown, shownMonkton,
+      market: document.getElementById('market-title').textContent, marketOpen: g.ui.isOpen('market'),
+      programs: g.renderer.info.programs.length - programs, geometries: g.renderer.info.memory.geometries - geometries,
+      gap: Math.hypot(monkton.x - glyndon.x, monkton.z - glyndon.z),
+    };
+  });
+  expect(r.villages).toEqual(['Monkton', 'Glyndon']);
+  expect(r.roadB).toBeLessThan(1);
+  expect(r.path).toBeGreaterThan(2);
+  expect(r.houses).toBeGreaterThan(6);
+  expect(r.onRoad).toBe(0);
+  expect(r.prices.coil[2]).toBeGreaterThan(Math.max(r.prices.coil[0], r.prices.coil[1]));   // the depot pays for copper
+  expect(r.prices.jugs[2]).toBeLessThan(Math.min(r.prices.jugs[0], r.prices.jugs[1]));      // and little for jugs
+  expect(r.toast).toContain('Glyndon');
+  expect(r.calls).toBeLessThan(60);
+  expect(r.shown).toEqual([false, false, true]);
+  expect(r.gap).toBeLessThan(450);
+  expect(r.shownMonkton).toEqual([false, true, false]);
+  expect(r.marketOpen).toBe(true);
+  expect(r.market).toBe('GLYNDON DEPOT');
   expect(r.programs).toBe(0);
   expect(r.geometries).toBe(0);
 });
@@ -658,6 +717,7 @@ test('the game explains itself: the intro and How to Play tell the loot run, not
   await page.click('#intro-help');
   await expect(page.locator('#help ol.rules')).toBeVisible();
   await expect(page.locator('#help ol.rules')).toContainText('Monkton General Store');
+  await expect(page.locator('#help ol.rules')).toContainText('Glyndon Depot');
   await expect(page.locator('#help-keys')).toContainText('Open the trunk');
   const text = await page.evaluate(() => document.body.innerText);
   for (const old of [/\bthe still\b/i, /\bheat\b/i, /\bbust/i, /\bFeds\b/, /shine aboard/i, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);

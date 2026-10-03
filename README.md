@@ -59,8 +59,9 @@ Enter, the D-pad and A/B, or touch.
    in; pieces can't overlap. Leave behind what won't fit, or press **T** any time to
    rearrange.
 4. With loot aboard, the banner's arrow and the **gold route** on the radar lead to the
-   nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, or
-   the **Monkton General Store** at the crossroads up York Road. Each town pays differently,
+   nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, the
+   **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
+   in the valley. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
@@ -75,7 +76,7 @@ Settings → Help also lets you **roll a new city layout** or **copy a link** to
 
 **Sights and sounds:** everything but the street lamp model is generated in the browser,
 with no image or audio files: a painted brick-and-stone city with neon blade signs, bay
-windows and rooftop water towers, a village of clapboard houses in the valley, a stride-piano
+windows and rooftop water towers, two villages of clapboard houses in the valley, a stride-piano
 ragtime soundtrack, and exhaust, dust and sparks. The engine shifts gears, the tyres
 screech, and you hear rain on the cobbles, jazz from the speakeasies at night and crickets
 in the valley.
@@ -150,7 +151,7 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   press `J` in-game to switch all of it off and compare.
 - **Art-direction screenshots:** `npm run shots -- mylabel` (chase, street and truck views
   plus render cost), `npm run shots -- dredge-mylabel` (the full set: skyline, county,
-  truck, loot, trunk, markets and both towns, with draw-call counts), `npm run reel --
+  truck, loot, trunk, markets and the towns, with draw-call counts), `npm run reel --
   mylabel` (a launch / brake / drift / crash contact sheet with the effect values) and
   `node scripts/playtest.mjs mylabel` (a scripted run from the title screen to both
   markets), all in `artifacts/shots/`. `node scripts/economy.mjs 10` plays ten game
@@ -170,7 +171,7 @@ src/
   config.js     all tuning numbers
   world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, named corners
   atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
-  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton village
+  county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton and Glyndon
   environment.js  day/night cycle and weather
   loot.js       loot along the roads (pooled, instanced per kind)
   trunk.js, trunkscreen.js   the trunk grid and its screen

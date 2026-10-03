@@ -35,8 +35,13 @@ const BARNS = [
 const FENCED = [['V1', 'V2'], ['V4', 'V5'], ['M1', 'M2'], ['M4', 'M5'], ['Y4', 'Y5'], ['K1', 'K2']];
 
 export const COUNTY = { minX: -440, maxX: 440, minZ: -1040, maxZ: -247 };
-// The village at the York Road crossroads (node Y5).
-export const VILLAGE = { name: 'Monkton', at: NODES.Y5 };
+// The villages, each round a crossroads: Monkton on York Road (node Y5), and Glyndon out
+// west where the valley road meets the western lane (node M3). Each draws from its own
+// random stream (seed + 31337 + its index), so adding one moves nothing else.
+export const VILLAGES = [
+  { name: 'Monkton', at: NODES.Y5 },
+  { name: 'Glyndon', at: NODES.M3 },
+];
 const ROAD_W = 10;
 
 export function buildCounty(world, rng) {
@@ -84,9 +89,10 @@ export function buildCounty(world, rng) {
   // Barns (instanced bodies and roofs) with a lantern by each door.
   const barnSpots = BARNS.map(([lane, from, name]) => barnAt(NODES[lane], NODES[from], name));
   const home = { ...barnAt(NODES.H0, NODES.Y1, 'Otto’s barn'), home: true };
-  // Monkton: clapboard houses and stores round the York Road crossroads, drawn with the
-  // barns' kit (the second market is at the crossroads).
-  const village = villageAround(VILLAGE.at, edges, createRng((world.seed ?? 0) + 31337));
+  // The villages: clapboard houses and stores round their crossroads, drawn with the barns'
+  // kit (each has a market at its crossroads).
+  const villages = VILLAGES.map((v, i) => villageAround(v.at, edges, createRng((world.seed ?? 0) + 31337 + i), barnSpots.concat(home)));
+  const village = villages.flat();
   const all = [...barnSpots, home, ...village];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
@@ -109,7 +115,7 @@ export function buildCounty(world, rng) {
     world.buildings.push({ minX: b.x - half[0], minZ: b.z - half[1], maxX: b.x + half[0], maxZ: b.z + half[1], h, barn: true });
     if (!b.house || b.lantern) world.extraLights.push({ x: b.x + b.fx * (d / 2 + 1.5) + b.fz * (w / 2 - 1), z: b.z + b.fz * (d / 2 + 1.5) - b.fx * (w / 2 - 1), tx: b.fx, tz: b.fz, pole: false });
   });
-  world.village = { name: VILLAGE.name, x: VILLAGE.at[0], z: VILLAGE.at[1], houses: village.length };
+  world.villages = VILLAGES.map((v, i) => ({ name: v.name, x: v.at[0], z: v.at[1], houses: villages[i].length }));
   for (const im of [body, roof, door]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   body.instanceColor.needsUpdate = true;
 
@@ -197,7 +203,7 @@ export function buildCounty(world, rng) {
 // A barn at the end of a lane, its door facing back down the lane.
 // Houses and stores along the four roads out of a crossroads, set back behind the verge,
 // fronts to the road (snapped to an axis, like the barns), clear of every road.
-function villageAround([cx, cz], edges, rng) {
+function villageAround([cx, cz], edges, rng, barns = []) {
   const COLORS = [0xd8d2c4, 0xc9bfa6, 0x8a3b2e, 0x5f6a72, 0x6b6e52, 0xb8a684];
   const arms = edges.filter(([a, b]) => (a.x === cx && a.z === cz) || (b.x === cx && b.z === cz))
     .map(([a, b]) => { const o = a.x === cx && a.z === cz ? b : a, len = Math.hypot(o.x - cx, o.z - cz); return [(o.x - cx) / len, (o.z - cz) / len]; });
@@ -211,6 +217,7 @@ function villageAround([cx, cz], edges, rng) {
         const r = Math.hypot(w, d) / 2 + 1;
         if (edges.some(([a, b, rw]) => distToSegment(x, z, a, b) < r + rw / 2)) continue;
         if (out.some((o) => Math.hypot(o.x - x, o.z - z) < r + Math.hypot(o.w, o.d) / 2)) continue;
+        if (barns.some((b) => Math.hypot(b.x - x, b.z - z) < r + 12)) continue;
         // The front faces the road: toward the crossroads arm, snapped to an axis.
         const tx = uz * side, tz = -ux * side, alongX = Math.abs(tx) > Math.abs(tz);
         const fx = alongX ? Math.sign(tx) : 0, fz = alongX ? 0 : Math.sign(tz);

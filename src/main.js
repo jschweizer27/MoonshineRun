@@ -603,12 +603,18 @@ class Game {
     return { town: best, dist: bd, inside: best && bd < best.radius };
   }
 
-  // A market's marker shows only near the camera: each costs four draw calls, so the far
-  // town's stays hidden (the radar always shows both).
+  // Only the market nearest the camera shows its marker, and only within range: each costs
+  // four draw calls, so however many towns there are it's four at most (the radar always
+  // shows every market).
   _updateMarkers() {
     const cam = this.camera.position, range = CONFIG.dredge.market.markerRange;
+    let near = null, nd = range;
     for (const m of this.marketMarkers) {
-      m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < range;
+      const d = Math.hypot(m.position.x - cam.x, m.position.z - cam.z);
+      if (d < nd) { nd = d; near = m; }
+    }
+    for (const m of this.marketMarkers) {
+      m.visible = m === near;
       animateMarker(m, this.time, cam);
     }
   }

@@ -141,12 +141,13 @@ export const CONFIG = {
   dredge: {
     palette: PALETTE,
     spawn: { x: 0, z: 100, heading: 0 },   // York Road, just inside the city
-    // Towns with a market (stop inside the radius to sell): the city, and Monkton, a village
-    // at the York Road crossroads in the valley (county.js VILLAGE). `area` is how far out
+    // Towns with a market (stop inside the radius to sell): the city, Monkton at the York
+    // Road crossroads in the valley and Glyndon out west (county.js VILLAGES). `area` is how far out
     // the town's name shows when you arrive.
     towns: [
       { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
       { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95 },
+      { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90 },
     ],
     // What each town pays, as a multiple of each kind's base value.
     prices: {
@@ -159,6 +160,12 @@ export const CONFIG = {
       monkton: {
         'small-crate': 1.1, 'bottle-case': 1.35, sack: 0.7, barrel: 0.8, jugs: 1.3,
         crate: 1.0, 'long-crate': 1.2, coil: 0.85, keg: 1.4, strongbox: 1.15,
+      },
+      // Glyndon's rail depot ships crates and copper to the city: it pays for those, and
+      // little for what the farms round it have plenty of. PLACEHOLDERS: tune after playtesting.
+      glyndon: {
+        'small-crate': 1.05, 'bottle-case': 0.85, sack: 0.95, barrel: 1.0, jugs: 0.7,
+        crate: 1.25, 'long-crate': 1.35, coil: 1.4, keg: 0.9, strongbox: 1.2,
       },
     },
     market: {
