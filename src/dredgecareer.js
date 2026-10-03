@@ -21,6 +21,9 @@ const DEFAULT = {
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
+  rep: 0,                    // reputation, from contracts (ranks come from it)
+  contract: null,            // the job taken: an offer from contracts.js plus `due` (game hours)
+  taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
   story: {},                 // beat id -> true once its cards have played (story.js)
   flags: {},                 // milestones the story reads: valley (reached a valley town), ...
@@ -71,6 +74,7 @@ export class DredgeCareer {
     d.ledger = Array.isArray(d.ledger) ? d.ledger : [];
     d.story = { ...(d.story || {}) };
     d.stash = { ...(d.stash || {}) };
+    d.taken = { ...(d.taken || {}) };
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     this.data = d;

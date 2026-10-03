@@ -13,6 +13,7 @@ import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
 import { showLedger, showMarket, showSlots, showBarn, showStill, playDialog, money } from './screens.js';
 import { consume } from './brew.js';
+import { contacts, offersFor, progress, handOver, wantsText } from './contracts.js';
 import { KINDS } from './trunk.js';
 import { BEATS, nextBeat } from './story.js';
 import { Particles } from './particles.js';
@@ -106,7 +107,15 @@ class Game {
     const home = this.world.home;
     this.barnMarker = makeMarker(this.scene, CONFIG.dredge.palette.cream, 'BARN', 'barn');
     this.barnMarker.position.set(home.stopX, 0, home.stopZ);
-    this.markers = [...this.marketMarkers, this.barnMarker];
+    // A contract's delivery: one marker for a speakeasy, one for a farm, shown only for the
+    // job in hand (under the same nearest-marker rule).
+    this.contactList = contacts(this.world);
+    this.jobMarkers = {
+      speakeasy: makeMarker(this.scene, CONFIG.dredge.palette.copper, 'DELIVERY', 'bottle'),
+      farm: makeMarker(this.scene, CONFIG.dredge.palette.copper, 'DELIVERY', 'barn'),
+    };
+    for (const m of Object.values(this.jobMarkers)) { m.userData.off = true; m.visible = false; }
+    this.markers = [...this.marketMarkers, this.barnMarker, ...Object.values(this.jobMarkers)];
     this._barnLeft = true;
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
@@ -381,6 +390,7 @@ class Game {
     this._updateTrunkPill();
     this._updateIntroBest();
     this._updateGuide();
+    this._updateJobMarker();
   }
 
   openSettings() {
@@ -454,6 +464,8 @@ class Game {
     this._marketLeft = true;
     this._barnLeft = true;
     this._dropLeft = true;
+    this._jobLeft = true;
+    this._updateJobMarker();
     this.place = this._placeName();
     this._eventDay = dayOf(this.dredge.market);    // the day's event is announced when the day turns
     this.debris.clear();
@@ -664,6 +676,7 @@ class Game {
     passTime(this.dredge.market, dt * this.env.hoursPerSecond);
     this._checkEvent();
     this._updateMarkers();
+    this._checkContract();
     this._checkMarket();
     this._checkBarn();
     this._checkDrop();
@@ -800,7 +813,7 @@ class Game {
       return true;
     };
     this._barnRender = showBarn(this.ui, {
-      career: this.dredge, getTrunk: () => this.trunk, cap, rank: () => d.rank || 0,
+      career: this.dredge, getTrunk: () => this.trunk, cap, rank: () => d.rank || 0, jobs: this._jobs(),
       // A copper coil for the still: from the stash first, then the trunk.
       onInstall: () => {
         if ((d.still || 0) >= CONFIG.dredge.brew.maxLevel) return;
@@ -870,6 +883,81 @@ class Game {
     el.textContent = `TRUCK ${Math.round((1 - w) * 100)}%`;
   }
 
+  // ---------- Contracts ----------
+  // The board the markets, speakeasies and barn show: the job in hand and today's offers.
+  _jobs() {
+    const d = this.dredge.data, day = dayOf(this.dredge.market);
+    return {
+      active: () => d.contract,
+      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0 }).filter((o) => !d.taken[o.id]),
+      hoursLeft: () => (d.contract ? d.contract.due - this.dredge.market.clock : 0),
+      onAccept: (o) => this.takeContract(o),
+      onAbandon: () => this.dropContract(),
+    };
+  }
+
+  takeContract(offer) {
+    const d = this.dredge.data;
+    if (d.contract) return false;
+    d.contract = { ...offer, due: this.dredge.market.clock + offer.hours };
+    // Taken offers don't come back; only today's and yesterday's are worth remembering.
+    const day = dayOf(this.dredge.market);
+    for (const id of Object.keys(d.taken)) if (Number(id.split('-')[0]) < day - 1) delete d.taken[id];
+    d.taken[offer.id] = true;
+    this.dredge.save();
+    this._updateJobMarker();
+    this.hud.toast(`Job taken: ${wantsText(offer.wants)} to ${offer.name}`, 'gold', 3000);
+    return true;
+  }
+
+  // Dropping a job costs a little standing; missing its deadline costs more.
+  dropContract(late = false) {
+    const d = this.dredge.data, c = d.contract;
+    if (!c) return;
+    const C = CONFIG.dredge.contracts;
+    d.rep = Math.max(0, (d.rep || 0) - (late ? C.failRep : Math.round(C.failRep / 2)));
+    d.contract = null;
+    this.dredge.save();
+    this._updateJobMarker();
+    this.hud.toast(late ? `Too late: ${c.name} found someone else.` : `Dropped the job for ${c.name}.`, '', 3000);
+  }
+
+  _updateJobMarker() {
+    const c = this.dredge.data.contract;
+    for (const [kind, m] of Object.entries(this.jobMarkers)) {
+      m.userData.off = !c || c.kind !== kind;
+      if (!m.userData.off) m.position.set(c.x, 0, c.z);
+      else m.visible = false;
+    }
+  }
+
+  // The job in hand: late, or delivered by stopping at the contact with the goods aboard.
+  _checkContract() {
+    const d = this.dredge.data, c = d.contract;
+    if (!c) return;
+    if (this.dredge.market.clock > c.due) { this.dropContract(true); return; }
+    const p = this.player.position;
+    if (Math.hypot(p.x - c.x, p.z - c.z) > CONFIG.dredge.contracts.radius) { this._jobLeft = true; return; }
+    if (!this._jobLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    this._jobLeft = false;
+    if (!progress(c, this.trunk).ready) { this.hud.toast(`${c.name} is waiting on ${wantsText(c.wants)}.`, '', 3000); return; }
+    handOver(c, this.trunk);
+    d.cash += c.pay;
+    d.stats.earned += c.pay;
+    d.stats.contracts++;
+    d.rep = (d.rep || 0) + c.rep;
+    d.ledger.unshift({ t: Date.now(), text: `Job for ${c.name}: ${wantsText(c.wants)}`, amount: c.pay });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    d.contract = null;
+    this.dredge.saveTrunk(this.trunk);
+    this._updateJobMarker();
+    this._updateTrunkPill();
+    this.hud.setCash(this.dredge.cash, true);
+    this.hud.cashPop(`+${money(c.pay)}`);
+    this.audio.cash?.();
+    this.hud.toast(`Delivered to ${c.name}: ${money(c.pay)}`, 'gold', 3000);
+  }
+
   // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
   // speakeasies buy. { kind: 'market' | 'drop', place: { x, z, ... }, dist, name }
   _destination(p = this.player.position) {
@@ -902,7 +990,7 @@ class Game {
     if (this.state !== STATE.PAUSED) return;
     const close = () => { this.ui.close('market'); this._marketRender = null; if (!this.ui.anyOpen) this.resume(); };
     this._marketRender = showMarket(this.ui, {
-      town, getTrunk: () => this.trunk, career: this.dredge,
+      town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(),
       onSell: (kind) => {
         const r = sell(town.id, this.trunk, this.dredge.market, kind);
         if (!r.count) return;
@@ -937,6 +1025,15 @@ class Game {
   // The banner: where to sell (with the arrow) once there's something aboard; before that,
   // the day's market event if there is one.
   _updateObjective() {
+    const c = this.dredge.data.contract;
+    if (c) {
+      const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, left = Math.max(0, Math.ceil(c.due - this.dredge.market.clock));
+      const bearing = Math.atan2(dx, -dz) - this.chase.heading;
+      const ready = progress(c, this.trunk).ready;
+      this.hud.setObjective(ready ? `Deliver to ${c.name} · ${left} h` : `Job: ${wantsText(c.wants)} for ${c.name} · ${left} h`,
+        `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
+      return;
+    }
     const { place: town, dist, name } = this._destination();
     if (!town || !this.trunk.count) {
       const ev = eventFor(dayOf(this.dredge.market));
@@ -950,8 +1047,9 @@ class Game {
 
   // With loot aboard, the radar draws the way along the roads to the nearest market.
   _updateRoute(dt) {
-    const { place } = this._destination();
-    if (place && this.trunk.count) this.minimap.updateRoute(dt, this.player.position, place);
+    const c = this.dredge.data.contract;
+    const place = c && progress(c, this.trunk).ready ? c : this._destination().place;
+    if (place && (this.trunk.count || c)) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
   }
 
@@ -1003,6 +1101,8 @@ class Game {
   _mapMarkers() {
     const h = this.world.home;
     const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
+    const c = this.dredge.data.contract;
+    if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
     return [...CONFIG.dredge.towns.map((t) => ({ kind: 'market', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
       ...this.loot.near(this.player.position, this.perks.mapRange)];
   }

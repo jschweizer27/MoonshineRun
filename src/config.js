@@ -228,6 +228,18 @@ export const CONFIG = {
         { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4 },
       ],
     },
+    // Contracts (src/contracts.js): each in-game day posts `perDay` jobs, a `farmShare` of
+    // them from the farms (who want `farmWants`) and the rest from the speakeasies (who want
+    // `barWants`, or `shine` once Otto brews). A job pays its goods' value x `payMult`, earns
+    // pay / `repPer` reputation, and is due within `hours` (game hours) of being taken;
+    // missing it costs `failRep`. Deliver by stopping within `radius` of the contact.
+    // PLACEHOLDERS: tune after playtesting.
+    contracts: {
+      perDay: 3, farmShare: 0.5, payMult: 1.7, repPer: 20, failRep: 15, hours: [8, 16], radius: 9,
+      farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
+      barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
+      shine: ['corn-shine', 'applejack', 'rye', 'lager'],
+    },
     // The speakeasies (world.drops) buy shine, stopped at within `radius`.
     speakeasy: { radius: 9 },
     // Wear: hard knocks (an impact over `from`) wear the truck, and a worn truck loses up

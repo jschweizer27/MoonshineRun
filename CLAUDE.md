@@ -50,6 +50,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `screens.js` runs a batch on its own clock (`manual()` + `step()` in tests). Brewed kinds
   are loot kinds with `brewed: true` (weight 0); `market.buys` keeps them out of the markets
   and lets the speakeasies (`world.drops`, town ids `drop:<n>`) buy only them.
+- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms;
+  `offersFor(day, ...)` rolls the day's jobs like `eventFor`; `progress` / `handOver`).
+  `main._jobs()` is the board the market and barn screens show; `data.contract` is the job in
+  hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
+  earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
+  marker is one of `main.jobMarkers`, under the nearest-marker rule.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

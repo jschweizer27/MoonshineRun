@@ -2,6 +2,7 @@ import { el } from './ui.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote, dayOf, eventFor, eventText, buys } from './market.js';
 import { RECIPES, missing, newBatch, stepBatch, quality, yieldFor } from './brew.js';
+import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST } from './story.js';
 
@@ -11,7 +12,36 @@ const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleSt
 // ---------- Town market ----------
 // One row per kind of loot in the trunk: how many, what the next one fetches, SELL. Prices
 // drop as you sell (the glut), so the row shows the total for selling them all.
-export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, onSell, onBuy, onTrunk, onBack }) {
+// The contract board (markets, speakeasies and the barn): the job in hand with what's
+// aboard for it, and the day's offers to take. `jobs` = { active(), offers(), hoursLeft(),
+// onAccept(offer), onAbandon() }.
+function contractRows(body, jobs, trunk, render) {
+  if (!jobs) return;
+  body.append(el('h3', { class: 'market-head' }, 'CONTRACTS'));
+  const active = jobs.active();
+  if (active) {
+    const pr = progress(active, trunk), left = Math.max(0, Math.ceil(jobs.hoursLeft()));
+    const drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'job-drop' }, 'DROP IT');
+    drop.addEventListener('click', () => { jobs.onAbandon(); render(); });
+    body.append(el('div', { class: 'upgrade job active' },
+      el('div', {}, el('b', {}, `${active.name}: ${wantsText(active.wants)}`),
+        el('small', {}, `Pays ${money(active.pay)} · due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${pr.ready ? ' · ready to deliver' : ''}`)),
+      drop));
+  }
+  const offers = jobs.offers();
+  if (!offers.length && !active) body.append(el('p', { class: 'hint' }, 'No jobs left today. Come back tomorrow.'));
+  for (const o of offers) {
+    const take = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-${o.id}` }, 'TAKE IT');
+    take.disabled = !!active;
+    take.addEventListener('click', () => { jobs.onAccept(o); render(); });
+    body.append(el('div', { class: 'upgrade job' },
+      el('div', {}, el('b', {}, `${o.name}: ${wantsText(o.wants)}`),
+        el('small', {}, `Pays ${money(o.pay)} · ${o.hours} h to deliver · ${o.kind === 'farm' ? 'a farm in the valley' : 'a speakeasy in the city'}`)),
+      take));
+  }
+}
+
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, onSell, onBuy, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
@@ -38,6 +68,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
+    contractRows(body, jobs, trunk, render);
     // Upgrades for the truck, paid from the same cash.
     if (onBuy) {
       body.append(el('h3', { class: 'market-head' }, 'UPGRADES'));
@@ -84,7 +115,7 @@ export function playTime(seconds) {
 // ---------- Otto's barn ----------
 // The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
 // the truck's wear). Callbacks do the work; this draws and re-draws.
-export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onTrunk, onBack }) {
+export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = null, onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk(), d = career.data, body = $('barn-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -132,6 +163,7 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, onStore, o
           el('small', {}, locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${lacks.map(([k, n]) => `${n} ${KINDS[k].name.toLowerCase()}`).join(', ')}.` : `Needs ${need}. Ready to brew.`)),
         brew));
     }
+    contractRows(body, jobs, trunk, render);
     // The garage.
     body.append(el('h3', { class: 'market-head' }, 'THE GARAGE'));
     const cost = career.repairCost(), health = Math.round((1 - d.wear) * 100);
@@ -268,7 +300,8 @@ export function showLedger(ui, career) {
   const rows = [
     ['Cash on hand', money(career.cash)], ['Earned, all time', money(s.earned)],
     ['Pieces sold', s.sold.toLocaleString()], ['Upgrades bought', upgrades],
-    ['Rare finds', (s.rares || 0).toLocaleString()], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
+    ['Rare finds', (s.rares || 0).toLocaleString()], ['Jobs done', (s.contracts || 0).toLocaleString()],
+    ['Reputation', (career.data.rep || 0).toLocaleString()], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
     ['Time on the road', playTime(s.playSeconds)],
   ];
   for (const [k, v] of rows) $('ledger-totals').append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));

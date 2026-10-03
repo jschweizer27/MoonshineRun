@@ -82,7 +82,11 @@ Enter, the D-pad and A/B, or touch.
    gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
    to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
    Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
-8. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+8. **Contracts**: the speakeasies and the farms post jobs each day, on the board at any market,
+   speakeasy or the barn. Take one (one at a time), bring what they want before it's due, and
+   stop at their door: they pay well over the market. Keeping your word builds your
+   reputation; dropping a job or missing its deadline costs some.
+9. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.
