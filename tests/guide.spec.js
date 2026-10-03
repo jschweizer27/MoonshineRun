@@ -18,7 +18,7 @@ test('the first run: tips walk through the first pickup, packing and sale, then 
   // Pick a crate up: the trunk opens with a packing tip.
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot, p = g.player.position;
-    L.kind[0] = L.meshes.findIndex((m) => m.name === 'loot-crate'); L.x[0] = p.x; L.z[0] = p.z - 2; L.active[0] = 1;
+    L.kind[0] = L.kindIndex('crate'); L.x[0] = p.x; L.z[0] = p.z - 2; L.active[0] = 1;
     window.shine.step(0.2);
   });
   await expect(page.locator('#trunk')).toBeVisible();

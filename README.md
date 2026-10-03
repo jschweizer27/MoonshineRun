@@ -201,7 +201,7 @@ src/
   atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
   county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton and Glyndon
   environment.js  day/night cycle and weather
-  loot.js       loot along the roads (pooled, instanced per kind)
+  loot.js       loot along the roads (pooled, one instanced mesh for every kind)
   trunk.js, trunkscreen.js   the trunk grid and its screen
   market.js     prices and selling (drift, gluts)
   dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger

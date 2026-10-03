@@ -6,10 +6,12 @@ import { kindColors } from './trunk.js';
 
 // Loot lying along the roads (CONFIG.dredge.loot.kinds). Each kind is a
 // small flat-shaded primitive coloured by its value tier (CONFIG.dredge.lootTiers, from the
-// palette), drawn by its own InstancedMesh with a fixed pool. Every frame each kind draws
-// only its pieces near the truck (`count`) and its bounds are refitted, so it's culled when
-// they're off screen: a kind with nothing nearby costs no draw call. All kinds share one
-// material. A faint amber glow sprite behind each piece (one more instanced mesh) makes loot
+// palette). Every kind's model sits in one shared geometry, each vertex tagged with its kind
+// (`aKind`), and one InstancedMesh draws every piece: each instance carries its kind
+// (`iKind`) and the vertex shader collapses the other kinds' vertices to nothing. So all the
+// loot on screen is one draw call, however many kinds. Every frame it draws only the pieces
+// near the truck (`count`) and its bounds are refitted, so it's culled when they're off
+// screen. A faint amber glow sprite behind each piece (one more instanced mesh) makes loot
 // read from a distance at night; premium pieces glow brighter. The last pool slot is kept
 // for a rare find (L.rare): one at a time, far out in the county, shown on the radar at any
 // range, gone if left too long.
@@ -136,6 +138,24 @@ const MODELS = {
   },
 };
 
+// Every kind's model in one geometry, each vertex tagged with its kind's index.
+function allKindsGeometry() {
+  const geos = L.kinds.map((k) => kindGeometry(k));
+  const out = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'color']) {
+    const size = geos[0].attributes[name].itemSize;
+    const all = new Float32Array(geos.reduce((n, g) => n + g.attributes[name].array.length, 0));
+    geos.reduce((o, g) => { all.set(g.attributes[name].array, o); return o + g.attributes[name].array.length; }, 0);
+    out.setAttribute(name, new THREE.BufferAttribute(all, size));
+  }
+  const tag = new Float32Array(out.attributes.position.count);
+  let o = 0;
+  geos.forEach((g, k) => { tag.fill(k, o, o + g.attributes.position.count); o += g.attributes.position.count; g.dispose(); });
+  out.setAttribute('aKind', new THREE.BufferAttribute(tag, 1));
+  out.computeBoundingSphere();
+  return out;
+}
+
 function kindGeometry(kind) {
   const parts = [];
   const add = (geo, color, x = 0, y = 0, z = 0) => {
@@ -189,15 +209,24 @@ export class Loot {
       vertexColors: true, flatShading: true, roughness: 0.75, metalness: 0.05,
       emissive: new THREE.Color(P.cream).multiplyScalar(L.emissive),
     });
-    this.meshes = L.kinds.map((k) => {
-      const mesh = new THREE.InstancedMesh(kindGeometry(k), this.material, n);
-      mesh.name = `loot-${k.id}`;
-      mesh.count = 0;
-      mesh.visible = false;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-      return mesh;
-    });
+    // Each instance shows only its own kind's vertices.
+    this.material.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float iKind;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nif (abs(aKind - iKind) > 0.5) transformed = vec3(0.0);');
+    };
+    this.material.customProgramCacheKey = () => 'loot-kinds';
+    const geo = allKindsGeometry();
+    this.iKind = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+    this.iKind.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('iKind', this.iKind);
+    this.mesh = new THREE.InstancedMesh(geo, this.material, n);
+    this.mesh.name = 'loot';
+    this.mesh.count = 0;
+    this.mesh.visible = false;
+    this.mesh.receiveShadow = true;
+    scene.add(this.mesh);
+    this.drawn = new Uint16Array(L.kinds.length);   // pieces of each kind drawn this frame
     // The pickup glow: an upright sprite behind each nearby piece, facing the camera, tinted
     // by the piece's tier (per-instance colour).
     this.glowMaterial = new THREE.MeshBasicMaterial({
@@ -212,9 +241,11 @@ export class Loot {
     this.glow.visible = false;
     this.glow.renderOrder = 1;
     scene.add(this.glow);
-    this._counts = new Uint16Array(L.kinds.length);
     this._o = new THREE.Object3D();
   }
+
+  // A kind's index (its `kind` value), by id.
+  kindIndex(id) { return L.kinds.findIndex((k) => k.id === id); }
 
   // Scatter a fresh set of pieces (a new run), none within 30 m of the truck.
   reset(player = null) {
@@ -256,9 +287,9 @@ export class Loot {
   // (turned to face the camera, just behind the piece), then refit the bounds so the
   // renderer can cull what's off screen.
   _writeAll(time, center, camera = center) {
-    const o = this._o, counts = this._counts, range2 = L.drawRange * L.drawRange, G = L.glow;
-    counts.fill(0);
-    let glows = 0;
+    const o = this._o, drawn = this.drawn, range2 = L.drawRange * L.drawRange, G = L.glow;
+    drawn.fill(0);
+    let count = 0;
     for (let i = 0; i < this.n; i++) {
       if (!this.active[i]) continue;
       if (center) { const dx = this.x[i] - center.x, dz = this.z[i] - center.z; if (dx * dx + dz * dz > range2) continue; }
@@ -267,7 +298,9 @@ export class Loot {
       o.rotation.set(0, this.yaw[i] + time * 0.6, 0);
       o.scale.setScalar(L.scale);
       o.updateMatrix();
-      this.meshes[k].setMatrixAt(counts[k]++, o.matrix);
+      this.mesh.setMatrixAt(count, o.matrix);
+      this.iKind.array[count] = k;
+      drawn[k]++;
       // Glow: faces the camera, set back from the piece so it haloes rather than covers it,
       // and grows with distance so it still reads far away.
       let fx = 0, fz = 1, d = G.near;
@@ -277,21 +310,20 @@ export class Loot {
       o.rotation.set(0, Math.atan2(fx, fz), 0);
       o.scale.setScalar(G.size * kindColors(kind).glow.size * grow * (0.9 + 0.1 * Math.sin(time * 3 + i)) * (i === this.rareSlot ? R.glow : 1));
       o.updateMatrix();
-      this.glow.setColorAt(glows, this._tint[k]);
-      this.glow.setMatrixAt(glows++, o.matrix);
+      this.glow.setColorAt(count, this._tint[k]);
+      this.glow.setMatrixAt(count, o.matrix);
+      count++;
     }
-    this.meshes.forEach((m, k) => {
-      m.count = counts[k];
-      m.visible = counts[k] > 0;
+    for (const m of [this.mesh, this.glow]) {
+      m.count = count;
+      m.visible = count > 0;
       m.instanceMatrix.needsUpdate = true;
-      if (counts[k]) m.computeBoundingSphere();
-    });
-    this.glow.count = glows;
-    this.glow.visible = glows > 0;
-    this.glow.instanceMatrix.needsUpdate = true;
+      if (count) m.computeBoundingSphere();
+    }
+    this.iKind.needsUpdate = true;
     this.glow.instanceColor.needsUpdate = true;
-    if (glows) this.glow.computeBoundingSphere();
   }
+
 
   // Pieces bob and turn; the truck picks up anything within reach; picked-up pieces come
   // back elsewhere after a while; a rare find turns up now and then, and goes if left.

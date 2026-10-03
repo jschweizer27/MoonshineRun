@@ -200,7 +200,7 @@ test('picking up loot opens the trunk: turn it, move it, put it down with the ke
   // Drive onto a radio (the awkward T shape).
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot;
-    L.kind[0] = L.meshes.findIndex((m) => m.name === 'loot-jugs'); L.x[0] = 0; L.z[0] = 70; L.active[0] = 1;
+    L.kind[0] = L.kindIndex('jugs'); L.x[0] = 0; L.z[0] = 70; L.active[0] = 1;
     window.shine.teleport(0, 76, 0);
     window.shine.step(1, { throttle: 0.4 });
   });
@@ -367,7 +367,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
   expect(problems).toEqual([]);
 });
 
-test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes, one flat-shaded instanced mesh each, tier colours from the palette', async ({ page }) => {
+test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes, one instanced mesh for them all, tier colours from the palette', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -378,11 +378,12 @@ test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes
       const s = shape(k.id), size = shapeSize(s);
       return { id: k.id, cells: s.length, w: size.w, h: size.h, tier: k.tier, value: k.value, cellsJSON: JSON.stringify(s.slice().sort()) };
     });
-    const mats = new Set(L.meshes.map((m) => m.material));
+    const lootMeshes = [];
+    g.scene.traverse((o) => { if (o.isMesh && o.material === L.material) lootMeshes.push(o.name); });
     return {
       kinds,
-      meshes: L.meshes.map((m) => ({ name: m.name, instanced: m.isInstancedMesh })),
-      oneMaterial: mats.size === 1, flat: L.material.flatShading, vertexColors: L.material.vertexColors,
+      lootMeshes, instanced: L.mesh.isInstancedMesh, tagged: !!L.mesh.geometry.attributes.aKind && !!L.mesh.geometry.attributes.iKind,
+      flat: L.material.flatShading, vertexColors: L.material.vertexColors,
       paletteKeys: Object.keys(P).sort(),
       tierColours: Object.fromEntries(CONFIG.dredge.loot.kinds.map((k) => [k.id, kindColors(k.id).main])),
       palette: P,
@@ -416,9 +417,11 @@ test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes
   expect(by['sewing-machine'].cellsJSON).toBe(JSON.stringify([[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]]));  // P
   expect([by.bicycle.tier, by.radio.tier, by['sewing-machine'].tier]).toEqual(['low', 'mid', 'high']);
   expect([dims('pocket-watch'), dims('bonds')]).toEqual([[1, 1, 1], [2, 1, 2]]);                  // the rare finds
-  // One instanced mesh per kind, one shared flat-shaded material.
-  expect(r.meshes).toEqual(r.kinds.map((k) => ({ name: `loot-${k.id}`, instanced: true })));
-  expect(r.oneMaterial).toBe(true);
+  // Every kind drawn by one instanced mesh (each piece picks its kind's vertices), with one
+  // flat-shaded material.
+  expect(r.lootMeshes).toEqual(['loot']);
+  expect(r.instanced).toBe(true);
+  expect(r.tagged).toBe(true);
   expect(r.flat).toBe(true);
   expect(r.vertexColors).toBe(true);
   // Tier colours: low olive, mid brick (the jugs are cream stoneware), high copper, premium amber.
@@ -439,7 +442,7 @@ test('the thirteen loot kinds, two rare finds and four brews: their trunk shapes
   expect(problems).toEqual([]);
 });
 
-test('loot drawing stays in budget: each kind draws only nearby pieces, the glow is one more call, nothing compiles', async ({ page }) => {
+test('loot drawing stays in budget: every nearby piece of every kind is one draw call, the glow one more, nothing compiles', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   const r = await page.evaluate(async () => {
@@ -455,15 +458,21 @@ test('loot drawing stays in budget: each kind draws only nearby pieces, the glow
     window.shine.teleport(0, 100, 0);
     window.shine.step(0.2);
     const all = window.shine.renderInfo();
-    const drawing = L.meshes.filter((m) => m.visible && m.count > 0).length;
+    const drawing = [...L.drawn].filter((n) => n > 0).length, oneCall = L.mesh.visible && L.mesh.count === road.length;
+    // The same view with no loot: the difference is what the loot costs.
+    for (let i = 0; i < L.n; i++) L.active[i] = 0;
+    window.shine.step(1 / 60);
+    const bare = window.shine.renderInfo();
     // Far away from all of them: no loot draws at all.
     window.shine.teleport(0, -900, 0);
     window.shine.step(0.2);
     const none = window.shine.renderInfo();
-    const idle = L.meshes.filter((m) => m.visible).length + (L.glow.visible ? 1 : 0);
-    return { before, all, none, drawing, idle, glow: L.glow.count };
+    const idle = (L.mesh.visible ? 1 : 0) + (L.glow.visible ? 1 : 0);
+    return { before, all, bare, none, drawing, oneCall, idle, glow: L.glow.count };
   });
   expect(r.drawing).toBe(15);
+  expect(r.oneCall).toBe(true);
+  expect(r.all.calls - r.bare.calls).toBeLessThanOrEqual(2);   // every kind at once: the pieces and their glow
   expect(r.all.calls).toBeLessThan(60);
   expect(r.all.lights).toBe(12);
   expect(r.all.programs).toBe(r.before.programs);
@@ -831,7 +840,7 @@ test('rare finds: one turns up far out in the county with word of where, shows o
     g.renderFrame();
     const info = window.shine.renderInfo();
     out.calls = info.calls;
-    out.drawn = L.meshes.find((m) => m.name === `loot-${rare.kind.id}`).count;
+    out.drawn = L.drawn[L.kindIndex(rare.kind.id)];
     out.programs = g.renderer.info.programs.length - programs;
     out.geometries = g.renderer.info.memory.geometries - geometries;
     // Left too long: gone, with word of it, and not straight back.

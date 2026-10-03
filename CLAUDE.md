@@ -25,9 +25,11 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `CONFIG.player` is the truck, `CONFIG.dredge` the run (below), `CONFIG.look` the night
   palette (exposure, FogExp2, teal fill, moonlight, the painterly pass).
 - The run (it was built as "the dredge run" beside the old bootlegging loop, which it
-  replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh per
-  kind; the pool's last slot is the rare find, timed by `loot.rare` and kept out of the
-  scatter and the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
+  replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh for every
+  kind: the kinds share one geometry tagged per vertex (`aKind`) and each piece picks its own
+  (`iKind`), so all the loot is one draw call; `loot.kindIndex(id)`, `loot.drawn[k]`; the
+  pool's last slot is the rare find, timed by `loot.rare` and kept out of the scatter and
+  the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
   drift and gluts; `marker.js` the markers) and upgrades, all saved in one of three slots
   (`dredgecareer.js`: cash, the trunk, upgrade levels, market memory, stats, ledger; slot 1
   is `shine.dredge.v1`, slots 2 and 3 add `.s2` / `.s3`, `shine.dredge.slot` is the last one
