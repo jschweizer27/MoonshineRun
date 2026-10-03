@@ -38,4 +38,5 @@ THE RUN
 TROUBLESHOOTING
   - Blank or black screen: turn on hardware acceleration in your browser settings
     and make sure the browser is up to date.
-  - Your cash, upgrades, trunk and settings are saved in this browser only.
+  - Your cash, upgrades, trunk and settings are saved in this browser only
+    (three save slots: Saved Games on the title screen).

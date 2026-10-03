@@ -96,6 +96,11 @@ html, body {
   max-width: calc(100vw - 2 * var(--gutter));
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* The first run's tips: a card under the toasts, with a way out. */
+#guide { position: absolute; top: 162px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 2 * var(--gutter))); display: flex; gap: 14px; align-items: center; padding: 8px 14px; background: rgba(13, 11, 8, 0.72); border: 1px solid var(--gold); border-radius: 3px; font-size: calc(clamp(14px, 2.4vw, 16px) * var(--ts)); line-height: 1.4; pointer-events: auto; }
+#guide.hidden { display: none; }
+#guide-skip { flex: none; }
+.guide-line { color: var(--gold); border-left: 3px solid var(--gold); padding-left: 10px; text-align: left; }
 #toast.gold { color: var(--gold); font-weight: bold; }
 
 #cash-pop {
@@ -161,7 +166,15 @@ body.touch-mode .hud-br { bottom: 250px; }
   padding: max(16px, env(safe-area-inset-top)) var(--gutter) max(16px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 35%, rgba(40, 30, 15, 0.55), rgba(3, 4, 7, 0.94));
 }
-#pause, #settings, #help, #map, #confirm, #ledger { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#pause, #settings, #help, #map, #confirm, #ledger, #slots { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
+#dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
+.dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
+#dialog-face { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--gold); border-radius: 50%; font-weight: bold; letter-spacing: 1px; }
+#dialog-face.hidden { display: none; }
+#dialog-name { font-size: calc(15px * var(--ts)); letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+#dialog-text { font-size: calc(clamp(17px, 3.6vw, 20px) * var(--ts)); line-height: 1.55; min-height: 4.8em; margin: 0 0 18px; color: var(--paper); }
+#dialog.narration #dialog-text { font-style: italic; color: #d8cfb8; }
 #ledger { z-index: 26; }
 #confirm { z-index: 30; }
 /* Menus stack on top of each other, so their cards are solid (nothing bleeds through). */
@@ -390,6 +403,8 @@ html.dredge .btn.secondary:hover, html.dredge .btn.secondary:focus-visible { bac
 html.dredge .btn:focus-visible, html.dredge .text-btn:focus-visible { outline-color: var(--d-cream); }
 html.dredge .upgrade { border-color: var(--d-slate); background: color-mix(in srgb, var(--d-slate) 40%, transparent); }
 html.dredge .event-badge { display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: calc(11px * var(--ts)); letter-spacing: 1.5px; color: var(--d-shadow-teal); background: var(--d-amber); border-radius: 2px; vertical-align: 1px; }
+html.dredge .upgrade.slot.current { border-color: var(--d-amber); }
+.slot-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: -1px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-cream) 30%, transparent); }
 html.dredge .hud-banner, html.dredge .pill {
   background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);

@@ -42,6 +42,10 @@
       <span id="objective-text">Pick up loot along the roads</span><span id="objective-dist"></span>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
+    <div id="guide" class="hidden" role="status" aria-live="polite">
+      <span id="guide-text"></span>
+      <button id="guide-skip" class="text-btn" type="button">Skip tips</button>
+    </div>
     <div id="cash-pop" aria-hidden="true"></div>
     <div class="hud-bl">
       <div id="cargo" class="pill">TRUNK 0/15</div>
@@ -86,9 +90,11 @@
       <h1 class="title" id="intro-title">SHINE</h1>
       <p class="subtitle">Baltimore, 1922 &middot; The Volstead Act is law. Liquor is gold.</p>
       <p class="story">
-        You are <strong>Otto Braun</strong>, and the roads out of Baltimore are littered with what
-        other people lost: crates, kegs, copper. Work the night roads between the city and the
-        Green Spring Valley, pack what you find into the truck, and sell it where it pays best.
+        You are <strong>Otto Braun</strong>. Last night the Temperance Alliance burned your
+        Highlandtown brewery to the ground. What's left is a truck, your father's old barn up the
+        Green Spring Valley, and the roads out of Baltimore, littered with what other people lost:
+        crates, kegs, copper. Work the roads, pack what you find into the truck, sell it where it
+        pays best, and buy back what was yours.
       </p>
       <p class="hint">Drive over <span class="gold">glowing loot</span> to pick it up, fit it into the
         trunk, then stop at a <span class="gold">&#11042; market</span> to sell and upgrade the truck.</p>
@@ -96,6 +102,7 @@
       <div class="btn-col">
         <button id="start-btn" class="btn" data-autofocus>START DRIVING</button>
         <div class="btn-row">
+          <button id="intro-saves" class="btn secondary">SAVED GAMES</button>
           <button id="intro-help" class="btn secondary">HOW TO PLAY</button>
           <button id="intro-settings" class="btn secondary">SETTINGS</button>
         </div>
@@ -114,6 +121,7 @@
         <button id="pause-ledger" class="btn secondary">LEDGER</button>
         <button id="pause-settings" class="btn secondary">SETTINGS</button>
         <button id="pause-help" class="btn secondary">HOW TO PLAY</button>
+        <button id="pause-skip-tips" class="btn secondary hidden">SKIP TIPS</button>
         <button id="pause-quit" class="btn secondary">QUIT TO TITLE</button>
       </div>
     </div>
@@ -136,7 +144,7 @@
         <li>Drive the roads: <span class="gold">glowing loot</span> turns up beside them, and the radar shows what's near. Now and then word comes of a <b>rare find</b> out in the county (a <span class="gold">&#9733;</span> on the radar): fetch it before someone else does, and sell it where it pays best.</li>
         <li>Picking a piece up opens the <b>trunk</b>. Move it, turn it (R, or LB/RB) and fit it in; pieces can't overlap. Leave behind what won't fit.</li>
         <li>With loot aboard, the arrow and the <span class="gold">gold route</span> on the radar lead to the nearest <span class="gold">&#11042; market</span>. Stop there to sell: <b>Lexington Market</b> in Baltimore, the <b>Monkton General Store</b> up York Road, or the <b>Glyndon Depot</b> out west. Each pays differently, the price drops as you sell more of one thing, and each day one town posts a demand: double for one kind of loot.</li>
-        <li>Spend the cash on <b>upgrades</b> at either market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
+        <li>Spend the cash on <b>upgrades</b> at any market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
       </ol>
       <div class="controls-grid">
         <div><h3>Keyboard</h3><table id="help-keys"></table></div>
@@ -179,6 +187,7 @@
     <div class="overlay-card">
       <h1 class="title small" id="trunk-title">THE TRUNK</h1>
       <p id="trunk-hand" class="hint"></p>
+      <p id="trunk-guide" class="hint guide-line hidden"></p>
       <div id="trunk-grid" tabindex="0" data-autofocus aria-label="Trunk grid"></div>
       <p id="trunk-msg" class="hint" role="status" aria-live="polite"></p>
       <p id="trunk-fill" class="hint"></p>
@@ -193,6 +202,7 @@
       <h1 class="title small" id="market-title">THE MARKET</h1>
       <p class="story">Cash on hand: <strong id="market-cash" class="gold">$0</strong></p>
       <p id="market-note" class="hint"></p>
+      <p id="market-guide" class="hint guide-line hidden"></p>
       <div id="market-body"></div>
       <div class="btn-row">
         <button id="market-sell-all" class="btn secondary">SELL EVERYTHING</button>
@@ -209,6 +219,27 @@
       <div id="ledger-totals"></div>
       <table id="ledger-runs"></table>
       <button id="ledger-done" class="btn" data-autofocus>CLOSE THE BOOK</button>
+    </div>
+  </div>
+
+  <!-- Saved games: three slots (filled in by src/screens.js) -->
+  <div id="slots" class="overlay hidden" role="dialog" aria-labelledby="slots-title">
+    <div class="overlay-card wide">
+      <h1 class="title small" id="slots-title">SAVED GAMES</h1>
+      <div id="slots-body"></div>
+      <button id="slots-done" class="btn">BACK</button>
+    </div>
+  </div>
+
+  <!-- Story dialogue (src/story.js, played by playDialog in src/screens.js) -->
+  <div id="dialog" class="overlay hidden" role="dialog" aria-labelledby="dialog-name">
+    <div class="overlay-card dialog-card">
+      <div class="dialog-head"><span id="dialog-face"></span><span id="dialog-name"></span></div>
+      <p id="dialog-text" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="dialog-skip" class="btn secondary">SKIP</button>
+        <button id="dialog-next" class="btn" data-autofocus>NEXT</button>
+      </div>
     </div>
   </div>
 

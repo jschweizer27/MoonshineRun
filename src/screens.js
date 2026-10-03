@@ -2,6 +2,7 @@ import { el } from './ui.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote, dayOf, eventFor, eventText } from './market.js';
 import { kindColors } from './trunk.js';
+import { CAST } from './story.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -68,15 +69,56 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
 
 // ---------- Otto's ledger ----------
 // The totals, then the latest entries: what sold where, and what the upgrades cost.
+// Time played, as "42 min" or "2 h 05 min".
+export function playTime(seconds) {
+  const m = Math.round((seconds || 0) / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+}
+
+// ---------- Saved games ----------
+// Three slots, each with what it holds and PLAY / NEW GAME / ERASE. `onPlay(slot)` loads a
+// slot and starts; `onNew(slot)` wipes it and starts fresh; `onErase(slot)` wipes it.
+export function showSlots(ui, { summary, current, onPlay, onNew, onErase, onBack }) {
+  const render = () => {
+    const body = $('slots-body');
+    body.textContent = '';
+    for (const s of [1, 2, 3].map(summary)) {
+      const what = s.started
+        ? `${money(s.cash)} on hand · ${s.sold} piece${s.sold === 1 ? '' : 's'} sold · ${playTime(s.playSeconds)}`
+        : 'Empty';
+      const btn = (label, id, fn) => {
+        const b = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `${id}-${s.slot}` }, label);
+        b.addEventListener('click', fn);
+        return b;
+      };
+      const buttons = [btn(s.started ? 'PLAY' : 'START', 'slot-play', () => onPlay(s.slot))];
+      if (s.started) {
+        buttons.push(btn('NEW GAME', 'slot-new', async () => {
+          if (await ui.confirm('START OVER?', `Wipe slot ${s.slot} and start a new game in it? This can’t be undone.`, 'START OVER')) onNew(s.slot);
+        }));
+        buttons.push(btn('ERASE', 'slot-erase', async () => {
+          if (await ui.confirm('ERASE SLOT?', `Erase slot ${s.slot}? This can’t be undone.`, 'ERASE')) { onErase(s.slot); render(); ui.focusFirst(); }
+        }));
+      }
+      body.append(el('div', { class: `upgrade slot${s.slot === current() ? ' current' : ''}` },
+        el('div', {}, el('b', {}, `Slot ${s.slot}${s.slot === current() ? ' · current' : ''}`), el('small', {}, what)),
+        el('span', { class: 'slot-buttons' }, ...buttons)));
+    }
+  };
+  $('slots-done').onclick = () => onBack();
+  render();
+  ui.open('slots', { onBack });
+}
+
 export function showLedger(ui, career) {
   const s = career.data.stats;
-  const mins = Math.round(s.playSeconds / 60);
   const upgrades = Object.keys(CONFIG.dredge.upgrades).reduce((n, id) => n + career.level(id), 0);
   $('ledger-totals').innerHTML = '';
   const rows = [
     ['Cash on hand', money(career.cash)], ['Earned, all time', money(s.earned)],
     ['Pieces sold', s.sold.toLocaleString()], ['Upgrades bought', upgrades],
-    ['Time on the road', `${mins} min`],
+    ['Rare finds', (s.rares || 0).toLocaleString()], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
+    ['Time on the road', playTime(s.playSeconds)],
   ];
   for (const [k, v] of rows) $('ledger-totals').append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));
   const table = $('ledger-runs');
@@ -90,3 +132,48 @@ export function showLedger(ui, career) {
 }
 
 export { money };
+
+// ---------- Story dialogue ----------
+// Plays lines one card at a time (typed out unless motion is reduced). Resolves when
+// finished or skipped.
+export function playDialog(ui, lines, { reducedMotion = false } = {}) {
+  return new Promise((resolve) => {
+    let i = 0, typing = null, full = '';
+    const text = $('dialog-text'), who = $('dialog-name'), face = $('dialog-face');
+    const next = $('dialog-next'), skip = $('dialog-skip');
+    const show = () => {
+      const [speaker, line] = lines[i];
+      const c = CAST[speaker];
+      who.textContent = c.name;
+      face.textContent = c.initials;
+      face.style.borderColor = c.color;
+      face.style.color = c.color;
+      face.classList.toggle('hidden', !c.initials);
+      $('dialog').classList.toggle('narration', !c.name);
+      next.textContent = i === lines.length - 1 ? 'CONTINUE' : 'NEXT';
+      full = line;
+      clearInterval(typing);
+      if (reducedMotion) { text.textContent = full; typing = null; return; }
+      let n = 0;
+      text.textContent = '';
+      typing = setInterval(() => {
+        n += 2;
+        text.textContent = full.slice(0, n);
+        if (n >= full.length) { clearInterval(typing); typing = null; }
+      }, 24);
+    };
+    const done = () => {
+      clearInterval(typing);
+      next.onclick = skip.onclick = null;
+      ui.close('dialog');
+      resolve();
+    };
+    next.onclick = () => {
+      if (typing) { clearInterval(typing); typing = null; text.textContent = full; return; }
+      if (++i >= lines.length) done(); else show();
+    };
+    skip.onclick = done;
+    ui.open('dialog', { onBack: done });
+    show();
+  });
+}

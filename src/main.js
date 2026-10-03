@@ -11,7 +11,8 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, money } from './screens.js';
+import { showLedger, showMarket, showSlots, playDialog, money } from './screens.js';
+import { BEATS, nextBeat } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
@@ -31,7 +32,8 @@ const $ = (id) => document.getElementById(id);
 // URL options: ?debug (dev overlay + test API), ?test (test API, deterministic: the clock
 // stands still and the painterly look is off), ?seed=123 (city layout), ?sw (offline mode
 // on localhost), ?time / ?painterly (turn those back on under ?test), ?models=0 (the
-// built-in procedural models only).
+// built-in procedural models only), &story / &hints (the story cards and first-run tips,
+// off under ?test).
 const params = new URLSearchParams(location.search);
 export const OPTIONS = {
   debug: params.has('debug'),
@@ -41,6 +43,8 @@ export const OPTIONS = {
   time: !params.has('test') || params.has('time'),
   models: params.get('models') !== '0',
   painterly: !params.has('test') || params.has('painterly'),
+  story: !params.has('test') || params.has('story'),
+  hints: !params.has('test') || params.has('hints'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -308,6 +312,7 @@ class Game {
   _bindUI() {
     const on = (id, fn) => $(id).addEventListener('click', fn);
     on('start-btn', () => this.start());
+    on('intro-saves', () => this.openSlots());
     on('intro-help', () => this.ui.open('help'));
     on('intro-settings', () => this.openSettings());
     on('pause-resume', () => this.resume());
@@ -315,6 +320,8 @@ class Game {
     on('pause-ledger', () => this.openLedger());
     on('pause-settings', () => this.openSettings());
     on('pause-help', () => this.ui.open('help'));
+    on('pause-skip-tips', () => { this.endGuide(true); $('pause-skip-tips').classList.add('hidden'); this.ui.focusFirst(); });
+    on('guide-skip', () => this.endGuide(true));
     on('pause-quit', async () => { if (await this.ui.confirm('QUIT?', 'Quit to the title screen? Your cash, upgrades and what’s in the trunk are saved.', 'QUIT')) this.quitToTitle(); });
     on('ledger-done', () => this.ui.back());
     on('settings-done', () => this.ui.back());
@@ -332,11 +339,37 @@ class Game {
     this.ui.open('intro', { onBack: () => {} });
   }
 
-  // The title screen's line about the save: cash on hand and what's been sold so far.
+  // The title screen's line about the save (cash on hand and what's been sold so far), and
+  // CONTINUE once this slot has been played.
   _updateIntroBest() {
-    const s = this.dredge.data.stats;
+    const s = this.dredge.data.stats, slot = this.dredge.slot;
+    $('start-btn').textContent = this.dredge.started ? 'CONTINUE' : 'START DRIVING';
     $('intro-best').textContent = s.sold
-      ? `Cash on hand: ${money(this.dredge.cash)} · Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}` : '';
+      ? `Slot ${slot} · Cash on hand: ${money(this.dredge.cash)} · Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}`
+      : this.dredge.started ? `Slot ${slot}` : '';
+  }
+
+  // The saved games: play a slot, start a new game in one, or erase one.
+  openSlots() {
+    showSlots(this.ui, {
+      summary: (slot) => DredgeCareer.summary(slot),
+      current: () => this.dredge.slot,
+      onPlay: (slot) => { this._loadSlot(slot); this.start(); },
+      onNew: (slot) => { this.dredge.erase(slot); this._loadSlot(slot); this.start(); },
+      onErase: (slot) => { this.dredge.erase(slot); if (slot === this.dredge.slot) this._loadSlot(slot); this._updateIntroBest(); },
+      onBack: () => { this.ui.close('slots'); this._updateIntroBest(); },
+    });
+  }
+
+  // Switch to a save slot: its cash, upgrades and trunk.
+  _loadSlot(slot) {
+    this.dredge.useSlot(slot);
+    this.trunk = this.dredge.loadTrunk();
+    this._applyPerks();
+    this.hud.setCash(this.dredge.cash);
+    this._updateTrunkPill();
+    this._updateIntroBest();
+    this._updateGuide();
   }
 
   openSettings() {
@@ -356,9 +389,9 @@ class Game {
       const url = `${location.origin}${location.pathname}?seed=${this.citySeed}`;
       navigator.clipboard?.writeText(url).then(() => { share.textContent = 'Link copied ✓'; }, () => { share.textContent = url; });
     });
-    const reset = el('button', { type: 'button', class: 'text-btn' }, 'Erase saved progress');
+    const reset = el('button', { type: 'button', class: 'text-btn' }, `Erase saved progress (slot ${this.dredge.slot})`);
     reset.addEventListener('click', async () => {
-      if (await this.ui.confirm('ERASE PROGRESS?', 'Delete your cash, upgrades, what’s in the trunk and the ledger? This can’t be undone.', 'ERASE')) {
+      if (await this.ui.confirm('ERASE PROGRESS?', `Delete slot ${this.dredge.slot}: your cash, upgrades, what’s in the trunk and the ledger? This can’t be undone.`, 'ERASE')) {
         this.eraseProgress();
         reset.textContent = 'Progress erased ✓';
       }
@@ -420,6 +453,7 @@ class Game {
     this._updateTrunkPill();
     this._updateObjective();
     this._updateMarkers();
+    this._updateGuide();
     this.runTime = 0;
     this._lastRam = -1;
     this._surfaceTimer = 0;
@@ -438,10 +472,66 @@ class Game {
     this.clock.getDelta();
   }
 
-  // START DRIVING on the title screen.
+  // START DRIVING / CONTINUE on the title screen. A new game opens with the prologue.
   start() {
     this.resetRun();
+    const fresh = !this.dredge.data.started;
+    if (fresh) { this.dredge.data.started = true; this.dredge.data.guide = OPTIONS.hints; this.dredge.save(); }
     this._enterPlaying();
+    this._updateGuide();
+    if (fresh) this._story('prologue');
+  }
+
+  // ---------- The first run's tips ----------
+  // Read from where the save stands (an empty trunk, a packed piece, the first sale), so
+  // they can't fall out of step. They end at the first sale, or when skipped.
+  _guideText() {
+    if (!this.dredge.data.guide) return '';
+    if (this.trunk.count) return 'Follow the gold route on the radar to a ⬢ market, and stop inside its ring to sell.';
+    return 'Drive over a glowing piece of loot to pick it up. The squares on the radar show where.';
+  }
+
+  _updateGuide() {
+    if (this.dredge.data.guide && this.dredge.data.stats.sold > 0) this.endGuide(false);
+    const text = this._guideText();
+    $('guide').classList.toggle('hidden', !text);
+    if ($('guide-text').textContent !== text) $('guide-text').textContent = text;
+  }
+
+  endGuide(skipped) {
+    if (!this.dredge.data.guide) return;
+    this.dredge.data.guide = false;
+    this.dredge.save();
+    $('guide').classList.add('hidden');
+    $('trunk-guide').classList.add('hidden');
+    $('market-guide').classList.add('hidden');
+    if (!skipped) this.hud.toast('That’s the job. The roads are yours.', 'gold', 3500);
+  }
+
+  // A tip line on the trunk or market screen while the tips run.
+  _guideLine(id, text) {
+    const on = !!this.dredge.data.guide;
+    $(id).classList.toggle('hidden', !on);
+    $(id).textContent = on ? text : '';
+  }
+
+  // Play a story beat's cards (once per save): the drive pauses under them.
+  async _story(id) {
+    if (!OPTIONS.story || this.dredge.data.story[id]) return;
+    this.dredge.data.story[id] = true;
+    this.dredge.save();
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    await playDialog(this.ui, BEATS[id].lines, { reducedMotion: !!this.settings.reducedMotion });
+    if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
+  }
+
+  // Twice a second: a beat whose moment has come plays, when nothing else is on screen.
+  _checkStory(dt) {
+    if ((this._storyT = (this._storyT || 0) - dt) > 0) return;
+    this._storyT = 0.5;
+    this._updateGuide();
+    const id = OPTIONS.story && nextBeat(this.dredge.data);
+    if (id) this._story(id);
   }
 
   pause({ showMenu = true } = {}) {
@@ -452,6 +542,7 @@ class Game {
     this.audio.setPaused(true);
     this.dredge.save();                  // the time on the road, for the ledger
     this._applyTouch();
+    $('pause-skip-tips').classList.toggle('hidden', !this.dredge.data.guide);
     if (showMenu) this.ui.open('pause', { onBack: () => this.resume() });
   }
 
@@ -530,6 +621,7 @@ class Game {
     this.time += dt;
     this.runTime += dt;
     this.dredge.data.stats.playSeconds += dt;
+    this.dredge.data.stats.distance += Math.abs(this.player.speed) * dt;
     const fx = this.env.effects;
     this._updateSurface(dt);
     this.player.speedFactor = this.surface;
@@ -560,6 +652,7 @@ class Game {
     this._updateMarkers();
     this._checkMarket();
     this._checkPlace();
+    this._checkStory(dt);
     this.debris.update(dt);
     this.env.update(dt, this.camera.position);
     const county = this.world.inCounty(p);
@@ -599,6 +692,7 @@ class Game {
 
   // Picked up a piece of loot: the trunk opens with it in hand to pack it.
   _onLoot(e) {
+    if (e.rare) this.dredge.data.stats.rares++;
     const pays = e.kind.paysAt && CONFIG.dredge.towns.find((t) => t.id === e.kind.paysAt);
     this.hud.toast(e.rare && pays ? `Found the ${e.kind.name.toLowerCase()}! It pays best in ${pays.town}` : `Picked up: ${e.kind.name}`, 'gold', e.rare ? 3500 : 1600);
     this.audio.pickup?.();
@@ -611,6 +705,7 @@ class Game {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     this.trunkScreen.open(this.trunk, newKind);
+    this._guideLine('trunk-guide', newKind ? 'Move it with the arrows, turn it with R, and press Enter to put it down. Pieces can’t overlap; X leaves it on the road.' : '');
   }
 
   // The nearest market, and whether the truck is inside it.
@@ -651,6 +746,8 @@ class Game {
     if (place !== this.place) {
       if (this.place) this.hud.toast(place, 'gold', 2200);
       this.place = place;
+      // The first valley town reached (the Jockey's beat).
+      if (place !== 'Baltimore' && place !== 'Green Spring Valley') this.dredge.data.flags.valley = true;
     }
   }
 
@@ -688,6 +785,7 @@ class Game {
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: close,
     });
+    this._guideLine('market-guide', 'SELL EVERYTHING turns the trunk into cash. Each town pays differently, and a price drops as you sell more of one thing; upgrades come once you’ve saved up.');
   }
 
   // A new in-game day posts a new market event: say so.

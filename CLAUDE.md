@@ -28,8 +28,10 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   replaced; the code still says dredge): loot (`loot.js`, pooled, one InstancedMesh per
   kind; the pool's last slot is the rare find, timed by `loot.rare` and kept out of the
   scatter and the daily demand), the trunk grid (`trunk.js` logic, `trunkscreen.js` screen), markets (`market.js`:
-  drift and gluts; `marker.js` the markers) and upgrades, all saved under `shine.dredge.v1`
-  (`dredgecareer.js`: cash, the trunk, upgrade levels, market memory, stats, ledger).
+  drift and gluts; `marker.js` the markers) and upgrades, all saved in one of three slots
+  (`dredgecareer.js`: cash, the trunk, upgrade levels, market memory, stats, ledger; slot 1
+  is `shine.dredge.v1`, slots 2 and 3 add `.s2` / `.s3`, `shine.dredge.slot` is the last one
+  played; `showSlots` in `screens.js` is the Saved Games screen).
   `main._applyPerks` turns the upgrade levels into the truck's tuning, `game.perks`
   (pickup radius, radar range, trunk size) and the truck's look. `CONFIG.dredge` holds the
   palette, towns, prices, market, trunk, upgrades and loot; the palette themes every screen
@@ -38,6 +40,13 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `market.markerRange`.
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
+- Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
+  `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
+  once per save (`data.story`), checked twice a second in `main._checkStory`. A new game
+  opens with the prologue. `?test` turns story off unless `&story`.
+- The first run's tips (`main._guideText` / `_updateGuide`) read where the save stands
+  (empty trunk → find loot, packed → go sell, first sale → done) and end for good;
+  `data.guide` is set on a new game. `?test` shows none unless `&hints`.
 - `src/juice.js` — **all game-feel values** (`JUICE`) plus `VehicleFeel` (sprung body roll /
   pitch / bounce for the truck, skid marks, tyre smoke, spray, headlight flicker, crash
   rattle/dent) and `Debris` (pooled chunks on heavy hits). `src/props.js`: sidewalk
