@@ -14,6 +14,7 @@ CONTROLS (keyboard / controller)
   A D or Left Right    steer               left stick
   Space                handbrake           A
   T                    open the trunk      X
+  1 / 2 / 3            abilities (by rank) d-pad left / up / right
   H                    horn                B
   R                    radio on/off
   C                    look back           Y

@@ -18,6 +18,9 @@ export const ACTIONS = [
   ['fullscreen', 'Fullscreen'],
   ['juice', 'Effects on/off (compare)'],
   ['trunk', 'Open the trunk'],
+  ['ability1', 'Jockey’s Tip'],
+  ['ability2', 'Lead Foot'],
+  ['ability3', 'Sweet Talk'],
 ];
 
 export const DEFAULT_BINDINGS = {
@@ -35,6 +38,9 @@ export const DEFAULT_BINDINGS = {
   fullscreen: ['KeyF'],
   juice: ['KeyJ'],
   trunk: ['KeyT'],
+  ability1: ['Digit1'],
+  ability2: ['Digit2'],
+  ability3: ['Digit3'],
 };
 
 const prefersReducedMotion = () => {

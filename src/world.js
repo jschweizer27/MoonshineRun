@@ -53,6 +53,7 @@ export class World {
     this._buildBuildings();
     const county = buildCounty(this, this.rng);
     this.barns = county.barns;
+    this.home = county.home;           // Otto's barn: the home base (stash, garage, still)
     this.drops = DROPS;
     this._buildLamps();
     this._buildDressing();

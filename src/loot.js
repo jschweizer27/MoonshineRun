@@ -21,6 +21,12 @@ const P = CONFIG.dredge.palette;
 // Shape builders: a few primitives per kind, coloured from the palette. y = 0 is the ground.
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (rt, rb, h, seg = 8) => new THREE.CylinderGeometry(rt, rb, h, seg);
+// A crate of mason jars, the still's output.
+function shineCrate(add, c) {
+  add(box(1.0, 0.34, 0.5), c.accent, 0, 0.17, 0);
+  for (let k = 0; k < 6; k++) add(cyl(0.09, 0.09, 0.26, 8), c.main, -0.33 + (k % 3) * 0.33, 0.47, k < 3 ? -0.11 : 0.11);
+}
+
 const MODELS = {
   // Small crate: a pine box with two dark battens.
   'small-crate': (add, c) => {
@@ -111,6 +117,15 @@ const MODELS = {
     add(cyl(0.21, 0.21, 0.03, 14).rotateX(-1.2), c.main, 0, 0.26, -0.24);
     add(cyl(0.04, 0.04, 0.08, 6), c.accent, 0, 0.1, 0.25);
     add(new THREE.TorusGeometry(0.16, 0.02, 4, 10).rotateX(Math.PI / 2), c.accent, 0.18, 0.08, 0.32);
+  },
+  // Brewed at the still: a slatted crate of mason jars (the lager: a keg in its cradle).
+  'corn-shine': (add, c) => shineCrate(add, c),
+  applejack: (add, c) => shineCrate(add, c),
+  rye: (add, c) => { shineCrate(add, c); add(box(0.5, 0.5, 0.5), c.main, -0.25, 0.25, 0.5); },
+  lager: (add, c) => {
+    add(cyl(0.42, 0.42, 1.0, 10).rotateZ(Math.PI / 2), c.main, 0, 0.5, 0);
+    for (const x of [-0.36, 0.36]) add(cyl(0.44, 0.44, 0.07, 10).rotateZ(Math.PI / 2), c.accent, x, 0.5, 0);
+    for (const x of [-0.3, 0.3]) add(box(0.14, 0.16, 0.8), P.slate, x, 0.08, 0);
   },
   // Case of bonds (rare): a leather document case, strapped, with certificates showing.
   bonds: (add, c) => {

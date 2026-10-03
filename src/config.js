@@ -194,20 +194,93 @@ export const CONFIG = {
     // `costs` are levels 1-3; each level adds `step` to the base value (trunk: `sizes` per
     // level, from the base 5x3 at level 0).
     upgrades: {
-      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700], sizes: [[5, 3], [6, 3], [6, 4], [7, 4]] },
-      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900], step: { maxSpeed: 3, accel: 2 } },
-      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500], step: { grip: 2.5, turnRate: 0.15 } },
-      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [250, 600, 1200], step: { pickupRadius: 1.2 } },
-      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [200, 500, 1000], step: { mapRange: 60 } },
+      // `ranks`: the rank each level needs (levels 4 and 5 come with rank).
+      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], ranks: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
+      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], ranks: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
+      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], ranks: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
+      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [250, 600, 1200, 2200, 3600], ranks: [0, 0, 0, 2, 4], step: { pickupRadius: 1.2 } },
+      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [200, 500, 1000, 1900, 3000], ranks: [0, 0, 0, 2, 4], step: { mapRange: 60 } },
+      tyres: { name: 'Farm tyres', desc: 'Less bogging down in the fields, less sliding in the rain.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
+      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], ranks: [1, 1, 2], step: { light: 0.25 } },
+      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], ranks: [2, 2, 3], step: { wear: 0.25 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
     // cream for low and mid, copper for high, and a strong amber for premium.
+    // Otto's barn, the home base: stop in its yard to open it. The stash holds this many
+    // trunk cells' worth of loot. PLACEHOLDERS: tune after playtesting.
+    barn: { radius: 9, stashCells: 40 },
+    // Ranks: reputation (contracts, brews, rare finds) lifts Otto through them; each unlocks
+    // recipes (CONFIG.dredge.brew), upgrade levels (`ranks` on each upgrade), abilities and,
+    // at the top, the brewery deed. Reputation: a contract's pay / contracts.repPer, a brew's
+    // quality x `repPerBrew`, `repPerFind` a rare find. PLACEHOLDERS: tune after playtesting.
+    ranks: [
+      { name: 'Junk Hauler', rep: 0 },
+      { name: 'Scavenger', rep: 30, unlocks: 'Applejack, Jockey’s Tip (1), tyres and lamps' },
+      { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4' },
+      { name: 'Brewer', rep: 180, unlocks: 'Barrel Rye, Sweet Talk (3)' },
+      { name: 'Bootlegger', rep: 320, unlocks: 'Highlandtown Lager, upgrade level 5' },
+      { name: 'King of York Road', rep: 500, unlocks: 'the Braun & Sons deed, at Lexington Market' },
+    ],
+    repPerBrew: 6,
+    repPerFind: 5,
+    // Abilities (keys 1-3, the D-pad's left / up / right, or the HUD chips), each from a rank:
+    // the Jockey's Tip shows every piece of loot on the radar for `seconds`; Lead Foot opens
+    // the engine up (`speed` / `accel` x) for `seconds`; Sweet Talk adds `bonus` to the next
+    // sale or job. `cooldown` seconds before each can be used again.
+    abilities: {
+      tip: { name: 'Jockey’s Tip', key: '1', rank: 1, seconds: 30, cooldown: 120 },
+      leadfoot: { name: 'Lead Foot', key: '2', rank: 2, seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
+      sweet: { name: 'Sweet Talk', key: '3', rank: 3, cooldown: 180, bonus: 0.2 },
+    },
+    // The ending: buy back the Braun & Sons brewery deed at Lexington Market, at the top rank.
+    deed: { cost: 20000, rank: 5, town: 'baltimore' },
+    // Brewing at Otto's still. Each copper coil installed raises the still a level (up to
+    // three), widening the band the temperature has to stay in. A batch takes `seconds`:
+    // hold STOKE to raise the temperature (`heat.up` a second), let go and it falls
+    // (`heat.down`); the band drifts around `band.center`. Quality is the share of the
+    // batch spent in the band, less any time scorching above `scorch`, and sets how many
+    // crates it yields (`yields`: [least quality, crates], best first). A recipe needs its
+    // ingredients (loot kinds, from the trunk and the stash) and a rank (stage 7).
+    // PLACEHOLDERS: tune after playtesting.
+    brew: {
+      maxLevel: 3,
+      seconds: 20,
+      heat: { up: 0.42, down: 0.3 },
+      band: { center: 0.55, width: [0.2, 0.26, 0.32], drift: 0.16, speed: 0.55 },
+      scorch: 0.95,
+      yields: [[0.8, 3], [0.45, 2], [0, 1]],
+      recipes: [
+        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0 },
+        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 1 },
+        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3 },
+        { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4 },
+      ],
+    },
+    // Contracts (src/contracts.js): each in-game day posts `perDay` jobs, a `farmShare` of
+    // them from the farms (who want `farmWants`) and the rest from the speakeasies (who want
+    // `barWants`, or `shine` once Otto brews). A job pays its goods' value x `payMult`, earns
+    // pay / `repPer` reputation, and is due within `hours` (game hours) of being taken;
+    // missing it costs `failRep`. Deliver by stopping within `radius` of the contact.
+    // PLACEHOLDERS: tune after playtesting.
+    contracts: {
+      perDay: 3, farmShare: 0.5, payMult: 1.7, repPer: 20, failRep: 15, hours: [8, 16], radius: 9,
+      farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
+      barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
+      shine: ['corn-shine', 'applejack', 'rye', 'lager'],
+    },
+    // The speakeasies (world.drops) buy shine, stopped at within `radius`.
+    speakeasy: { radius: 9 },
+    // Wear: hard knocks (an impact over `from`) wear the truck, and a worn truck loses up
+    // to `maxSlow` of its top speed until it's repaired at the barn (`repairCost` for a
+    // full repair, less for less).
+    wear: { from: 6, perImpact: 0.02, maxSlow: 0.25, repairCost: 350, warnAt: 0.5 },
     lootTiers: {
       low: { color: 'olive', accent: 'cream', glow: { color: 'cream', strength: 0.32, size: 0.9 } },
       mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
       high: { color: 'copper', accent: 'amber', glow: { color: 'copper', strength: 0.9, size: 1.2 } },
       premium: { color: 'amber', accent: 'brick', glow: { color: 'amber', strength: 1.6, size: 1.9 } },
+      brewed: { color: 'cream', accent: 'copper', glow: { color: 'amber', strength: 0.8, size: 1.1 } },
     },
     // Loot lying along the roads. `cells` is the piece's shape in the trunk grid ([col, row]
     // per cell, before rotation). VALUES AND WEIGHTS ARE PLACEHOLDERS: tune after
@@ -247,6 +320,12 @@ export const CONFIG = {
         // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
         { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 200, weight: 0, cells: [[0, 0]] },
         { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 240, weight: 0, cells: [[0, 0], [0, 1]] },
+        // Brewed at Otto's still (CONFIG.dredge.brew), never found on the roads (weight 0,
+        // `brewed`), and sold only at the city's speakeasies.
+        { id: 'corn-shine', name: 'Corn Shine', short: 'Corn', tier: 'brewed', brewed: true, value: 70, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'applejack', name: 'Applejack', short: 'Apple', tier: 'brewed', brewed: true, accent: 'olive', value: 95, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'rye', name: 'Barrel Rye', short: 'Rye', tier: 'brewed', brewed: true, accent: 'brick', value: 130, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
+        { id: 'lager', name: 'Highlandtown Lager', short: 'Lager', tier: 'brewed', brewed: true, accent: 'amber', value: 170, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {

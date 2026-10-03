@@ -40,6 +40,28 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `market.markerRange`.
   Everything seeded after the city layout (the atlas, rooflines, the village) draws from its
   own random stream, so the layout of every seed stays put.
+- Otto's barn (`world.home`, a `county.js` barn with a stop point `stopX/stopZ` in its yard;
+  `CONFIG.dredge.barn`): `main.openBarn` / `showBarn` (stash as counts per kind in
+  `data.stash`, capped in trunk cells; the garage repairs `data.wear`, which hard knocks add
+  in `main._wear` and `_applyPerks` turns into lost top speed; `CONFIG.dredge.wear`). Its
+  marker joins `main.markers`, where only the nearest marker shows.
+- Brewing: `src/brew.js` is pure logic (recipes in `CONFIG.dredge.brew`, ingredients from the
+  trunk and the stash, `newBatch` / `stepBatch` / `quality` / `yieldFor`); `showStill` in
+  `screens.js` runs a batch on its own clock (`manual()` + `step()` in tests). Brewed kinds
+  are loot kinds with `brewed: true` (weight 0); `market.buys` keeps them out of the markets
+  and lets the speakeasies (`world.drops`, town ids `drop:<n>`) buy only them.
+- Contracts: `src/contracts.js` is pure logic (`contacts(world)`: the speakeasies and farms;
+  `offersFor(day, ...)` rolls the day's jobs like `eventFor`; `progress` / `handOver`).
+  `main._jobs()` is the board the market and barn screens show; `data.contract` is the job in
+  hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
+  earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
+  marker is one of `main.jobMarkers`, under the nearest-marker rule.
+- Ranks and abilities: `data.rep` (contracts, brews, rare finds; `main._addRep`) sets
+  `data.rank` against `CONFIG.dredge.ranks`; ranks gate recipes, upgrade levels (`ranks` on each
+  upgrade, `dredgecareer.lockedRank`) and the abilities (`CONFIG.dredge.abilities`,
+  `main.useAbility`, HUD chips in `#abilities`; actions `ability1-3`, the d-pad's left / up /
+  right while driving). The ending is the deed (`CONFIG.dredge.deed`, bought in
+  `main._deed` at Lexington Market), which sets `flags.deed` for the last story beat.
 - Story: `src/story.js` holds the cast and the beats (dialogue cards, `playDialog` in
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game

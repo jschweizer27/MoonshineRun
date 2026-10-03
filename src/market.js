@@ -33,7 +33,7 @@ export const dayOf = (state) => Math.floor((state.clock || 0) / 24);
 // game) has none. Returns { town, townName, kind, kindName, mult } or null.
 export function eventFor(day) {
   if (day < 1) return null;
-  const towns = CONFIG.dredge.towns, kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare);
+  const towns = CONFIG.dredge.towns, kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed);
   const pick = (list, salt) => list[Math.floor(roll(salt, day) * list.length)];
   const town = pick(towns, 'town'), kind = pick(kinds, 'kind');
   return { town: town.id, townName: town.town, kind: kind.id, kindName: kind.name, mult: M.event.multiplier };
@@ -58,11 +58,15 @@ export function priceOf(town, kind, state, extraSold = 0) {
 
 // What selling every piece of `kind` (or everything when null) would fetch, piece by piece
 // as the price drops. Doesn't change anything.
+// Who buys what: the markets take anything but shine, and the speakeasies (town ids
+// 'drop:<n>') take only shine.
+export const buys = (town, kind) => (String(town).startsWith('drop:') ? !!KINDS[kind].brewed : !KINDS[kind].brewed);
+
 export function quote(town, trunk, state, kind = null) {
   const extra = {};
   let total = 0, count = 0;
   for (const p of trunk.pieces.values()) {
-    if (kind && p.kind !== kind) continue;
+    if ((kind && p.kind !== kind) || !buys(town, p.kind)) continue;
     total += priceOf(town, p.kind, state, extra[p.kind] || 0);
     extra[p.kind] = (extra[p.kind] || 0) + 1;
     count++;
@@ -74,7 +78,7 @@ export function quote(town, trunk, state, kind = null) {
 export function sell(town, trunk, state, kind = null) {
   const q = quote(town, trunk, state, kind);
   for (const p of [...trunk.pieces.values()]) {
-    if (kind && p.kind !== kind) continue;
+    if ((kind && p.kind !== kind) || !buys(town, p.kind)) continue;
     trunk.remove(p.id);
     const key = `${town}:${p.kind}`;
     state.sold[key] = (state.sold[key] || 0) + 1;

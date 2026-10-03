@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
-const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, me: '#ece3cf' };
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, barn: P.cream, drop: P.copper, job: '#f2c55c', me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -172,6 +172,13 @@ function drawMarker(g, kind, x, y, r) {
     // Market: a hexagon.
     for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); }
     g.closePath();
+  } else if (kind === 'job') {
+    // A contract's delivery: a big gold ring, shown at any range (on the rim when far).
+    g.arc(x, y, r * 1.25, 0, Math.PI * 2);
+    g.moveTo(x + r * 0.55, y); g.arc(x, y, r * 0.55, 0, Math.PI * 2, true);
+  } else if (kind === 'barn') {
+    // Otto's barn: a little house, pitched roof.
+    g.moveTo(x - r * 1.1, y + r); g.lineTo(x - r * 1.1, y - r * 0.2); g.lineTo(x, y - r * 1.2); g.lineTo(x + r * 1.1, y - r * 0.2); g.lineTo(x + r * 1.1, y + r); g.closePath();
   } else if (kind === 'loot-rare') {
     // A rare find: a five-pointed star (shown at any range, on the rim when far).
     for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k / 10) * Math.PI * 2, q = k % 2 ? r * 0.6 : r * 1.45; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * q, y + Math.sin(a) * q); }

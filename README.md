@@ -35,6 +35,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
 | Handbrake (slide) | `Space` | A | DRIFT |
 | Open the trunk | `T` | X | — |
+| Abilities (from rank 1 up) | `1` `2` `3` | D-pad ← ↑ → | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
 | Look back | `C` | Y | — |
@@ -75,7 +76,25 @@ Enter, the D-pad and A/B, or touch.
 5. Spend your cash at any market on **upgrades**: a bigger bed (the trunk grows and the
    truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
    and a spotter for the radar.
-6. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
+   its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
+   slow it down until it's repaired.
+7. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
+   gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
+   to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
+   Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
+8. **Contracts**: the speakeasies and the farms post jobs each day, on the board at any market,
+   speakeasy or the barn. Take one (one at a time), bring what they want before it's due, and
+   stop at their door: they pay well over the market. Keeping your word builds your
+   reputation; dropping a job or missing its deadline costs some.
+9. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
+   Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
+   recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
+   three **abilities**: the **Jockey's Tip** (every piece of loot on the radar for a while),
+   **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
+10. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
+   That's the end of the story so far; the roads stay open after it.
+11. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.
