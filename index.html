@@ -42,6 +42,10 @@
       <span id="objective-text">Pick up loot along the roads</span><span id="objective-dist"></span>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
+    <div id="guide" class="hidden" role="status" aria-live="polite">
+      <span id="guide-text"></span>
+      <button id="guide-skip" class="text-btn" type="button">Skip tips</button>
+    </div>
     <div id="cash-pop" aria-hidden="true"></div>
     <div class="hud-bl">
       <div id="cargo" class="pill">TRUNK 0/15</div>
@@ -117,6 +121,7 @@
         <button id="pause-ledger" class="btn secondary">LEDGER</button>
         <button id="pause-settings" class="btn secondary">SETTINGS</button>
         <button id="pause-help" class="btn secondary">HOW TO PLAY</button>
+        <button id="pause-skip-tips" class="btn secondary hidden">SKIP TIPS</button>
         <button id="pause-quit" class="btn secondary">QUIT TO TITLE</button>
       </div>
     </div>
@@ -182,6 +187,7 @@
     <div class="overlay-card">
       <h1 class="title small" id="trunk-title">THE TRUNK</h1>
       <p id="trunk-hand" class="hint"></p>
+      <p id="trunk-guide" class="hint guide-line hidden"></p>
       <div id="trunk-grid" tabindex="0" data-autofocus aria-label="Trunk grid"></div>
       <p id="trunk-msg" class="hint" role="status" aria-live="polite"></p>
       <p id="trunk-fill" class="hint"></p>
@@ -196,6 +202,7 @@
       <h1 class="title small" id="market-title">THE MARKET</h1>
       <p class="story">Cash on hand: <strong id="market-cash" class="gold">$0</strong></p>
       <p id="market-note" class="hint"></p>
+      <p id="market-guide" class="hint guide-line hidden"></p>
       <div id="market-body"></div>
       <div class="btn-row">
         <button id="market-sell-all" class="btn secondary">SELL EVERYTHING</button>

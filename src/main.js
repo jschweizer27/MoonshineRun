@@ -32,7 +32,8 @@ const $ = (id) => document.getElementById(id);
 // URL options: ?debug (dev overlay + test API), ?test (test API, deterministic: the clock
 // stands still and the painterly look is off), ?seed=123 (city layout), ?sw (offline mode
 // on localhost), ?time / ?painterly (turn those back on under ?test), ?models=0 (the
-// built-in procedural models only).
+// built-in procedural models only), &story / &hints (the story cards and first-run tips,
+// off under ?test).
 const params = new URLSearchParams(location.search);
 export const OPTIONS = {
   debug: params.has('debug'),
@@ -43,6 +44,7 @@ export const OPTIONS = {
   models: params.get('models') !== '0',
   painterly: !params.has('test') || params.has('painterly'),
   story: !params.has('test') || params.has('story'),
+  hints: !params.has('test') || params.has('hints'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -318,6 +320,8 @@ class Game {
     on('pause-ledger', () => this.openLedger());
     on('pause-settings', () => this.openSettings());
     on('pause-help', () => this.ui.open('help'));
+    on('pause-skip-tips', () => { this.endGuide(true); $('pause-skip-tips').classList.add('hidden'); this.ui.focusFirst(); });
+    on('guide-skip', () => this.endGuide(true));
     on('pause-quit', async () => { if (await this.ui.confirm('QUIT?', 'Quit to the title screen? Your cash, upgrades and what’s in the trunk are saved.', 'QUIT')) this.quitToTitle(); });
     on('ledger-done', () => this.ui.back());
     on('settings-done', () => this.ui.back());
@@ -365,6 +369,7 @@ class Game {
     this.hud.setCash(this.dredge.cash);
     this._updateTrunkPill();
     this._updateIntroBest();
+    this._updateGuide();
   }
 
   openSettings() {
@@ -448,6 +453,7 @@ class Game {
     this._updateTrunkPill();
     this._updateObjective();
     this._updateMarkers();
+    this._updateGuide();
     this.runTime = 0;
     this._lastRam = -1;
     this._surfaceTimer = 0;
@@ -470,9 +476,43 @@ class Game {
   start() {
     this.resetRun();
     const fresh = !this.dredge.data.started;
-    if (fresh) { this.dredge.data.started = true; this.dredge.save(); }
+    if (fresh) { this.dredge.data.started = true; this.dredge.data.guide = OPTIONS.hints; this.dredge.save(); }
     this._enterPlaying();
+    this._updateGuide();
     if (fresh) this._story('prologue');
+  }
+
+  // ---------- The first run's tips ----------
+  // Read from where the save stands (an empty trunk, a packed piece, the first sale), so
+  // they can't fall out of step. They end at the first sale, or when skipped.
+  _guideText() {
+    if (!this.dredge.data.guide) return '';
+    if (this.trunk.count) return 'Follow the gold route on the radar to a ⬢ market, and stop inside its ring to sell.';
+    return 'Drive over a glowing piece of loot to pick it up. The squares on the radar show where.';
+  }
+
+  _updateGuide() {
+    if (this.dredge.data.guide && this.dredge.data.stats.sold > 0) this.endGuide(false);
+    const text = this._guideText();
+    $('guide').classList.toggle('hidden', !text);
+    if ($('guide-text').textContent !== text) $('guide-text').textContent = text;
+  }
+
+  endGuide(skipped) {
+    if (!this.dredge.data.guide) return;
+    this.dredge.data.guide = false;
+    this.dredge.save();
+    $('guide').classList.add('hidden');
+    $('trunk-guide').classList.add('hidden');
+    $('market-guide').classList.add('hidden');
+    if (!skipped) this.hud.toast('That’s the job. The roads are yours.', 'gold', 3500);
+  }
+
+  // A tip line on the trunk or market screen while the tips run.
+  _guideLine(id, text) {
+    const on = !!this.dredge.data.guide;
+    $(id).classList.toggle('hidden', !on);
+    $(id).textContent = on ? text : '';
   }
 
   // Play a story beat's cards (once per save): the drive pauses under them.
@@ -487,9 +527,10 @@ class Game {
 
   // Twice a second: a beat whose moment has come plays, when nothing else is on screen.
   _checkStory(dt) {
-    if (!OPTIONS.story || (this._storyT = (this._storyT || 0) - dt) > 0) return;
+    if ((this._storyT = (this._storyT || 0) - dt) > 0) return;
     this._storyT = 0.5;
-    const id = nextBeat(this.dredge.data);
+    this._updateGuide();
+    const id = OPTIONS.story && nextBeat(this.dredge.data);
     if (id) this._story(id);
   }
 
@@ -501,6 +542,7 @@ class Game {
     this.audio.setPaused(true);
     this.dredge.save();                  // the time on the road, for the ledger
     this._applyTouch();
+    $('pause-skip-tips').classList.toggle('hidden', !this.dredge.data.guide);
     if (showMenu) this.ui.open('pause', { onBack: () => this.resume() });
   }
 
@@ -663,6 +705,7 @@ class Game {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     this.trunkScreen.open(this.trunk, newKind);
+    this._guideLine('trunk-guide', newKind ? 'Move it with the arrows, turn it with R, and press Enter to put it down. Pieces can’t overlap; X leaves it on the road.' : '');
   }
 
   // The nearest market, and whether the truck is inside it.
@@ -742,6 +785,7 @@ class Game {
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: close,
     });
+    this._guideLine('market-guide', 'SELL EVERYTHING turns the trunk into cash. Each town pays differently, and a price drops as you sell more of one thing; upgrades come once you’ve saved up.');
   }
 
   // A new in-game day posts a new market event: say so.

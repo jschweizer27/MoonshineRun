@@ -44,6 +44,9 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `screens.js`); each beat's `when(data)` reads the save (stats, `flags`, `rank`) and plays
   once per save (`data.story`), checked twice a second in `main._checkStory`. A new game
   opens with the prologue. `?test` turns story off unless `&story`.
+- The first run's tips (`main._guideText` / `_updateGuide`) read where the save stands
+  (empty trunk → find loot, packed → go sell, first sale → done) and end for good;
+  `data.guide` is set on a new game. `?test` shows none unless `&hints`.
 - `src/juice.js` — **all game-feel values** (`JUICE`) plus `VehicleFeel` (sprung body roll /
   pitch / bounce for the truck, skid marks, tyre smoke, spray, headlight flicker, crash
   rattle/dent) and `Debris` (pooled chunks on heavy hits). `src/props.js`: sidewalk

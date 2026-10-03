@@ -96,6 +96,11 @@ html, body {
   max-width: calc(100vw - 2 * var(--gutter));
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* The first run's tips: a card under the toasts, with a way out. */
+#guide { position: absolute; top: 162px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 2 * var(--gutter))); display: flex; gap: 14px; align-items: center; padding: 8px 14px; background: rgba(13, 11, 8, 0.72); border: 1px solid var(--gold); border-radius: 3px; font-size: calc(clamp(14px, 2.4vw, 16px) * var(--ts)); line-height: 1.4; pointer-events: auto; }
+#guide.hidden { display: none; }
+#guide-skip { flex: none; }
+.guide-line { color: var(--gold); border-left: 3px solid var(--gold); padding-left: 10px; text-align: left; }
 #toast.gold { color: var(--gold); font-weight: bold; }
 
 #cash-pop {

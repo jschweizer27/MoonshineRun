@@ -53,7 +53,8 @@ Enter, the D-pad and A/B, or touch.
 ### How to play
 
 1. Press **Enter** (or click **START DRIVING**). Otto's truck starts on **York Road**, just
-   inside the city.
+   inside the city. On a new game, short tips walk you through the first pickup, packing the
+   trunk and the first sale (skip them from the tip card or the pause menu).
 2. Drive the roads. **Glowing loot** lies beside them (crates, bottle cases, sacks, barrels,
    jugs, kegs, copper coils, bicycles, radio sets, sewing machines, a strongbox); the radar
    shows what's near. Its colour tells you
