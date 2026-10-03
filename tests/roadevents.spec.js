@@ -14,6 +14,13 @@ test('road events: rolled from the clock (the same for everyone), a washout only
       dryKinds: [...new Set(dry.filter(Boolean))].sort(),
       wetKinds: [...new Set(wet.filter(Boolean))].sort(),
       edges: window.shine.game.roadEvents.edges.length,
+      // Every road an event can close has a way around it.
+      around: window.shine.game.roadEvents.edges.every(([a, b]) => {
+        const R = window.shine.game.world.roads;
+        return R.path(a.id, b.id, new Set([`${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`]))?.length > 2;
+      }),
+      // York Road from the city to the first crossroads (Y1, Y2): the only road out.
+      yorkRoad: window.shine.game.roadEvents.edges.some((e) => e.some((n) => [[0, -300], [15, -380]].some(([x, z]) => n.x === x && n.z === z))),
     };
   });
   expect(r.same).toBe(true);
@@ -23,6 +30,8 @@ test('road events: rolled from the clock (the same for everyone), a washout only
   expect(r.dryKinds).toEqual(['breakdown', 'fog', 'marketday']);
   expect(r.wetKinds).toEqual(['breakdown', 'fog', 'marketday', 'washout']);
   expect(r.edges).toBeGreaterThan(20);
+  expect(r.around).toBe(true);
+  expect(r.yorkRoad).toBe(false);                   // York Road's only way out of the city stays open
 });
 
 test('a broken-down cart: parked across a valley road, a barrier under it, the route goes around, and it all clears after', async ({ page }) => {

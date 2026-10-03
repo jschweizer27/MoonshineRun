@@ -31,12 +31,14 @@ export class RoadEvents {
     this.blocked = traffic.blocked; // edge keys closed to the route and the traffic
     this._slot = -1;
     // The valley roads an event can block: links between two county nodes that both join
-    // other roads (not the farm lanes, which are dead ends, nor the city's streets).
+    // other roads (not the farm lanes, which are dead ends, nor the city's streets), and
+    // only those with a way around (never York Road's one way out of the city).
     const N = world.roads.nodes;
     this.edges = [];
     for (const a of N) for (const id of a.links) {
       const b = N[id];
-      if (id > a.id && a.tag !== 'city' && b.tag !== 'city' && a.links.length > 1 && b.links.length > 1 && world.inCounty(a) && world.inCounty(b)) this.edges.push([a, b]);
+      if (id > a.id && a.tag !== 'city' && b.tag !== 'city' && a.links.length > 1 && b.links.length > 1 && world.inCounty(a) && world.inCounty(b)
+        && world.roads.path(a.id, b.id, new Set([RoadGraph.edgeKey(a.id, b.id)]))) this.edges.push([a, b]);
     }
   }
 
