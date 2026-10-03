@@ -231,27 +231,27 @@ export const CONFIG = {
         { id: 'bottle-case', name: 'Bottle case', short: 'Bottles', tier: 'low', value: 35, weight: 0.12, cells: [[0, 0], [1, 0]] },
         { id: 'sack', name: 'Burlap sack', short: 'Sack', tier: 'low', value: 30, weight: 0.1, cells: [[0, 0], [0, 1], [1, 1]] },
         // A bicycle: cheap and awkward, an arch of five cells (a wheel at each end).
-        { id: 'bicycle', name: 'Bicycle', short: 'Bike', tier: 'low', value: 30, weight: 0.05, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1]] },
+        { id: 'bicycle', name: 'Bicycle', short: 'Bike', tier: 'low', value: 40, weight: 0.05, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1]] },
         { id: 'barrel', name: 'Barrel', short: 'Barrel', tier: 'mid', value: 40, weight: 0.1, cells: [[0, 0], [0, 1]] },
         { id: 'jugs', name: 'Jug cluster', short: 'Jugs', tier: 'mid', color: 'cream', accent: 'brick', value: 55, weight: 0.09, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
         { id: 'crate', name: 'Wooden crate', short: 'Crate', tier: 'mid', value: 60, weight: 0.09, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
         { id: 'long-crate', name: 'Long crate', short: 'Long', tier: 'mid', value: 50, weight: 0.07, cells: [[0, 0], [1, 0], [2, 0]] },
         // A cathedral radio set: an L of four (the cabinet and its horn speaker).
-        { id: 'radio', name: 'Radio set', short: 'Radio', tier: 'mid', value: 65, weight: 0.05, cells: [[0, 0], [0, 1], [0, 2], [1, 2]] },
+        { id: 'radio', name: 'Radio set', short: 'Radio', tier: 'mid', value: 70, weight: 0.05, cells: [[0, 0], [0, 1], [0, 2], [1, 2]] },
         { id: 'coil', name: 'Copper coil', short: 'Coil', tier: 'high', value: 75, weight: 0.06, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'keg', name: 'Aged keg', short: 'Keg', tier: 'high', value: 110, weight: 0.05, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
         // A treadle sewing machine on its table: a P of five.
-        { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 95, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 105, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
         // Rare finds: never in the normal scatter (weight 0, `rare`); one turns up now and then
         // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
-        { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 300, weight: 0, cells: [[0, 0]] },
-        { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 360, weight: 0, cells: [[0, 0], [0, 1]] },
+        { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 200, weight: 0, cells: [[0, 0]] },
+        { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 240, weight: 0, cells: [[0, 0], [0, 1]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {
         first: 120,         // the first turns up this long into a run
-        every: 300,         // the next, this long after one is taken or lost
+        every: 420,         // the next, this long after one is taken or lost
         lasts: 180,         // left lying, it's gone after this long (someone else found it)
         minDistance: 350,   // metres from the truck when it turns up
         glow: 1.8,          // its glow, times a premium piece's

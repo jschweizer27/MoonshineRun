@@ -877,7 +877,7 @@ test('rare finds: one turns up far out in the county with word of where, shows o
   expect(r.afterTake).toBe(true);
   for (const p of r.prices) {
     expect(p.best).toBeGreaterThan(2 * p.other);
-    expect(p.best).toBeGreaterThan(2 * p.strongbox);
+    expect(p.best).toBeGreaterThan(p.strongbox);     // the best price for any find on the roads
   }
   expect(problems).toEqual([]);
 });
