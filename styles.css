@@ -102,6 +102,7 @@ html, body {
 #guide-skip { flex: none; }
 .guide-line { color: var(--gold); border-left: 3px solid var(--gold); padding-left: 10px; text-align: left; }
 #toast.gold { color: var(--gold); font-weight: bold; }
+#toast.red { color: #e8735a; font-weight: bold; }
 
 #cash-pop {
   position: absolute; top: 38%; left: 50%; transform: translate(-50%, 0);
@@ -172,6 +173,14 @@ body.touch-mode .hud-br { bottom: 250px; }
 #still-scorch { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(200, 74, 58, 0.45); }
 #still-needle { position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #e8735a; box-shadow: 0 0 8px #e8735a; }
 #still-needle.in { background: #f2e3b0; box-shadow: 0 0 10px #f2c55c; }
+#still-heads, #still-tails { position: absolute; top: 0; bottom: 0; }
+#still-heads { left: 0; background: rgba(200, 74, 58, 0.45); }
+#still-tails { right: 0; background: rgba(140, 150, 160, 0.3); }
+#still-gauge .still-cut { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; display: none; }
+#still-steps { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; list-style: none; padding: 0; margin: 6px 0 10px; font-size: 12px; letter-spacing: 0.12em; }
+#still-steps li { padding: 3px 8px; border: 1px solid rgba(242, 197, 92, 0.35); border-radius: 3px; opacity: 0.5; }
+#still-steps li.on { opacity: 1; border-color: var(--gold); color: var(--gold); }
+#still-steps li.past { opacity: 0.8; }
 #still-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #still-progress i { display: block; height: 100%; width: 0; background: var(--gold); }
 #still-stoke { touch-action: none; user-select: none; -webkit-user-select: none; }

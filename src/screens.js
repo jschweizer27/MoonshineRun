@@ -1,7 +1,7 @@
 import { el } from './ui.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote, dayOf, eventFor, eventText, buys } from './market.js';
-import { RECIPES, missing, newBatch, stepBatch, quality, yieldFor } from './brew.js';
+import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, gradeOf, yieldFor, blendGrade } from './brew.js';
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST } from './story.js';
@@ -72,7 +72,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       btn.addEventListener('click', () => { onSell(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
-          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}`),
+          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}${k.brewed ? ` · grade ${gradeLabel(career.market.blend?.[k.id])}` : ''}`),
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
@@ -158,7 +158,7 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
       take.addEventListener('click', () => { onTake(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
-          el('b', {}, k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
+          el('b', {}, k.brewed ? `${k.name} · grade ${gradeLabel(d.market.blend?.[k.id])}` : k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
         el('span', { class: 'slot-buttons' }, store, take)));
     }
     // The still: copper coils raise it a level; recipes need their ingredients and a rank.
@@ -209,52 +209,117 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
   return render;
 }
 
+// A blend's grade as shown: A, B or C, and "C, tainted" for a bad one.
+const gradeLabel = (bl) => (bl?.bad ? 'C, tainted' : blendGrade(bl));
+
 // ---------- The still ----------
-// A batch: hold STOKE (W / Up / Space, RT or A, or the button) to raise the temperature and
-// let go to let it fall, keeping the needle in the drifting band. Runs on its own clock
-// (the drive is paused under it); `step(dt, stoke)` drives it by hand in tests. Calls
-// `onDone(quality, crates)` when the batch is finished and DONE is pressed.
+// A batch in three phases (brew.js). The fire: hold STOKE (W / Up / Space, RT or A, or the
+// button) to raise the temperature and let go to let it fall, keeping the needle in the
+// drifting band. The cuts: the run sweeps across, heads (red), hearts (gold), tails
+// (grey); press to cut into the hearts and out of them. Proofing: press once as the bead
+// crosses the proof line. Runs on its own clock (rAF); `onDone(quality, crates, { grade,
+// bad, poured })` when it's finished and DONE (or, for a bad batch, POUR IT OUT) is pressed.
 export function showStill(ui, { recipe, level, onDone }) {
-  const b = newBatch(level);
-  let held = false, raf = 0, last = 0, finished = false;
+  const b = newBatch(level, recipe), B = CONFIG.dredge.brew;
+  let held = false, raf = 0, last = 0, finished = false, padWas = false;
   const STOKE_KEYS = new Set(['KeyW', 'ArrowUp', 'Space']);
-  const stokeBtn = $('still-stoke'), done = $('still-done');
+  const PRESS_KEYS = new Set(['KeyW', 'ArrowUp', 'Space', 'Enter', 'KeyE']);
+  const stokeBtn = $('still-stoke'), done = $('still-done'), pour = $('still-pour');
+  const cuts = [...document.querySelectorAll('#still-gauge .still-cut')];
+  const zone = (id, from, to) => { const z = $(id); z.style.display = from == null ? 'none' : ''; if (from != null) { z.style.left = `${from * 100}%`; z.style.width = `${(to - from) * 100}%`; } };
+  const TEXT = {
+    fire: [`${recipe.name}: keep the needle in the band.`, 'HOLD TO STOKE', 'Hold W, &uarr;, Space, RT, A or the button to stoke the fire; let go and it cools. Keep the needle inside the band, and out of the red.'],
+    cuts: ['The run is coming off: cut into the hearts where the gold starts, and out where it ends.', 'CUT', 'Press Space, Enter, A or the button to cut. Early into the hearts lets the poison heads in; late out lets in the weak tails.'],
+    proof: ['Shake the jar and read the bead: press as it crosses the line.', 'PROOF IT', 'One press, as the bead crosses the gold line.'],
+  };
+  let shown = '';
   const draw = () => {
-    const B = CONFIG.dredge.brew;
-    $('still-band').style.left = `${(b.center - b.width / 2) * 100}%`;
-    $('still-band').style.width = `${b.width * 100}%`;
-    $('still-scorch').style.left = `${B.scorch * 100}%`;
-    $('still-needle').style.left = `${b.temp * 100}%`;
-    $('still-needle').classList.toggle('in', Math.abs(b.temp - b.center) <= b.width / 2);
-    $('still-progress').firstElementChild.style.width = `${(b.t / B.seconds) * 100}%`;
+    const ph = b.phase === 'done' ? 'proof' : b.phase;
+    if (ph !== shown) {
+      shown = ph;
+      $('still-recipe').textContent = TEXT[ph][0];
+      stokeBtn.textContent = TEXT[ph][1];
+      $('still-help').innerHTML = TEXT[ph][2];
+      const order = ['fire', 'cuts', 'proof'];
+      for (const li of document.querySelectorAll('#still-steps li')) {
+        li.classList.toggle('on', li.dataset.phase === ph);
+        li.classList.toggle('past', order.indexOf(li.dataset.phase) < order.indexOf(ph));
+      }
+    }
+    let needle, inside, progress;
+    if (ph === 'fire') {
+      zone('still-band', b.center - b.width / 2, b.center + b.width / 2);
+      zone('still-scorch', B.scorch, 1);
+      zone('still-heads', null); zone('still-tails', null);
+      needle = b.temp; inside = Math.abs(b.temp - b.center) <= b.width / 2; progress = b.t / B.seconds;
+    } else if (ph === 'cuts') {
+      const [h1, h2] = b.cuts.marks;
+      zone('still-heads', 0, h1); zone('still-band', h1, h2); zone('still-tails', h2, 1); zone('still-scorch', null);
+      needle = b.cuts.pos; inside = needle >= h1 && needle <= h2; progress = b.cuts.t / B.cuts.seconds;
+    } else {
+      const w = B.proof.tol;
+      zone('still-band', b.proof.line - w, b.proof.line + w); zone('still-heads', null); zone('still-tails', null); zone('still-scorch', null);
+      needle = b.proof.at ?? b.proof.pos; inside = Math.abs(needle - b.proof.line) <= w; progress = b.proof.t / B.proof.seconds;
+    }
+    cuts.forEach((c, i) => { const at = ph === 'cuts' ? b.cuts.at[i] : undefined; c.style.display = at == null ? 'none' : 'block'; if (at != null) c.style.left = `${at * 100}%`; });
+    $('still-needle').style.left = `${needle * 100}%`;
+    $('still-needle').classList.toggle('in', inside);
+    $('still-progress').firstElementChild.style.width = `${progress * 100}%`;
     if (b.done) {
-      const q = quality(b), crates = yieldFor(q);
-      $('still-msg').textContent = `Quality ${Math.round(q * 100)}%: ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name}, to the stash.`;
+      const q = quality(b), bad = isBad(b), grade = gradeOf(q, bad), crates = yieldFor(q);
+      $('still-msg').textContent = bad
+        ? `Heads in the hearts: ${crates} crate${crates === 1 ? '' : 's'} of poison. Kept, it taints the ${recipe.name} on hand, and sold, it could blind a man.`
+        : `Grade ${grade} (${Math.round(q * 100)}%): ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name}, to the stash.`;
     }
   };
-  const finish = () => {
+  const finish = (poured = false) => {
     if (!b.done || finished) return;
     finished = true;
     cleanup();
     ui.close('still');
-    onDone(quality(b), yieldFor(quality(b)));
+    const q = quality(b), bad = isBad(b);
+    onDone(q, poured ? 0 : yieldFor(q), { grade: gradeOf(q, bad), bad, poured });
+  };
+  const ended = () => {
+    stokeBtn.classList.add('hidden');
+    done.classList.remove('hidden');
+    done.textContent = isBad(b) ? 'KEEP IT' : 'DONE';
+    pour.classList.toggle('hidden', !isBad(b));
+    (isBad(b) ? pour : done).focus();
+    cancelAnimationFrame(raf);
   };
   const step = (dt, stoke = held) => {
     stepBatch(b, dt, stoke);
     draw();
-    if (b.done) { stokeBtn.classList.add('hidden'); done.classList.remove('hidden'); done.focus(); cancelAnimationFrame(raf); }
+    if (b.done) ended();
     return b;
   };
-  const padStoke = () => [...(navigator.getGamepads?.() || [])].some((p) => p && ((p.buttons[7]?.value || 0) > 0.2 || p.buttons[0]?.pressed));
+  const press = () => {
+    const ok = pressBatch(b);
+    draw();
+    if (b.done) ended();
+    return ok;
+  };
+  const padDown = () => [...(navigator.getGamepads?.() || [])].some((p) => p && ((p.buttons[7]?.value || 0) > 0.2 || p.buttons[0]?.pressed));
   const tick = (now) => {
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
     last = now;
-    if (!b.done) step(dt, held || padStoke());
+    const pad = padDown();
+    if (b.phase !== 'fire' && pad && !padWas) press();
+    padWas = pad;
+    if (!b.done) step(dt, held || pad);
     if (!b.done && raf) raf = requestAnimationFrame(tick);
   };
-  const keyDown = (e) => { if (STOKE_KEYS.has(e.code) && !b.done) { held = true; e.preventDefault(); e.stopPropagation(); } };
+  const keyDown = (e) => {
+    if (b.done) return;
+    if (b.phase === 'fire' ? STOKE_KEYS.has(e.code) : PRESS_KEYS.has(e.code)) {
+      e.preventDefault(); e.stopPropagation();
+      if (b.phase === 'fire') held = true;
+      else if (!e.repeat) press();
+    }
+  };
   const keyUp = (e) => { if (STOKE_KEYS.has(e.code)) held = false; };
-  const down = (e) => { held = true; e.preventDefault(); };
+  const down = (e) => { e.preventDefault(); if (b.phase === 'fire') held = true; else press(); };
   const up = () => { held = false; };
   window.addEventListener('keydown', keyDown, true);
   window.addEventListener('keyup', keyUp, true);
@@ -267,16 +332,17 @@ export function showStill(ui, { recipe, level, onDone }) {
     stokeBtn.removeEventListener('pointerdown', down);
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) stokeBtn.removeEventListener(ev, up);
   };
-  $('still-recipe').textContent = `${recipe.name}: keep the needle in the band.`;
   $('still-msg').textContent = '';
   stokeBtn.classList.remove('hidden');
   done.classList.add('hidden');
-  done.onclick = finish;
-  ui.open('still', { onBack: () => finish() });
+  pour.classList.add('hidden');
+  done.onclick = () => finish(false);
+  pour.onclick = () => finish(true);
+  ui.open('still', { onBack: () => finish(false) });
   draw();
   raf = requestAnimationFrame(tick);
   // `manual()` stops the screen's own clock, for stepping it by hand (tests).
-  return { batch: b, step, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
+  return { batch: b, step, press, finish, pour: () => finish(true), manual: () => { cancelAnimationFrame(raf); raf = 0; } };
 }
 
 // ---------- Salvage ----------

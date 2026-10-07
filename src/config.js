@@ -262,28 +262,51 @@ export const CONFIG = {
     },
     // The ending: buy back the Braun & Sons brewery deed at Lexington Market, at the top rank.
     deed: { cost: 20000, rank: 5, town: 'baltimore' },
-    // Brewing at Otto's still. Each copper coil installed raises the still a level (up to
-    // three), widening the band the temperature has to stay in. A batch takes `seconds`:
-    // hold STOKE to raise the temperature (`heat.up` a second), let go and it falls
-    // (`heat.down`); the band drifts around `band.center`. Quality is the share of the
-    // batch spent in the band, less any time scorching above `scorch`, and sets how many
-    // crates it yields (`yields`: [least quality, crates], best first). A recipe needs its
-    // ingredients (loot kinds, from the trunk and the stash) and a rank (stage 7).
+    // Brewing at Otto's still (src/brew.js), in three phases:
+    // 1. The fire (`seconds`): hold STOKE to raise the temperature (`heat.up` a second), let
+    //    go and it falls (`heat.down`), keeping it in a band that drifts around
+    //    `band.center`; scorching is time above `scorch`. Each copper coil installed raises
+    //    the still a level (up to `maxLevel`), widening the band and the cuts' margin
+    //    (`levelTol` more a level).
+    // 2. The cuts (`cuts.seconds`): the run comes off the still, heads, then hearts, then
+    //    tails. Press to cut into the hearts jar at the recipe's first mark and out of it
+    //    at the second, within `tol` (a share of the run). Cutting early lets heads (poison)
+    //    into the hearts: more than `tol` early is a bad batch. A cut missed altogether is
+    //    the worst of both.
+    // 3. Proofing (`proof.seconds`): the bead swings across the gauge; press once as it
+    //    crosses the recipe's proof line.
+    // Quality is the phases weighted by `weights`, graded by `grades` (best first), and
+    // sets the crates (`yields`: [least quality, crates]). Each recipe has its own pattern:
+    // `heat` and `drift` scale the fire, `hearts` are the two marks, `tol` the cut margin,
+    // `proof` the line. Crates of one recipe on hand are one blend (src/brew.js `blend`):
+    // its grade sets the price (`gradePrice`); a bad batch taints it until it's all gone,
+    // and selling tainted shine blinds someone (`badRep` reputation lost). A recipe needs
+    // its ingredients (loot kinds, from the trunk and the stash) and a rank.
     // PLACEHOLDERS: tune after playtesting.
     brew: {
       maxLevel: 3,
-      seconds: 20,
+      seconds: 18,
       heat: { up: 0.42, down: 0.3 },
       band: { center: 0.55, width: [0.2, 0.26, 0.32], drift: 0.16, speed: 0.55 },
       scorch: 0.95,
+      cuts: { seconds: 9, lead: 0.4, levelTol: 0.25 },
+      proof: { seconds: 6, swing: 0.42, speed: 2.6, speedUp: 0.25, tol: 0.05 },
+      weights: { fire: 0.4, cuts: 0.4, proof: 0.2 },
+      grades: [['A', 0.78], ['B', 0.5], ['C', 0]],
+      gradePrice: { A: 1.4, B: 1, C: 0.65 },
+      badRep: 30,
       yields: [[0.8, 3], [0.45, 2], [0, 1]],
       recipes: [
-        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0 },
-        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 1 },
-        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3 },
-        { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4 },
+        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0, heat: 1, drift: 1, hearts: [0.25, 0.75], tol: 0.06, proof: 0.6 },
+        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 1, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
+        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3, heat: 1, drift: 1.1, hearts: [0.38, 0.64], tol: 0.035, proof: 0.68 },
+        { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4, heat: 0.85, drift: 0.9, hearts: [0.3, 0.7], tol: 0.045, proof: 0.4 },
       ],
     },
+    // Breakage: a knock harder than `from` m/s can break the fragile pieces aboard (the
+    // `kinds` listed, and every brewed kind), each with `perMs` chance a m/s over `from`
+    // (at most `max`). PLACEHOLDERS: tune after playtesting.
+    breakage: { from: 13, perMs: 0.05, max: 0.7, kinds: ['jugs', 'bottle-case'] },
     // Contracts (src/contracts.js): each in-game day posts `perDay` jobs, a `farmShare` of
     // them from the farms (who want `farmWants`) and the rest from the speakeasies (who want
     // `barWants`, or `shine` once Otto brews). A job pays its goods' value x `payMult`, earns

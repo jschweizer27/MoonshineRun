@@ -1,8 +1,10 @@
 import { CONFIG } from './config.js';
 import { KINDS } from './trunk.js';
+import { blendGrade } from './brew.js';
 
 // Town markets: what a piece fetches, and selling out of the trunk.
-// Pure logic. `state` is the saved market state: { sold: { 'town:kind': pieces }, clock }
+// Pure logic. `state` is the saved market state: { sold: { 'town:kind': pieces }, clock,
+// blend: { [recipe]: { q, bad } } }
 // where `clock` counts in-game hours. A price is the kind's base value x the town's rate
 // x a daily drift x a glut factor (selling lots of one kind in one town drives it down).
 const M = CONFIG.dredge.market;
@@ -62,7 +64,9 @@ export function priceOf(town, kind, state, extraSold = 0) {
   const md = state.marketDay, marketDay = md && md.town === town && (state.clock || 0) < md.until ? md.mult : 1;
   const sold = (state.sold[`${town}:${kind}`] || 0) + extraSold;
   const glut = Math.max(M.glutFloor, 1 - M.glut * sold);
-  return Math.max(1, Math.round(base * drift * glut * event * marketDay));
+  // Shine sells by its blend's grade (state.blend, brew.js).
+  const grade = KINDS[kind].brewed ? CONFIG.dredge.brew.gradePrice[blendGrade(state.blend?.[kind])] : 1;
+  return Math.max(1, Math.round(base * drift * glut * event * marketDay * grade));
 }
 
 // What selling every piece of `kind` (or everything when null) would fetch, piece by piece

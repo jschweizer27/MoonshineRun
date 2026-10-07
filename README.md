@@ -94,8 +94,19 @@ Enter, the D-pad and A/B, or touch.
    route goes around), a fog bank rolls in, or a town holds its **market day** and pays 15%
    more for everything.
 8. The barn's **still** turns loot into shine. Install a copper coil, then brew from what you've
-   gathered (Corn Shine takes a sack and jugs; better recipes come later): hold the throttle
-   to stoke the fire and keep the needle in the band, and a steady hand makes more crates.
+   gathered (Corn Shine takes a sack and jugs; better recipes come later). A batch has three
+   parts:
+   - **The fire:** hold the throttle to stoke it, and keep the needle in the drifting band.
+   - **The cuts:** the run comes off as heads (poison), hearts (the good stuff) and tails.
+     Press to cut into the hearts as the gold starts and out as it ends. Cut early and the
+     batch is poison.
+   - **Proofing:** press once as the bead crosses the line.
+
+   The batch is graded A, B or C, and a better one makes more crates. Each recipe's crates on
+   hand are one blend, and its grade sets the price. A bad batch can be poured out. Kept, it
+   taints the blend, and selling tainted shine blinds someone and costs you your name. Each
+   recipe runs differently: Applejack burns hot, and Rye has narrow hearts. Jars, bottles and
+   shine break in a hard crash.
    Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
 9. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
    board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,

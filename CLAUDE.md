@@ -76,6 +76,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- The still (v4): `src/brew.js` is a batch in three phases (`newBatch`, `stepBatch`,
+  `pressBatch`): the fire, the cuts (heads/hearts/tails; an early first cut is a bad batch)
+  and proofing, scored by `fireScore`/`cutScore`/`proofScore`, graded by `gradeOf`. Each
+  recipe's crates on hand are one blend (`blend`, saved in `data.market.blend`), whose grade
+  scales the speakeasy price (`priceOf`). Selling a tainted blend calls `main._blinded`;
+  hard crashes break fragile pieces (`main._breakage`, `CONFIG.dredge.breakage`).
 - Salvage (v4): `src/salvage.js` places fixed sites (wrecks, farmhouses, rail sidings in the
   county; cellars in the city) from their own random stream, draws them as one instanced
   heap, and holds the two mini-games as pure state machines (`newPry`/`stepPry`/`pressPry`,

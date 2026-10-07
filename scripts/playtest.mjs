@@ -140,8 +140,25 @@ try {
     await page.click('#barn [data-id="install-coil"]');
     await page.click('#barn [data-id="brew-corn-shine"]');
     await page.evaluate(() => { const s = window.shine.game.stillScreen; s.manual(); for (let k = 0; k < 600; k++) s.step(1 / 60, s.batch.temp < s.batch.center); });
-    await beat('still', 'a batch at the still');
-    await page.evaluate(() => { const s = window.shine.game.stillScreen; while (!s.batch.done) s.step(1 / 60, s.batch.temp < s.batch.center); });
+    await beat('still', 'the fire: keep the needle in the band');
+    // The cuts: into the hearts at the first mark, out at the second.
+    await page.evaluate(() => {
+      const s = window.shine.game.stillScreen, b = s.batch;
+      while (b.phase === 'fire') s.step(1 / 60, b.temp < b.center);
+      while (b.phase === 'cuts' && b.cuts.pos < b.cuts.marks[0]) s.step(1 / 120);
+      s.press();
+      while (b.phase === 'cuts' && b.cuts.pos < (b.cuts.marks[0] + b.cuts.marks[1]) / 2) s.step(1 / 120);
+    });
+    await beat('cuts', 'the cuts: heads, hearts and tails');
+    await page.evaluate(() => {
+      const s = window.shine.game.stillScreen, b = s.batch;
+      while (b.phase === 'cuts' && b.cuts.pos < b.cuts.marks[1]) s.step(1 / 120);
+      if (b.phase === 'cuts') s.press();
+      while (b.phase === 'cuts') s.step(1 / 120);
+      let prev = b.proof.pos;
+      while (b.phase === 'proof') { s.step(1 / 240); const now = b.proof.pos; if (b.proof.t > 0.5 && (prev - b.proof.line) * (now - b.proof.line) <= 0) s.press(); prev = now; }
+    });
+    await beat('graded', 'proofed and graded');
     await page.click('#still-done');
     for (let k = 0; k < 3; k++) { const take = page.locator('#barn [data-id="take-corn-shine"]'); if (await take.isEnabled()) await take.click(); }
     await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
