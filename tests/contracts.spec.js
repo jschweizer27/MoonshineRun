@@ -99,6 +99,16 @@ test('a contract: taken at a market, marked on the road and the radar, delivered
   expect(s.trunk).toBe(0);
   expect(s.ledger).toContain(job.name);
 
+  // The handoff: the contact's own line on a card, then what was handed over and the pay.
+  await expect(page.locator('#dialog')).toBeVisible();
+  await expect(page.locator('#dialog-name')).toHaveText(job.name);
+  const text = page.locator('#dialog-text');
+  for (let k = 0; k < 6 && !(await text.textContent()).includes('Handed over'); k++) { await page.click('#dialog-next'); await page.waitForTimeout(300); }
+  await expect(text).toContainText(`$${job.pay}`);
+  for (let k = 0; k < 4 && (await page.locator('#dialog').isVisible()); k++) { await page.click('#dialog-next'); await page.waitForTimeout(300); }
+  await expect(page.locator('#dialog')).toBeHidden();
+  expect(await page.evaluate(() => window.shine.game.state)).toBe('playing');
+
   // A late job is lost, and costs standing.
   s = await page.evaluate(() => {
     const g = window.shine.game, d = g.dredge.data, o = g._jobs().offers()[0];

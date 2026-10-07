@@ -76,6 +76,16 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Salvage (v4): `src/salvage.js` places fixed sites (wrecks, farmhouses, rail sidings in the
+  county; cellars in the city) from their own random stream, draws them as one instanced
+  heap, and holds the two mini-games as pure state machines (`newPry`/`stepPry`/`pressPry`,
+  `newSearch`/`stepSearch`/`pickSearch`, `score`, `payout`). `showSalvage` (screens.js) runs
+  one; `main._checkSalvage` / `_onSalvaged` open it and queue what it gives up into the
+  trunk (`_pending`). Worked sites are `data.sites` (id -> day). `CONFIG.dredge.loot.scatter`
+  is false: the loot pool only holds pieces spilled in crashes. Lamp posts have no
+  colliders: `world.knockLamps` tips them over (instance matrices only) and `standLamps`
+  puts them back at dawn (`main._dawn`, which also shows the night's take and saves).
+  Deliveries end on a handoff card (`main._handoff`, `story.js THANKS`).
 - Road events: `src/roadevents.js`, rolled per slot of game hours (`CONFIG.dredge.roadEvents`,
   offset from midnight so they never land with the daily demand). A blocked road gets an
   edge key in `blocked` (shared with traffic and `minimap.blocked`, so routes and cars go

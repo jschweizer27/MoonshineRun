@@ -180,7 +180,16 @@ body.touch-mode .hud-br { bottom: 250px; }
 .ability { font: inherit; font-size: calc(12px * var(--ts)); letter-spacing: 1px; padding: 4px 8px; color: var(--muted); background: rgba(13, 11, 8, 0.6); border: 1px solid rgba(216, 178, 90, 0.35); border-radius: 2px; cursor: pointer; }
 .ability.ready { color: var(--paper); border-color: var(--gold); }
 .ability.on { color: #0b0d14; background: var(--gold); border-color: var(--gold); }
-#pause, #settings, #help, #map, #confirm, #ledger, #slots, #barn, #still { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#salvage-ring { display: block; margin: 8px auto; width: min(240px, 60vw); height: auto; }
+#salvage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(260px, 70vw); margin: 10px auto; }
+#salvage-grid button { aspect-ratio: 1; font-size: calc(26px * var(--ts)); background: #1b2a33; color: var(--paper); border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; }
+#salvage-grid button.glint { background: #5a4a22; box-shadow: 0 0 14px #f2c55c inset; }
+#salvage-grid button.found { background: #2f4a2a; }
+#salvage-grid button.empty { background: #2a1d1a; opacity: 0.7; }
+#salvage-grid button:disabled { cursor: default; }
+#salvage-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+#salvage-progress i { display: block; height: 100%; width: 100%; background: var(--gold); }
+#pause, #settings, #help, #map, #confirm, #ledger, #slots, #barn, #still, #salvage { background: rgba(3, 4, 7, 0.82); z-index: 25; }
 #dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
 #dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
 .dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }

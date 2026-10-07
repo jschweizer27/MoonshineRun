@@ -251,7 +251,7 @@ export class Loot {
   reset(player = null) {
     this.timer.fill(0);
     for (let i = 0; i < this.n; i++) {
-      this.active[i] = i !== this.rareSlot;
+      this.active[i] = L.scatter !== false && i !== this.rareSlot;
       if (this.active[i]) this._place(i, player, 30);
     }
     this.rareIn = R.first;
@@ -333,7 +333,7 @@ export class Loot {
     const p = player.position;
     for (let i = 0; i < this.n; i++) {
       if (!this.active[i]) {
-        if (i === this.rareSlot) continue;
+        if (i === this.rareSlot || L.scatter === false) continue;   // no scatter: taken pieces don't come back
         this.timer[i] -= dt;
         if (this.timer[i] <= 0 && this._place(i, p, L.respawnMin)) this.active[i] = 1;
         continue;
@@ -354,7 +354,7 @@ export class Loot {
         this.rareIn = R.every;
         events.push({ type: 'rare-gone', kind: L.kinds[this.kind[s]], index: s, x: this.x[s], z: this.z[s] });
       }
-    } else if ((this.rareIn -= dt) <= 0) {
+    } else if (L.scatter !== false && (this.rareIn -= dt) <= 0) {
       this.spawnRare(p, events);
     }
     this._writeAll(time, p, camera || p);

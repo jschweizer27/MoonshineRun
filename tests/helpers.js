@@ -42,10 +42,19 @@ export async function mainThread(page) {
   }
 }
 
-// START DRIVING. With `loot: false` the roads are cleared first (clearLoot).
-export async function startRun(page, { loot = true } = {}) {
+// START DRIVING. With `loot: false` the roads are cleared first (clearLoot). With `scatter`
+// the old street loot is switched back on (v4 turned it off; spills still use the pool).
+export async function startRun(page, { loot = true, scatter = false } = {}) {
   await page.click('#start-btn');
   await expect(page.locator('#hud')).toBeVisible();
+  if (scatter) {
+    await page.evaluate(async () => {
+      const { CONFIG } = await import('/src/config.js');
+      const g = window.shine.game;
+      CONFIG.dredge.loot.scatter = true;
+      g.loot.reset(g.player);
+    });
+  }
   if (!loot) await clearLoot(page);
 }
 

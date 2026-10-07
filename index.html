@@ -142,8 +142,8 @@
     <div class="overlay-card wide">
       <h1 class="title small" id="help-title">HOW TO PLAY</h1>
       <ol class="rules">
-        <li>Drive the roads: <span class="gold">glowing loot</span> turns up beside them, and the radar shows what's near. Now and then word comes of a <b>rare find</b> out in the county (a <span class="gold">&#9733;</span> on the radar): fetch it before someone else does, and sell it where it pays best.</li>
-        <li>Picking a piece up opens the <b>trunk</b>. Move it, turn it (R, or LB/RB) and fit it in; pieces can't overlap. Leave behind what won't fit.</li>
+        <li>Find <b>salvage</b>: wrecks, abandoned farmhouses, rail sidings and city cellars. A <span class="gold">SALVAGE</span> sign marks the nearest, &#8855; marks them on the radar. Stop beside one to work it: <b>pry</b> as the needle crosses the green, or <b>search</b> where you saw the goods glint. The better you do, the more you get. A worked site is empty for a day or two, and the best open only at night.</li>
+        <li>What you find goes into the <b>trunk</b>. Move it, turn it (R, or LB/RB) and fit it in; pieces can't overlap. Leave behind what won't fit.</li>
         <li>With loot aboard, the arrow and the <span class="gold">gold route</span> on the radar lead to the nearest <span class="gold">&#11042; market</span>. Stop there to sell: <b>Lexington Market</b> in Baltimore, the <b>Monkton General Store</b> up York Road, or the <b>Glyndon Depot</b> out west. Out east, the <b>Cockeysville Quarry Store</b> pays best for copper, kegs and barrels, once you're a Runner. Each pays differently, the price drops as you sell more of one thing, and each day one town posts a demand: double for one kind of loot.</li>
         <li>Spend the cash on <b>upgrades</b> at any market: a bigger bed, a tuned engine, stiffer springs, a longer reach and a spotter for the radar.</li>
         <li>The roads are busy: <b>traffic</b> to dodge (a crash wears the truck and can spill a piece), and now and then a washed-out or blocked road (&#9888; on the radar), a fog bank, or a town's <b>market day</b>, when it pays more for everything.</li>
@@ -183,7 +183,7 @@
     <div class="overlay-card map-card">
       <h1 class="title small" id="map-title">MAP</h1>
       <canvas id="map-canvas" width="640" height="640" aria-label="City map"></canvas>
-      <p class="legend"><span class="me">&#9650; you</span> <span class="cream">&#11042; market</span> <span>&#11042; grey: not dealing with you yet</span> <span class="cream">&#8962; Otto's barn</span> <span class="copper">&#9679; speakeasy (with shine aboard)</span> <span class="copper">&#9888; road closed</span> <span class="amber">&#9632; loot</span> <span class="amber">&#9670; strongbox</span> <span class="amber">&#9733; rare find</span> <span class="gold">&#9473; route to a market</span></p>
+      <p class="legend"><span class="me">&#9650; you</span> <span class="cream">&#11042; market</span> <span>&#11042; grey: not dealing with you yet</span> <span class="cream">&#8962; Otto's barn</span> <span class="copper">&#9679; speakeasy (with shine aboard)</span> <span class="copper">&#9888; road closed</span> <span class="copper">&#8855; salvage site</span> <span class="amber">&#9632; a piece on the road</span> <span class="gold">&#9473; route to a market</span></p>
       <button id="map-done" class="btn" data-autofocus>CLOSE</button>
     </div>
   </div>
@@ -244,6 +244,22 @@
   </div>
 
   <!-- The still: a batch of shine (src/screens.js showStill) -->
+  <div id="salvage" class="overlay hidden" role="dialog" aria-labelledby="salvage-title">
+    <div class="overlay-card">
+      <h1 class="title small" id="salvage-title">SALVAGE</h1>
+      <p id="salvage-what" class="story"></p>
+      <canvas id="salvage-ring" width="240" height="240" aria-hidden="true"></canvas>
+      <div id="salvage-grid" class="hidden" role="group" aria-label="Where to search"></div>
+      <div id="salvage-progress" aria-hidden="true"><i></i></div>
+      <p id="salvage-msg" class="hint" role="status" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="salvage-press" class="btn" data-autofocus>PRY</button>
+        <button id="salvage-done" class="btn hidden">TAKE IT</button>
+      </div>
+      <p id="salvage-help" class="hint small"></p>
+    </div>
+  </div>
+
   <div id="still" class="overlay hidden" role="dialog" aria-labelledby="still-title">
     <div class="overlay-card">
       <h1 class="title small" id="still-title">THE STILL</h1>

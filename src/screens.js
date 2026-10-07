@@ -5,6 +5,7 @@ import { RECIPES, missing, newBatch, stepBatch, quality, yieldFor } from './brew
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST } from './story.js';
+import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
@@ -276,6 +277,113 @@ export function showStill(ui, { recipe, level, onDone }) {
   raf = requestAnimationFrame(tick);
   // `manual()` stops the screen's own clock, for stepping it by hand (tests).
   return { batch: b, step, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
+}
+
+// ---------- Salvage ----------
+// A site's mini-game (salvage.js): Pry, a needle sweeping a ring (press in the green), or
+// Search, a 3x3 cellar (remember where the goods glinted, pick before the lamp dies).
+// `onDone(score)` when the player takes what's there. Returns { game, step, press, pick,
+// finish, manual } so tests can play it by hand.
+export function showSalvage(ui, { site, onDone }) {
+  const kind = CONFIG.dredge.salvage.kinds[site.kind], P = CONFIG.dredge.salvage;
+  const g = kind.game === 'pry' ? newPry() : newSearch();
+  const ring = $('salvage-ring'), grid = $('salvage-grid'), pressBtn = $('salvage-press'), done = $('salvage-done');
+  let raf = 0, last = 0, finished = false, padWas = false;
+  const total = g.game === 'pry' ? P.pry.seconds : P.search.glint + P.search.seconds;
+  const draw = () => {
+    $('salvage-progress').firstElementChild.style.width = `${Math.max(0, 1 - g.t / total) * 100}%`;
+    if (g.game === 'pry') {
+      const c = ring.getContext('2d'), W = ring.width, R = W * 0.38;
+      c.clearRect(0, 0, W, W);
+      c.lineWidth = 16;
+      c.strokeStyle = '#2a3640';
+      c.beginPath(); c.arc(W / 2, W / 2, R, 0, Math.PI * 2); c.stroke();
+      for (const a of g.arcs) {
+        c.strokeStyle = a.hit ? '#6a7a5a' : '#8fd06a';
+        c.beginPath(); c.arc(W / 2, W / 2, R, a.a - a.w / 2 - Math.PI / 2, a.a + a.w / 2 - Math.PI / 2); c.stroke();
+      }
+      const x = W / 2 + Math.sin(g.angle) * R, y = W / 2 - Math.cos(g.angle) * R;
+      c.strokeStyle = '#f2e3b0'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(W / 2, W / 2); c.lineTo(x, y); c.stroke();
+      c.fillStyle = '#e8735a';
+      for (let k = 0; k < P.pry.strikes; k++) { c.beginPath(); c.arc(W / 2 - 24 + k * 24, W / 2, 7, 0, Math.PI * 2); c[k < g.strikes ? 'fill' : 'stroke'](); }
+    } else {
+      const glint = searchGlint(g);
+      [...grid.children].forEach((b, i) => {
+        const s = g.spots[i];
+        b.classList.toggle('glint', glint && s.good);
+        b.classList.toggle('found', s.picked && s.good);
+        b.classList.toggle('empty', s.picked && !s.good);
+        b.textContent = glint && s.good ? '✦' : s.picked ? (s.good ? '✔' : '✕') : '';
+        b.disabled = glint || g.done || s.picked;
+      });
+      if (!g.done) $('salvage-msg').textContent = glint ? 'Watch where it glints…' : `Pick ${P.search.picks - g.picks} more before the lamp dies.`;
+    }
+    if (g.done) {
+      const sc = score(g);
+      $('salvage-msg').textContent = sc >= 0.85 ? 'A clean job. The best of it is yours.' : sc >= 0.5 ? 'Not bad: some of it’s worth taking.' : sc > 0.01 ? 'You got something out of it.' : 'Nothing worth taking.';
+      pressBtn.classList.add('hidden');
+      done.classList.remove('hidden');
+      if (document.activeElement !== done) done.focus();
+    }
+  };
+  const step = (dt) => {
+    if (g.game === 'pry') stepPry(g, dt); else stepSearch(g, dt);
+    draw();
+    return g;
+  };
+  const press = () => { if (g.game === 'pry' && !g.done) { pressPry(g); draw(); } };
+  const pick = (i) => { pickSearch(g, i); draw(); };
+  const finish = () => {
+    if (finished) return;
+    if (!g.done) { g.done = true; }
+    finished = true;
+    cleanup();
+    ui.close('salvage');
+    onDone(score(g));
+  };
+  const tick = (now) => {
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    // A gamepad's A presses (on the way down).
+    const pad = [...(navigator.getGamepads?.() || [])].some((p) => p && p.buttons[0]?.pressed);
+    if (pad && !padWas) press();
+    padWas = pad;
+    if (!g.done) step(dt);
+    if (!g.done && raf) raf = requestAnimationFrame(tick);
+  };
+  const PRESS = new Set(['Space', 'Enter', 'KeyE', 'ArrowUp', 'KeyW']);
+  const keyDown = (e) => {
+    if (g.game !== 'pry' || g.done || !PRESS.has(e.code)) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!e.repeat) press();
+  };
+  window.addEventListener('keydown', keyDown, true);
+  const cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', keyDown, true); };
+  $('salvage-title').textContent = kind.name.toUpperCase();
+  $('salvage-what').textContent = g.game === 'pry' ? 'Pry it open: press as the needle crosses the green.' : 'Search the place: remember where it glints, then pick your spots.';
+  $('salvage-help').textContent = g.game === 'pry'
+    ? 'Space, Enter, A or the button to pry. Three slips and the wood splinters.'
+    : `Pick ${P.search.picks} spots with the arrows and Enter, A, or a click.`;
+  $('salvage-msg').textContent = '';
+  ring.classList.toggle('hidden', g.game !== 'pry');
+  grid.classList.toggle('hidden', g.game === 'pry');
+  grid.textContent = '';
+  if (g.game === 'search') {
+    g.spots.forEach((_, i) => {
+      const b = el('button', { type: 'button', 'data-id': `spot-${i}`, 'aria-label': `Spot ${i + 1}` });
+      b.addEventListener('click', () => pick(i));
+      grid.append(b);
+    });
+  }
+  pressBtn.classList.toggle('hidden', g.game !== 'pry');
+  pressBtn.onclick = () => press();
+  done.classList.add('hidden');
+  done.onclick = finish;
+  ui.open('salvage', { onBack: () => finish() });
+  draw();
+  raf = requestAnimationFrame(tick);
+  return { game: g, step, press, pick, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
 }
 
 // ---------- Saved games ----------

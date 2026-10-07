@@ -21,7 +21,7 @@ test('the game boots into free roam on York Road: no police and no heat (and und
       pill: document.getElementById('cargo').textContent,
     };
   });
-  expect(setup).toEqual({ gone: [], hud: [], dialog: true, objective: 'Pick up loot along the roads', pill: 'TRUNK 0/15' });
+  expect(setup).toEqual({ gone: [], hud: [], dialog: true, objective: 'Find salvage: SALVAGE signs mark the sites', pill: 'TRUNK 0/15' });
 
   // Drive up York Road into the county: no one comes after you.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
@@ -95,9 +95,9 @@ test('the handling is arcade: turns sharply when slow, holds a fast corner witho
   expect(wall.arcade.after / wall.arcade.before).toBeGreaterThan(wall.truck.after / wall.truck.before);
 });
 
-test('loot lies along the roads: drive over a piece to pick it up, and it turns up again elsewhere', async ({ page }) => {
+test('loot lies along the roads (with the old scatter on): drive over a piece to pick it up, and it turns up again elsewhere', async ({ page }) => {
   const problems = await openGame(page);
-  await startRun(page);
+  await startRun(page, { scatter: true });
   const before = await page.evaluate(() => { window.shine.game.renderFrame(); return window.shine.renderInfo(); });
   const r = await page.evaluate(() => {
     const g = window.shine.game, L = g.loot, c = g.world.collision;
@@ -804,16 +804,16 @@ test('market events: from day 1 a town pays double for one kind, announced when 
   expect(r.ratio).toBeLessThan(2.1);
   expect(r.toast).toBe(r.text);
   expect(r.text).toMatch(/pays double for every .+ today/);
-  expect(r.banner).toContain('Pick up loot');
+  expect(r.banner).toContain('Find salvage');
   expect(r.banner).toContain('pays double');
   expect(r.badge).toBe('2× TODAY');
   expect(r.note).toContain(r.text);
   await screenshot(page, 'dredge-event-market');
 });
 
-test('rare finds: one turns up far out in the county with word of where, shows on the radar at any range, goes if left, and pays big at its town', async ({ page }) => {
+test('rare finds (with the old scatter on): one turns up far out in the county with word of where, shows on the radar at any range, goes if left, and pays big at its town', async ({ page }) => {
   const problems = await openGame(page);
-  await startRun(page, { loot: false });
+  await startRun(page, { scatter: true, loot: false });
   const r = await page.evaluate(async () => {
     const g = window.shine.game, L = g.loot;
     const { CONFIG } = await import('/src/config.js');

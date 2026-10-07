@@ -6,16 +6,16 @@ const guide = (page) => page.evaluate(() => ({
   text: document.getElementById('guide-text').textContent,
 }));
 
-test('the first run: tips walk through the first pickup, packing and sale, then end for good', async ({ page }) => {
+test('the first run: tips walk through finding salvage, packing and the sale, then end for good', async ({ page }) => {
   const problems = await openGame(page, '&hints');
   await page.click('#start-btn');
-  // Find loot.
+  // Find salvage.
   await page.evaluate(() => { const L = window.shine.game.loot; L.active.fill(0); L.timer.fill(1e9); L.rareIn = 1e9; window.shine.step(0.6); });
   let g = await guide(page);
   expect(g.shown).toBe(true);
-  expect(g.text).toContain('glowing piece of loot');
+  expect(g.text).toContain('Find salvage');
 
-  // Pick a crate up: the trunk opens with a packing tip.
+  // A crate aboard (a piece spilled on the road): the trunk opens with a packing tip.
   await page.evaluate(() => {
     const g = window.shine.game, L = g.loot, p = g.player.position;
     L.kind[0] = L.kindIndex('crate'); L.x[0] = p.x; L.z[0] = p.z - 2; L.active[0] = 1;

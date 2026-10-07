@@ -116,6 +116,27 @@ export const CAST = {
   },
 };
 
+// What each contact says when the goods are handed over (the handoff card).
+export const THANKS = {
+  kessler: 'Ach, Otto. Just like old times. Here, count it if you like.',
+  orourke: 'Right on the tide. The lads will have it below decks in a minute.',
+  abernathy: 'Discreet as ever, Mr. Braun. The house thanks you.',
+  romano: 'Now it’s a wedding. Here, and take a cannoli for the road.',
+  hummel: 'The shift thanks you, Braun. Mind the watchman on the way out.',
+  pryor: 'In with the tomatoes. Pleasure doing business.',
+  healy: 'Lunch is served! Here’s yours, and a bit over.',
+  banks: 'Sugar, you just saved the second set. Here.',
+  wexler: 'For medicinal purposes. My patients thank you.',
+  feld: 'No questions, no receipts. Here’s your money.',
+  carroll: 'Bless you, Otto. Sit a minute: the coffee’s on.',
+  ridgely: 'Cash on delivery, as promised. A Ridgely pays.',
+  pruitt: 'That’ll do. Now get, before the mash goes sour.',
+  jockey: 'Good man. The estates will drink to you tonight.',
+  tolley: 'Well, look at that. A visitor, and he brought the goods.',
+  gill: 'The Grange dances tonight! Here, and not a word.',
+  sheriff: 'Much obliged, Mr. Braun. You were never here.',
+};
+
 // `when(data)` reads the save (dredgecareer data): stats, flags and rank. Beats for systems
 // a save hasn't reached yet simply wait.
 export const BEATS = {

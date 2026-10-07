@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
-const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, 'market-closed': '#6d675d', barn: P.cream, drop: P.copper, job: '#f2c55c', roadblock: '#e8735a', me: '#ece3cf' };
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, 'market-closed': '#6d675d', site: P.copper, 'site-empty': '#5d574d', barn: P.cream, drop: P.copper, job: '#f2c55c', roadblock: '#e8735a', me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -178,6 +178,14 @@ function drawMarker(g, kind, x, y, r) {
       g.moveTo(x - r * 0.7, y); g.lineTo(x + r * 0.7, y);
       return g.stroke();
     }
+  } else if (kind === 'site' || kind === 'site-empty') {
+    // A salvage site: a ring with a cross through it.
+    g.arc(x, y, r * 0.95, 0, Math.PI * 2);
+    g.fill(); g.stroke();
+    g.beginPath();
+    g.moveTo(x - r * 0.6, y - r * 0.6); g.lineTo(x + r * 0.6, y + r * 0.6);
+    g.moveTo(x + r * 0.6, y - r * 0.6); g.lineTo(x - r * 0.6, y + r * 0.6);
+    return g.stroke();
   } else if (kind === 'roadblock') {
     // A road event's blocked road: a warning triangle (shown at any range).
     g.moveTo(x, y - r * 1.3); g.lineTo(x + r * 1.2, y + r * 0.9); g.lineTo(x - r * 1.2, y + r * 0.9); g.closePath();
