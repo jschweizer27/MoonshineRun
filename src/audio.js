@@ -296,6 +296,32 @@ export class Audio {
     src.start(t + 0.12, Math.random(), 0.2);
   }
 
+  // Glass breaking: a sharp bright crack, then tinkling shards.
+  glass() {
+    if (!this._ok()) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 3000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.35, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random(), 0.3);
+    for (let k = 0; k < 7; k++) {
+      const o = ctx.createOscillator(), d = 0.05 + k * 0.045 + Math.random() * 0.03;
+      o.frequency.value = 3200 + Math.random() * 3800;
+      const gk = ctx.createGain();
+      gk.gain.setValueAtTime(0.06, t + d);
+      gk.gain.exponentialRampToValueAtTime(0.0005, t + d + 0.12);
+      o.connect(gk).connect(this.sfx);
+      o.start(t + d);
+      o.stop(t + d + 0.15);
+    }
+  }
+
   // A shop's door bell, on stopping at a market: two rings of a small bell.
   bell() {
     if (!this._ok()) return;

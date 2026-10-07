@@ -13,7 +13,8 @@ import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
 import { showLedger, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
 import { Salvage, payout } from './salvage.js';
-import { consume } from './brew.js';
+import { createRng } from './rng.js';
+import { consume, onHand, blend } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText } from './contracts.js';
 import { KINDS } from './trunk.js';
 import { BEATS, nextBeat, CAST, THANKS } from './story.js';
@@ -25,7 +26,7 @@ import { Traffic } from './traffic.js';
 import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime, dayOf, eventFor, eventText, townOpen } from './market.js';
+import { sell, buys, passTime, dayOf, eventFor, eventText, townOpen } from './market.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -100,6 +101,7 @@ class Game {
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pieces thrown onto the road in a crash
     this.salvage = new Salvage(this.scene, this.world, this.citySeed);   // the sites where loot is found
+    this._breakRng = createRng((this.citySeed ^ 0xb4ea6) >>> 0);           // what breaks in a crash
     this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
     this.traffic.enabled = OPTIONS.traffic;
     this.roadEvents = new RoadEvents(this.world, this.traffic);   // washouts, breakdowns, fog, market days
@@ -983,11 +985,16 @@ class Game {
         changed();
         this.stillScreen = showStill(this.ui, {
           recipe, level: d.still,
-          onDone: (q, crates) => {
+          onDone: (q, crates, { grade, bad, poured }) => {
+            // Into the blend on hand (the crates in the stash and the trunk), then the stash.
+            const had = onHand(this.trunk, d.stash)[recipe.id] || 0;
+            if (crates) blend(d.market.blend, recipe.id, had, crates, q, bad);
             d.stash[recipe.id] = (d.stash[recipe.id] || 0) + crates;
             d.stats.brews++;
-            this._addRep(Math.round(q * CONFIG.dredge.repPerBrew));
-            d.ledger.unshift({ t: Date.now(), text: `Brewed ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name} (${Math.round(q * 100)}%)`, amount: 0 });
+            if (!bad) this._addRep(Math.round(q * CONFIG.dredge.repPerBrew));
+            const text = poured ? `Poured out a bad batch of ${recipe.name}`
+              : `Brewed ${crates} crate${crates === 1 ? '' : 's'} of ${recipe.name} (grade ${grade}${bad ? ', bad' : ''}, ${Math.round(q * 100)}%)`;
+            d.ledger.unshift({ t: Date.now(), text, amount: 0 });
             d.ledger.length = Math.min(d.ledger.length, 40);
             this.dredge.save();
             this.stillScreen = null;
@@ -1045,6 +1052,26 @@ class Game {
     this.particles.sparks(x, z, impact / 20);
     this._impact(impact / 20, x, z);
     this._wear(impact);
+    this._breakage(impact);
+  }
+
+  // A hard knock can break what's fragile aboard: jars, bottles, every crate of shine.
+  _breakage(impact) {
+    const K = CONFIG.dredge.breakage;
+    if (impact <= K.from || !this.trunk.count) return;
+    const chance = Math.min(K.max, (impact - K.from) * K.perMs);
+    const broke = [];
+    for (const p of [...this.trunk.pieces.values()]) {
+      if (!(KINDS[p.kind].brewed || K.kinds.includes(p.kind)) || this._breakRng() >= chance) continue;
+      this.trunk.remove(p.id);
+      broke.push(KINDS[p.kind].name.toLowerCase());
+    }
+    if (!broke.length) return;
+    this.dredge.data.stats.broken = (this.dredge.data.stats.broken || 0) + broke.length;
+    this.dredge.saveTrunk(this.trunk);
+    this._updateTrunkPill();
+    this.audio.glass?.();
+    this.hud.toast(`Glass breaking: ${broke.length === 1 ? `a ${broke[0]}` : `${broke.length} pieces (${[...new Set(broke)].join(', ')})`} smashed in the crash.`, 'red', 3500);
   }
 
   // A hard knock wears the truck (it slows until mended at the barn).
@@ -1067,7 +1094,7 @@ class Game {
   // ---------- Reputation, ranks and abilities ----------
   _addRep(n) {
     const d = this.dredge.data;
-    d.rep = (d.rep || 0) + n;
+    d.rep = Math.max(0, (d.rep || 0) + n);
     const R = CONFIG.dredge.ranks;
     let r = 0;
     R.forEach((x, i) => { if (d.rep >= x.rep) r = i; });
@@ -1283,10 +1310,15 @@ class Game {
     this._marketRender = showMarket(this.ui, {
       town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(), deed: this._deed(town),
       onSell: (kind) => {
+        // Tainted shine in the sale (a bad batch in its blend): someone will drink it.
+        const blends = this.dredge.market.blend;
+        const tainted = [...new Set([...this.trunk.pieces.values()].map((p) => p.kind))]
+          .filter((k) => (!kind || k === kind) && KINDS[k].brewed && buys(town.id, k) && blends[k]?.bad);
         const r = sell(town.id, this.trunk, this.dredge.market, kind);
         if (!r.count) return;
         r.total += this._sweetTalk(r.total);
         this.dredge.sold({ ...r, town: town.name, trunk: this.trunk });
+        for (const k of tainted) this._blinded(k, town);
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`+${money(r.total)}`);
         this.audio.cash?.();
@@ -1303,6 +1335,19 @@ class Game {
       onBack: close,
     });
     this._guideLine('market-guide', 'SELL EVERYTHING turns the trunk into cash. Each town pays differently, and a price drops as you sell more of one thing; upgrades come once you’ve saved up.');
+  }
+
+  // Tainted shine sold: a customer goes blind, the papers have it, and Otto's name suffers.
+  _blinded(kind, town) {
+    const d = this.dredge.data;
+    d.stats.blinded = (d.stats.blinded || 0) + 1;
+    d.flags.blinded = true;
+    this._addRep(-CONFIG.dredge.brew.badRep);
+    const text = `From the Sun: a man blinded by bad ${KINDS[kind].name.toLowerCase()} near ${town.name}. The Temperance Alliance calls it poison.`;
+    d.ledger.unshift({ t: Date.now(), text, amount: 0 });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.dredge.save();
+    this.hud.toast(text, 'red', 6000);
   }
 
   // A new in-game day posts a new market event: say so.

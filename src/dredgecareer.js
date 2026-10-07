@@ -17,7 +17,7 @@ const DEFAULT = {
   cash: 0,
   trunk: null,               // Trunk.toJSON()
   upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0 },
-  market: { sold: {}, clock: 0 },
+  market: { sold: {}, clock: 0, blend: {} },
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
@@ -71,6 +71,7 @@ export class DredgeCareer {
     const d = loadJSON(keyFor(this.slot), DEFAULT);
     d.market = { ...DEFAULT.market, ...(d.market || {}) };
     d.market.sold = { ...(d.market.sold || {}) };
+    d.market.blend = { ...(d.market.blend || {}) };
     d.stats = { ...DEFAULT.stats, ...(d.stats || {}) };
     d.upgrades = { ...DEFAULT.upgrades, ...(d.upgrades || {}) };
     d.ledger = Array.isArray(d.ledger) ? d.ledger : [];
