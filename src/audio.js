@@ -54,6 +54,20 @@ export class Audio {
     this.engineFilter.connect(this.engineGain).connect(this.sfx);
     for (const o of [this.engine, this.engine2, putter]) o.start();
 
+    // The Bureau's siren: a wailing triangle (an LFO sweeps its pitch), silent until a chase.
+    const siren = ctx.createOscillator();
+    siren.type = 'triangle';
+    siren.frequency.value = 620;
+    const wail = ctx.createOscillator();
+    wail.frequency.value = 0.55;
+    const wailDepth = ctx.createGain();
+    wailDepth.gain.value = 260;
+    wail.connect(wailDepth).connect(siren.frequency);
+    this.sirenGain = ctx.createGain();
+    this.sirenGain.gain.value = 0;
+    siren.connect(this.sirenGain).connect(this.sfx);
+    for (const o of [siren, wail]) o.start();
+
     // Looping noise beds: tyre screech and rain.
     const loop = (freq, q, type = 'bandpass') => {
       const src = ctx.createBufferSource();
@@ -174,7 +188,7 @@ export class Audio {
 
   _quietRoad() {
     const t = this.ctx.currentTime;
-    for (const g of [this.engineGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain, this.crowdGain]) g.gain.setTargetAtTime(0, t, 0.05);
+    for (const g of [this.engineGain, this.screechGain, this.rainGain, this.windGain, this.jazzGain, this.crowdGain, this.sirenGain]) g.gain.setTargetAtTime(0, t, 0.05);
     this.putterDepth.gain.setTargetAtTime(0, t, 0.05);
   }
 
@@ -192,6 +206,12 @@ export class Audio {
   }
 
   _ok() { return this.enabled && !this.paused; }
+
+  // A chase's siren, 0 (none) .. 1 (right behind you).
+  setSiren(v) {
+    if (!this.enabled || !this.sirenGain || this.hushed) return;
+    this.sirenGain.gain.setTargetAtTime(0.05 * v, this.ctx.currentTime, 0.3);
+  }
 
   // Two-tone "ah-oo-gah" klaxon.
   horn() {

@@ -14,6 +14,7 @@ import { Environment } from './environment.js';
 import { showLedger, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
 import { Salvage, payout } from './salvage.js';
 import { createRng } from './rng.js';
+import { Police } from './police.js';
 import { consume, onHand, blend } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText } from './contracts.js';
 import { KINDS } from './trunk.js';
@@ -53,6 +54,7 @@ export const OPTIONS = {
   story: !params.has('test') || params.has('story'),
   hints: !params.has('test') || params.has('hints'),
   traffic: !params.has('test') || params.has('traffic'),
+  police: !params.has('test') || params.has('police'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -102,6 +104,8 @@ class Game {
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pieces thrown onto the road in a crash
     this.salvage = new Salvage(this.scene, this.world, this.citySeed);   // the sites where loot is found
     this._breakRng = createRng((this.citySeed ^ 0xb4ea6) >>> 0);           // what breaks in a crash
+    this.police = new Police(this.scene, this.world, this.citySeed);   // revenue agents, heat and the checkpoint
+    this.police.enabled = OPTIONS.police;
     this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
     this.traffic.enabled = OPTIONS.traffic;
     this.roadEvents = new RoadEvents(this.world, this.traffic);   // washouts, breakdowns, fog, market days
@@ -341,9 +345,10 @@ class Game {
       wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
       light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
       wear: 1 - U.plating.step.wear * lv('plating'),       // share of a knock's wear taken
+      hidden: U.falsebottom.step.hidden * lv('falsebottom'), // crates of shine a search misses
       cols, rows,
     };
-    if (this.feel) { this._lampBase ??= this.feel.headlightBase; this.feel.headlightBase = this._lampBase * this.perks.light; }
+    if (this.feel) { this._lampBase ??= this.feel.headlightBase; this.feel.headlightBase = this._lampBase * this.perks.light * (this.lightsOff ? 0 : 1); }
     // The trunk grows with its upgrade (pieces stay where they were).
     if (this.trunk && (this.trunk.cols < cols || this.trunk.rows < rows)) {
       this.trunk = this.trunk.resized(Math.max(cols, this.trunk.cols), Math.max(rows, this.trunk.rows));
@@ -494,6 +499,8 @@ class Game {
     this.loot.reset(this.player.position);
     this.roadEvents.reset(this.dredge.market);
     this.traffic.clear();
+    this.police.reset();
+    this.lightsOff = false;
     this.trunk = this.dredge.loadTrunk();
     this._marketLeft = true;
     this._closedLeft = true;
@@ -671,6 +678,7 @@ class Game {
     else if (a === 'juice') this.toggleJuice();
     else if (a === 'trunk') this.openTrunk();
     else if (a === 'ability1') this.useAbility('tip');
+    else if (a === 'lights') this.toggleLights();
     else if (a === 'ability2') this.useAbility('leadfoot');
     else if (a === 'ability3') this.useAbility('sweet');
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
@@ -710,6 +718,12 @@ class Game {
     const p = this.player.position;
     if (this.player.impact > 6) this._crash(this.player.impact, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     for (const e of this.traffic.update(dt, this.player, this.camera.position, this.env.hour)) this._onTraffic(e);
+    // Revenue agents: patrols, heat, the bust meter and the York Road checkpoint.
+    const night = this._night();
+    const law = this.police.update(dt, this.player, this.camera, this.time, { contraband: this._contraband() > 0, night, lightsOff: this.lightsOff && night, route: this.minimap.route });
+    if (law.touching > 6) this._crash(law.touching, p.x, p.z);
+    this._updateHeat();
+    for (const e of law.events) if (this._onPolice(e)) return;
     this.props.update(dt, this._cars);
     // Lamp posts give way: the truck knocks them over and loses a little speed.
     for (const h of this.world.knockLamps([this.player])) {
@@ -818,6 +832,87 @@ class Game {
     return { earned: st.earned || 0, contracts: st.contracts || 0, salvaged: st.salvaged || 0, brews: st.brews || 0 };
   }
 
+  // ---------- The law ----------
+  _night(h = this.env.hour) { const [a, b] = CONFIG.dredge.police.checkpoint.hours; return h >= a || h < b; }
+
+  // Crates of shine aboard (what the Bureau is after).
+  _contraband() {
+    let n = 0;
+    for (const p of this.trunk.pieces.values()) if (KINDS[p.kind].brewed) n++;
+    return n;
+  }
+
+  // Headlamps off at night: agents see you from much closer, and you see much less.
+  toggleLights() {
+    this.lightsOff = !this.lightsOff;
+    this._applyPerks();
+    this.hud.toast(this.lightsOff ? 'Lights off: harder to spot, harder to see' : 'Lights on', '', 1600);
+    $('lights').classList.toggle('hidden', !this.lightsOff);
+  }
+
+  // The heat pill: stars, and the bust meter filling while an agent has you pinned.
+  _updateHeat() {
+    const pol = this.police, el = $('heat'), t = pol.tier;
+    el.classList.toggle('hidden', t === 0 && pol.bust < 0.01);
+    el.querySelector('b').textContent = `${'★'.repeat(t)}${'☆'.repeat(CONFIG.dredge.police.max - t)}`;
+    el.querySelector('i').style.width = `${Math.round(pol.bust * 100)}%`;
+    el.classList.toggle('bad', pol.bust > 0.01);
+    this.audio.setSiren?.(t > 0 ? Math.max(0.15, 1 - pol.chaseDistance() / 150) : 0);
+  }
+
+  // What the agents did. Returns true when the step should stop (a bust).
+  _onPolice(e) {
+    const P = CONFIG.dredge.police;
+    if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; }
+    else if (e.type === 'tier' && e.up && e.tier >= 2) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
+    else if (e.type === 'tier' && !e.up) this.hud.toast('Fewer of them now. Keep out of sight.', '', 2500);
+    else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; }
+    else if (e.type === 'ran') this.hud.toast('You ran the checkpoint! They’re coming.', 'red', 3500);
+    else if (e.type === 'search') return this._searched();
+    else if (e.type === 'bust') { this._bust('The Bureau boxed you in.'); return true; }
+    this._updateObjective();
+    return false;
+  }
+
+  // Stopped at the checkpoint: the agents look over the trunk. The false bottom hides a few
+  // crates; any more and it's a bust.
+  _searched() {
+    const n = this._contraband(), hidden = this.perks.hidden;
+    if (n > hidden) { this._bust('The checkpoint searched the truck and found the shine.'); return true; }
+    this.hud.toast(n ? 'They poke around the bed and find nothing. “Drive on.”' : '“Evening. Drive on.”', 'gold', 3000);
+    return false;
+  }
+
+  // Busted: the shine is taken, a fine paid, and Otto wakes at the barn.
+  _bust(how) {
+    const P = CONFIG.dredge.police, d = this.dredge.data;
+    let taken = 0;
+    for (const p of [...this.trunk.pieces.values()]) if (KINDS[p.kind].brewed) { this.trunk.remove(p.id); taken++; }
+    const fine = Math.min(d.cash, Math.max(P.fineMin, Math.round(d.cash * P.fine)));
+    d.cash -= fine;
+    d.stats.busts = (d.stats.busts || 0) + 1;
+    d.ledger.unshift({ t: Date.now(), text: `Busted: ${taken} crate${taken === 1 ? '' : 's'} of shine taken, fined`, amount: -fine });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.dredge.saveTrunk(this.trunk);
+    this.police.reset();
+    this.audio.setSiren?.(0);
+    const h = this.world.home;
+    this.player.place(h.stopX, h.stopZ + 14, Math.PI);
+    this._barnLeft = false;                          // waking there doesn't open the barn
+    this.chase.snap(this.player);
+    this.dredge.save();
+    this.hud.setCash(this.dredge.cash, true);
+    this._updateTrunkPill();
+    this._updateHeat();
+    this._updateObjective();
+    const text = `${how} ${taken ? `They took ${taken} crate${taken === 1 ? '' : 's'} of shine` : 'They found nothing to take'} and fined you ${money(fine)}. You wake at the barn.`;
+    this.lastBust = { taken, fine };
+    if (this.state !== STATE.PLAYING) { this.hud.toast(text, 'red', 5000); return; }
+    this.pause({ showMenu: false });
+    playDialog(this.ui, [['narrator', text], ['otto', 'Next time, the back roads. And the lights off.']], { reducedMotion: !!this.settings.reducedMotion })
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
+  }
+
   // Six in the morning: the night is over. Its take on a card, the lamps the truck knocked
   // down stood back up, the sites refreshed, and the day saved.
   _dawn() {
@@ -915,7 +1010,7 @@ class Game {
   _checkPlace() {
     const place = this._placeName();
     if (place !== this.place) {
-      if (this.place) this.hud.toast(place, 'gold', 2200);
+      if (this.place && !this.police.tier) this.hud.toast(place, 'gold', 2200);   // not over a chase's news
       this.place = place;
       // The first valley town reached (the Jockey's beat).
       if (place !== 'Baltimore' && place !== 'Green Spring Valley') this.dredge.data.flags.valley = true;
@@ -1362,6 +1457,10 @@ class Game {
   // The banner: where to sell (with the arrow) once there's something aboard; before that,
   // the day's market event if there is one.
   _updateObjective() {
+    if (this.police.tier > 0) {
+      this.hud.setObjective(`${'★'.repeat(this.police.tier)} The Bureau is after you: get out of sight to lose them`, null, 'roam');
+      return;
+    }
     const c = this.dredge.data.contract;
     if (c) {
       const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, left = Math.max(0, Math.ceil(c.due - this.dredge.market.clock));
@@ -1473,7 +1572,7 @@ class Game {
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const rank = this.dredge.data.rank || 0;
     return [...CONFIG.dredge.towns.map((t) => ({ kind: townOpen(t, rank) ? 'market' : 'market-closed', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
-      ...this.loot.near(this.player.position, tip ? Infinity : this.perks.mapRange)];
+      ...this.loot.near(this.player.position, tip ? Infinity : this.perks.mapRange), ...this.police.near(this.player.position)];
   }
 
   // Draw one frame of the 3D view.
@@ -1487,7 +1586,7 @@ class Game {
     this.post.setRush(juice('cinematic', 'speedPulse') * Math.min(1, Math.max(0, (s01 - 0.85) / 0.15)));
     // Headlight beams show in the dark (and more in fog or rain), dim by day, stutter after a hit.
     const beam = this.player.model.beam;
-    if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (this.perks?.light || 1) * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
+    if (beam) beam.material.opacity = CONFIG.look.beamOpacity * (this.perks?.light || 1) * (this.lightsOff ? 0 : 1) * (1 - 0.9 * this.env.daylight) * (1 + this.env.fog + 0.5 * this.env.wet) * this.feel.lightLevel;
     this.post.render();
   }
 

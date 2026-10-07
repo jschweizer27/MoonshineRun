@@ -215,6 +215,7 @@ export const CONFIG = {
       tyres: { name: 'Farm tyres', desc: 'Less bogging down in the fields, less sliding in the rain.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
       lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], ranks: [1, 1, 2], step: { light: 0.25 } },
       plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], ranks: [2, 2, 3], step: { wear: 0.25 } },
+      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: a checkpoint search misses this many crates of shine.', costs: [900, 2000], ranks: [2, 3], step: { hidden: 2 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
@@ -307,6 +308,31 @@ export const CONFIG = {
     // `kinds` listed, and every brewed kind), each with `perMs` chance a m/s over `from`
     // (at most `max`). PLACEHOLDERS: tune after playtesting.
     breakage: { from: 13, perMs: 0.05, max: 0.7, kinds: ['jugs', 'bottle-case'] },
+    // Revenue agents (src/police.js): Prohibition Bureau sedans from a pool of `pool`.
+    // Patrols cruise the roads near the truck: `patrols` of them by day and by night, in the
+    // city and the county. A patrol sees ahead in a cone (`cone` radians either side, out to
+    // `sight` metres, x `nightSight` after dark with the headlamps on, x `darkSight` with
+    // them off), needing a clear line of sight; one already after you sees all round.
+    // Being seen with shine aboard is heat (0-3): spotted is 1 (the spotter follows), and
+    // being seen builds toward the next (`buildRate` a second): 2 brings a second car and a
+    // roadblock on your route, 3 every car. Out of every agent's sight for `evadeTime[tier]`
+    // seconds drops a tier. Pinned (an agent within `pinRadius` while you're under
+    // `pinSpeed`) for `bustTime` seconds is a bust: the shine is taken, a `fine` share of the
+    // cash (at least `fineMin`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
+    // `accel` (x `boost` at heat 3), spawn `spawn` metres off (out of view) and go beyond
+    // `despawn`. The York Road `checkpoint` stands at the city gap at night: stop there and
+    // they search the trunk (the false bottom hides `hidden` crates); run it with shine
+    // aboard and it's heat 2. PLACEHOLDERS: tune after playtesting.
+    police: {
+      pool: 4, patrols: { day: { city: 1, county: 0 }, night: { city: 2, county: 2 } },
+      cone: 0.75, sight: 70, nightSight: 0.8, darkSight: 0.4, closeSight: 12,
+      buildRate: 0.12, evadeTime: [0, 6, 8, 10], max: 3,
+      pinRadius: 7.5, pinSpeed: 4, bustTime: 2.2, bustRecover: 0.8,
+      fine: 0.25, fineMin: 50,
+      maxSpeed: 33, accel: 15, boost: 1.15, spawn: [160, 360], despawn: 420,
+      roadblockEvery: 18, mapRange: 160,
+      checkpoint: { x: 0, z: -262, radius: 14, hours: [20, 6], stopSpeed: 3 },
+    },
     // Contracts (src/contracts.js): each in-game day posts `perDay` jobs, a `farmShare` of
     // them from the farms (who want `farmWants`) and the rest from the speakeasies (who want
     // `barWants`, or `shine` once Otto brews). A job pays its goods' value x `payMult`, earns

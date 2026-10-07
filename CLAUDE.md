@@ -76,6 +76,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Agents and heat (v4): `src/police.js` is a pool of Bureau sedans (physics-only `Vehicle`s,
+  `model: false`) drawn as three InstancedMeshes (bodies, roof lamps, sight cones) plus the
+  sawhorses; the roadblock and the York Road checkpoint borrow extra body instances. It owns
+  heat (`heat`, `tier`), the bust meter and the checkpoint, and `update` returns events that
+  `main._onPolice` turns into toasts, `_searched` and `_bust`. Off under `?test` unless
+  `&police`. Lights off (`main.toggleLights`) zeroes the headlamp via `feel.headlightBase`.
 - The still (v4): `src/brew.js` is a batch in three phases (`newBatch`, `stepBatch`,
   `pressBatch`): the fire, the cuts (heads/hearts/tails; an early first cut is a bad batch)
   and proofing, scored by `fireScore`/`cutScore`/`proofScore`, graded by `gradeOf`. Each

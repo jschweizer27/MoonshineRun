@@ -16,7 +16,7 @@ const DEFAULT = {
   started: false,            // a run has been started in this slot
   cash: 0,
   trunk: null,               // Trunk.toJSON()
-  upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0 },
+  upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 },
   market: { sold: {}, clock: 0, blend: {} },
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired

@@ -442,6 +442,9 @@ html.dredge .upgrade .swatch { display: inline-block; width: 12px; height: 12px;
 /* A contact on the job board: their initials on their colour, and what they say. */
 .upgrade .face { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 8px; border-radius: 50%; font-style: normal; font-weight: bold; font-size: calc(10px * var(--ts)); letter-spacing: 0.5px; color: #12141b; vertical-align: 1px; }
 .upgrade small.says { font-style: italic; color: var(--paper); opacity: 0.8; }
+#heat { position: relative; overflow: hidden; color: #e8735a; border-color: #e8735a; }
+#heat b { letter-spacing: 0.1em; }
+#heat i { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: #e8735a; }
 html.dredge .pill.bad, .pill.bad { color: #e8735a; border-color: #e8735a; }
 html.dredge .hud-banner, html.dredge .pill {
   background: color-mix(in srgb, var(--d-shadow-teal) 78%, transparent);
@@ -453,3 +456,4 @@ html.dredge #objective-arrow { fill: var(--d-amber); filter: drop-shadow(0 0 4px
 html.dredge #minimap { border-color: var(--d-copper); background: color-mix(in srgb, var(--d-shadow-teal) 80%, transparent); }
 html.dredge #toast { color: var(--d-cream); }
 html.dredge #toast.gold { color: var(--d-amber); }
+html.dredge #toast.red { color: #e8735a; }
