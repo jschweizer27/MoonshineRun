@@ -37,15 +37,15 @@ test('ranks: reputation lifts Otto through them, each unlocking recipes, upgrade
   expect(problems).toEqual([]);
 });
 
-test('abilities: the Jockey’s Tip shows all loot, Lead Foot opens the engine up for a while, Sweet Talk sweetens one sale', async ({ page }) => {
+test('abilities: the Jockey’s Tip shows every salvage site, Lead Foot opens the engine up for a while, Sweet Talk sweetens one sale', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page);
   const r = await page.evaluate(() => {
     const g = window.shine.game, d = g.dredge.data;
     d.rank = 5; g._buildAbilities();
-    const radar0 = g._mapMarkers().filter((m) => m.kind.startsWith('loot')).length;
+    const radar0 = g._mapMarkers().filter((m) => m.kind.startsWith('site')).length;
     g.useAbility('tip');
-    const radar1 = g._mapMarkers().filter((m) => m.kind.startsWith('loot')).length;
+    const radar1 = g._mapMarkers().filter((m) => m.kind.startsWith('site')).length;
     const again = g.useAbility('tip');                 // cooling down
     const top0 = g.player.t.maxSpeed;
     g.useAbility('leadfoot');
@@ -57,6 +57,7 @@ test('abilities: the Jockey’s Tip shows all loot, Lead Foot opens the engine u
     return { radar0, radar1, again, top0, top1, top2, chip, active: g.loot.active.length };
   });
   expect(r.radar1).toBeGreaterThan(r.radar0);
+  expect(r.radar1).toBe(23);
   expect(r.again).toBe(false);
   expect(r.top1).toBeCloseTo(r.top0 * 1.25, 5);
   expect(r.top2).toBeCloseTo(r.top0, 5);

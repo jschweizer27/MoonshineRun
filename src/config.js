@@ -252,7 +252,7 @@ export const CONFIG = {
     repPerBrew: 6,
     repPerFind: 5,
     // Abilities (keys 1-3, the D-pad's left / up / right, or the HUD chips), each from a rank:
-    // the Jockey's Tip shows every piece of loot on the radar for `seconds`; Lead Foot opens
+    // the Jockey's Tip shows every salvage site on the radar for `seconds`; Lead Foot opens
     // the engine up (`speed` / `accel` x) for `seconds`; Sweet Talk adds `bonus` to the next
     // sale or job. `cooldown` seconds before each can be used again.
     abilities: {
@@ -302,6 +302,27 @@ export const CONFIG = {
     // to `maxSlow` of its top speed until it's repaired at the barn (`repairCost` for a
     // full repair, less for less). A hard 28 m/s crash wears about 12%.
     wear: { from: 8, perImpact: 0.006, maxSlow: 0.25, repairCost: 350, warnAt: 0.5 },
+    // Salvage sites (src/salvage.js): where the loot is now. `count` sites in the county and
+    // `city` back-alley cellars in the city, fixed for a layout. Stop inside a site's ring
+    // (`radius` metres) to work it: a mini-game (pry or search) whose score sets how many
+    // pieces it gives up (1-3) and how good they are. A worked site refills after
+    // `refillDays` game days; a `nightShare` of the sites can only be worked at night
+    // (`night` hours). PLACEHOLDERS: tune after playtesting.
+    salvage: {
+      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [20, 6],
+      kinds: {
+        wreck: { name: 'Wrecked truck', game: 'pry', color: '#7a5236', yields: { crate: 3, 'small-crate': 3, 'long-crate': 2, keg: 1, 'bottle-case': 2, jugs: 2 } },
+        farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
+        siding: { name: 'Rail siding', game: 'pry', color: '#5a6066', yields: { coil: 3, barrel: 2, 'long-crate': 2, crate: 2, keg: 1 } },
+        cellar: { name: 'Back-alley cellar', game: 'search', color: '#6a4e3a', yields: { 'bottle-case': 3, jugs: 2, keg: 2, strongbox: 1, radio: 1 } },
+      },
+      // Pry: a needle sweeps the ring and turns back at each hit; press inside a green arc.
+      // `arcs` to hit within `seconds`, `strikes` misses and the wood splinters.
+      pry: { seconds: 10, arcs: 3, arcWidth: 0.55, speed: 2.4, speedUp: 0.6, strikes: 3 },
+      // Search: `goods` of 9 spots hold something; they glint for `glint` seconds, then the
+      // lamp burns for `seconds` while you pick `picks` spots.
+      search: { seconds: 8, spots: 9, goods: 4, glint: 1.1, picks: 3 },
+    },
     lootTiers: {
       low: { color: 'olive', accent: 'cream', glow: { color: 'cream', strength: 0.32, size: 0.9 } },
       mid: { color: 'brick', accent: 'cream', glow: { color: 'cream', strength: 0.4, size: 1 } },
@@ -315,6 +336,9 @@ export const CONFIG = {
     // `color` / `accent` (palette names) override the tier's colours; `short` labels the piece
     // in the trunk.
     loot: {
+      // v4: no loose loot in the streets (salvage sites took its place). The pool is kept
+      // for pieces thrown out of the trunk in a crash, lying on the road to pick up.
+      scatter: false,
       count: 36,            // pieces lying out at once (a fixed pool)
       pickupRadius: 3.4,    // metres from the truck's centre
       respawn: 25,          // seconds before a picked-up piece turns up somewhere else

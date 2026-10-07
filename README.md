@@ -56,16 +56,21 @@ Enter, the D-pad and A/B, or touch.
 1. Press **Enter** (or click **START DRIVING**). Otto's truck starts on **York Road**, just
    inside the city. On a new game, short tips walk you through the first pickup, packing the
    trunk and the first sale (skip them from the tip card or the pause menu).
-2. Drive the roads. **Glowing loot** lies beside them (crates, bottle cases, sacks, barrels,
-   jugs, kegs, copper coils, bicycles, radio sets, sewing machines, a strongbox); the radar
-   shows what's near. Its colour tells you
-   what it's worth: olive is cheap, brick and cream middling, copper good, amber best.
-   Now and then word comes of a **rare find** out in the county (a gold pocket watch, a case of
-   bonds): a ★ on the radar shows where. Fetch it before someone else does, and sell it in
-   the one town that pays big for it.
-3. Drive over a piece to pick it up. The **trunk** opens with it in hand: turn it and fit it
-   in; pieces can't overlap. Leave behind what won't fit, or press **T** any time to
-   rearrange.
+2. Find **salvage**. Wrecked trucks in the ditch, abandoned farmhouses and rail sidings out in
+   the county, and back-alley cellars in the city hold crates, bottle cases, sacks, barrels,
+   jugs, kegs, copper and more. A **SALVAGE** sign marks the nearest one, and ⊗ marks them
+   on the radar. Stop beside one to work it:
+   - **Pry** (wrecks, sidings): press as the needle crosses the green; three slips and the
+     wood splinters.
+   - **Search** (farmhouses, cellars): watch where the goods glint, then pick your spots
+     before the lamp dies.
+
+   The better you do, the more you get (up to three pieces) and the better they are. A
+   worked site is picked clean for a day or two. The best ones can only be worked at night.
+   Lamp posts give way if you hit them; they're back up by dawn.
+3. Everything you find goes into the **trunk**, one piece at a time: turn it and fit it in;
+   pieces can't overlap. Leave behind what won't fit, or press **T** any time to rearrange.
+   A hard crash can throw a piece out onto the road.
 4. With loot aboard, the banner's arrow and the **gold route** on the radar lead to the
    nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, the
    **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
@@ -97,12 +102,13 @@ Enter, the D-pad and A/B, or touch.
    Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
    own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
    Cockeysville. Take one job (one at a time), bring what they want before it's due, and
-   stop at their door: they pay well over the market. Keeping your word builds your
+   stop at their door (the banner tells you when you're there): they come out, hand over the
+   money and say their piece. They pay well over the market. Keeping your word builds your
    reputation; dropping a job or missing its deadline costs some.
 10. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
    Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
    recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
-   three **abilities**: the **Jockey's Tip** (every piece of loot on the radar for a while),
+   three **abilities**: the **Jockey's Tip** (every salvage site on the radar for a while),
    **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
 11. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
    That's the end of the story so far; the roads stay open after it.

@@ -24,6 +24,7 @@ const DEFAULT = {
   rep: 0,                    // reputation, from contracts, brews and rare finds
   rank: 0,                   // CONFIG.dredge.ranks index reached (it never drops)
   contract: null,            // the job taken: an offer from contracts.js plus `due` (game hours)
+  sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
   story: {},                 // beat id -> true once its cards have played (story.js)

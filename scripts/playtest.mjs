@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Scripted playtest: `node scripts/playtest.mjs <label>`. Plays one run from the title
-// screen (drive out, pick up loot, pack the trunk, sell at Lexington Market, buy an
+// screen (drive out, work two salvage sites, pack the trunk, sell at Lexington Market, buy an
 // upgrade, drive up York Road to Monkton and sell there; Otto's barn, a batch at the still
 // and the shine sold at a speakeasy; a contract taken and delivered; a new rank, Lead Foot
 // and Cockeysville's quarry store; a road event and the traffic; the map and the ledger,
 // rain and daylight) through window.shine at fixed 60 Hz steps, with a simple autopilot
-// that steers for the next piece of loot or the nearest market. At each beat it saves a
+// that steers for the nearest market. At each beat it saves a
 // screenshot and a line of stats (state, toast, draw calls, render time, console errors)
 // and tiles them into artifacts/shots/playtest-<label>.png.
 import { spawn } from 'node:child_process';
@@ -50,22 +50,10 @@ try {
     beats.push({ name, note, stats, png, errors: errors.splice(0) });
     console.log(name.padEnd(16), JSON.stringify(stats), note);
   };
-  // Autopilot for `seconds`: steer for the nearest piece of loot, or for the nearest market
-  // with `sell` set (or a full trunk). Stops when the game pauses: a pickup opens the trunk,
-  // a stop in a market opens it.
-  const drive = (seconds, { sell = false, throttle = 0.85, cap = 0 } = {}) => page.evaluate(({ seconds, sell, throttle, cap }) => {
-    const g = window.shine.game, L = g.loot;
-    const target = () => {
-      const p = g.player.position;
-      if (sell || g.trunk.used >= g.trunk.size) return g._nearestMarket().town;
-      let best = null, bd = Infinity;
-      for (let i = 0; i < L.n; i++) {
-        if (!L.active[i]) continue;
-        const d = Math.hypot(L.x[i] - p.x, L.z[i] - p.z);
-        if (d < bd) { bd = d; best = { x: L.x[i], z: L.z[i] }; }
-      }
-      return best;
-    };
+  // Autopilot for `seconds`: steer for the nearest market and stop in its ring so it opens.
+  const drive = (seconds, { sell = true, throttle = 0.85, cap = 0 } = {}) => page.evaluate(({ seconds, sell, throttle, cap }) => {
+    const g = window.shine.game;
+    const target = () => g._nearestMarket().town;
     for (let k = 0; k < seconds * 60 && g.state === 'playing'; k++) {
       const v = g.player, t = target();
       const want = Math.atan2(t.x - v.position.x, -(t.z - v.position.z));
@@ -90,14 +78,33 @@ try {
   await page.click('#start-btn');
   await page.waitForTimeout(300);
   await beat('york-road', 'the start, just inside the city');
-  // Loot: the autopilot goes for the nearest piece; the trunk opens with it in hand.
-  await drive(25, { cap: 16 });
-  await beat('trunk', 'picked up a piece');
-  if (await trunkOpen()) await pack();
-  for (let n = 0; n < 2; n++) {
-    await drive(25, { cap: 16 });
-    if (await trunkOpen()) await pack();
-  }
+  // Salvage: the nearest farmhouse; stop by it, play the search well, pack what it gives up.
+  await page.evaluate(() => {
+    const s = window.shine.game.salvage.sites.find((x) => x.kind === 'farmhouse' && !x.night);
+    window.shine.teleport(s.stopX, s.stopZ + 30, 0); window.shine.step(0.2);
+    window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.3);
+    const sc = window.shine.game.salvageScreen; sc.manual(); sc.step(0.5);
+  });
+  await beat('salvage', 'an abandoned farmhouse: remember where the goods glint');
+  await page.evaluate(() => { const sc = window.shine.game.salvageScreen; sc.step(1); sc.game.spots.forEach((s, i) => { if (s.good && !sc.game.done) sc.pick(i); }); });
+  await beat('salvaged', 'three found: TAKE IT');
+  if (await page.locator('#salvage-done').isVisible()) await page.click('#salvage-done');
+  await beat('trunk', 'a piece in hand to pack');
+  for (let n = 0; n < 4 && (await trunkOpen()); n++) await pack();
+  // A wreck in a ditch: the pry ring.
+  await page.evaluate(() => {
+    const s = window.shine.game.salvage.sites.find((x) => x.kind === 'wreck' && !x.night);
+    window.shine.teleport(s.stopX, s.stopZ + 30, 0); window.shine.step(0.2);
+    window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.3);
+    const sc = window.shine.game.salvageScreen; sc.manual(); sc.step(0.6);
+  });
+  await beat('pry', 'a wreck in the ditch: press in the green');
+  await page.evaluate(() => {
+    const sc = window.shine.game.salvageScreen, g = sc.game;
+    for (let k = 0; k < 2000 && !g.done; k++) { sc.step(1 / 120); if (g.arcs.some((a) => !a.hit && Math.abs(Math.atan2(Math.sin(g.angle - a.a), Math.cos(g.angle - a.a))) < a.w / 4)) sc.press(); }
+  });
+  if (await page.locator('#salvage-done').isVisible()) await page.click('#salvage-done');
+  for (let n = 0; n < 4 && (await trunkOpen()); n++) await pack();
   await beat('loaded', 'a few pieces packed');
   // Sell in the city: teleport near Lexington Market, then roll in and stop.
   await page.evaluate(() => { window.shine.teleport(-44, 80, 0); window.shine.step(0.1); });
@@ -156,13 +163,14 @@ try {
   });
   await beat('contract', 'a job taken: the DELIVERY marker and the gold ring on the radar');
   await page.evaluate(() => { const c = window.shine.game.dredge.data.contract; if (c) { window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3); } });
-  await beat('delivered', 'paid at the door');
+  await beat('delivered', 'paid at the door: the handoff card');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   // A new rank (Runner): Lead Foot, and Cockeysville's quarry store deals with Otto.
   await page.evaluate(() => { const g = window.shine.game; g._addRep(Math.max(0, 90 - (g.dredge.data.rep || 0))); });
   await beat('runner', 'a new rank and what it unlocks');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   await page.evaluate(() => {
-    const g = window.shine.game, L = g.loot;
-    L.active.fill(0); L.timer.fill(1e9); L.rareIn = 1e9; L._writeAll(0, null);   // no stopping for loot from here on
+    const g = window.shine.game;
     window.shine.teleport(0, -300, Math.PI); window.shine.step(0.2);
     g.useAbility('leadfoot');
     window.shine.step(3, { throttle: 1 });
@@ -197,6 +205,18 @@ try {
   });
   await beat('traffic', 'cars, vans and carts on the city streets');
   await page.evaluate(() => { const g = window.shine.game; g.traffic.enabled = false; g.traffic.clear(); });
+  // A lamp post knocked flat on the way past, then dawn: the night's tally, the day saved.
+  await page.evaluate(() => {
+    const g = window.shine.game, w = g.world, P = g.player;
+    const k = w.lampSpots.findIndex((sp) => sp.pole && Math.abs(sp.px) < 120 && Math.abs(sp.pz) < 120 && sp.tz === 0 && Math.abs(sp.tx) === 1);
+    const sp = w.lampSpots[k];
+    P.place(sp.px + sp.tx * 14, sp.pz, Math.atan2(-sp.tx, 0)); P.vx = -sp.tx * 14; P.vz = 0; P.speed = 14;
+    window.shine.step(0.9, { throttle: 0.3 });
+  });
+  await beat('lamp-post', 'a lamp post knocked flat, its light out');
+  await page.evaluate(() => { const g = window.shine.game; g._dawn(); window.shine.step(0.1); });
+  await beat('dawn', 'dawn: the night summed up and saved');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.env.hour = 21.5; });
   // The map and the books.
   await page.evaluate(() => window.shine.game.openMap());
   await page.waitForTimeout(200);
@@ -205,7 +225,7 @@ try {
   await page.click('#pause-ledger');
   await beat('ledger');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
-  // Rain, then daylight: straight up York Road in the city, past the loot.
+  // Rain, then daylight: straight up York Road in the city.
   await page.evaluate(() => {
     const g = window.shine.game;
     g.perks.pickupRadius = 0;

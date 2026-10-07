@@ -652,9 +652,24 @@ export class World {
       pools.setMatrixAt(k, m.compose(p.set(sp.x + sp.tx * 2, 0.04, sp.z + sp.tz * 2), q, s.set(20, 1, 20)));
       pools.setColorAt(k, white);
       haloPos.set([sp.x, y, sp.z], k * 3);
-      if (pole) this.collision.addCircle(sp.postX ?? sp.x, sp.postZ ?? sp.z, 0.25, { tag: 'lamp' });
+      // No collider: a pole the truck hits gets knocked over (knockLamps) instead.
+      sp.pole = pole;
+      sp.px = sp.postX ?? sp.x; sp.pz = sp.postZ ?? sp.z;
     });
     for (const im of [poles, bulbs, caps, cones, pools]) { im.instanceMatrix.needsUpdate = true; this.scene.add(im); }
+    // What a knocked-over lamp needs: its meshes, their standing matrices, and a grid of
+    // the poles to find the ones near a car.
+    this.lampMeshes = { poles, bulbs, caps, cones, pools };
+    this._lampBase = Object.fromEntries(Object.entries(this.lampMeshes).map(([k, im]) => [k, im.instanceMatrix.array.slice()]));
+    this._haloBase = haloPos.slice();
+    this._fallen = [];
+    this._lampCells = new Map();
+    spots.forEach((sp, k) => {
+      if (!sp.pole) return;
+      const key = `${Math.floor(sp.px / 10)},${Math.floor(sp.pz / 10)}`;
+      if (!this._lampCells.has(key)) this._lampCells.set(key, []);
+      this._lampCells.get(key).push(k);
+    });
     caps.visible = !arc;          // the arc lamp has its own hood
     pools.renderOrder = 1;
     cones.renderOrder = 2;
@@ -728,6 +743,71 @@ export class World {
 
   // Graphics level: how many lamp lights, and whether the nearest casts shadows. Changing
   // it recompiles shaders once, so it only happens when the quality setting changes.
+  // Cars knock lamp posts over instead of stopping dead against them. Returns the poles hit
+  // this step: [{ k, x, z, impact }] (each falls away from the car and goes dark).
+  knockLamps(cars, reach = 1.4) {
+    const hits = [];
+    for (const v of cars) {
+      if (!v || (v.mesh && !v.mesh.visible) || Math.abs(v.speed) < 1.5) continue;
+      const x = v.position.x, z = v.position.z, cx = Math.floor(x / 10), cz = Math.floor(z / 10);
+      for (let i = cx - 1; i <= cx + 1; i++) for (let j = cz - 1; j <= cz + 1; j++) {
+        for (const k of this._lampCells.get(`${i},${j}`) || []) {
+          const sp = this.lampSpots[k];
+          if (sp.down) continue;
+          // The car's front and middle (it's longer than wide).
+          const fx = v.forwardX ?? Math.sin(v.heading), fz = v.forwardZ ?? -Math.cos(v.heading);
+          const d = Math.min(Math.hypot(sp.px - x, sp.pz - z), Math.hypot(sp.px - x - fx * 1.6, sp.pz - z - fz * 1.6));
+          if (d > reach) continue;
+          this._knock(k, v.vx ?? fx * v.speed, v.vz ?? fz * v.speed);
+          hits.push({ k, x: sp.px, z: sp.pz, impact: Math.abs(v.speed), car: v });
+        }
+      }
+    }
+    return hits;
+  }
+
+  _knock(k, dx, dz) {
+    const sp = this.lampSpots[k], len = Math.hypot(dx, dz) || 1;
+    sp.down = true;
+    // It topples the way the car was going: about the horizontal axis across that.
+    this._fallen.push({ k, t: 0, ax: dz / len, az: -dx / len });
+    const M = this.lampMeshes, zero = _m4.makeScale(0, 0, 0);
+    M.cones.setMatrixAt(k, zero); M.pools.setMatrixAt(k, zero);
+    M.cones.instanceMatrix.needsUpdate = M.pools.instanceMatrix.needsUpdate = true;
+    const h = this.halos.geometry.attributes.position;
+    h.setY(k, -100); h.needsUpdate = true;
+  }
+
+  // Falling lamps tip over in about half a second and lie there.
+  updateFallenLamps(dt) {
+    if (!this._fallen.length) return;
+    const M = this.lampMeshes;
+    for (const f of this._fallen) {
+      if (f.t >= 1) continue;
+      f.t = Math.min(1, f.t + dt * 2);
+      const sp = this.lampSpots[f.k], a = 1.45 * f.t * f.t;
+      _q.setFromAxisAngle(_c.set(f.ax, 0, f.az), a);
+      const pivot = _m4.makeTranslation(sp.px, 0.1, sp.pz).multiply(_rot.makeRotationFromQuaternion(_q)).multiply(_back.makeTranslation(-sp.px, -0.1, -sp.pz));
+      for (const name of ['poles', 'bulbs', 'caps']) {
+        _base.fromArray(this._lampBase[name], f.k * 16);
+        M[name].setMatrixAt(f.k, _tilt.multiplyMatrices(pivot, _base));
+        M[name].instanceMatrix.needsUpdate = true;
+      }
+    }
+  }
+
+  // Dawn: every knocked-over lamp is stood back up and lit.
+  standLamps() {
+    const M = this.lampMeshes;
+    for (const f of this._fallen) {
+      this.lampSpots[f.k].down = false;
+      for (const [name, im] of Object.entries(M)) { im.instanceMatrix.array.set(this._lampBase[name].subarray(f.k * 16, f.k * 16 + 16), f.k * 16); im.instanceMatrix.needsUpdate = true; }
+      const h = this.halos.geometry.attributes.position;
+      h.setY(f.k, this._haloBase[f.k * 3 + 1]); h.needsUpdate = true;
+    }
+    this._fallen.length = 0;
+  }
+
   setLampDetail(level) {
     const n = { low: 4, medium: 6, high: CONFIG.look.lampLights }[level] ?? CONFIG.look.lampLights;
     this.lampLights.forEach((l, k) => { l.visible = k < n; });
@@ -746,6 +826,7 @@ export class World {
     rank.fill(-1);
     dist.fill(Infinity);
     for (let k = 0; k < spots.length; k++) {
+      if (spots[k].down) continue;             // knocked over: dark
       const d = Math.hypot(spots[k].x - fx, spots[k].z - fz);
       if (d >= dist[want - 1]) continue;
       let i = want - 1;
@@ -1142,6 +1223,7 @@ function normalMapFrom(canvas, strength = 1.3) {
 const _v = new THREE.Vector3(), _c = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
 const _white = new THREE.Color(1, 1, 1), _tint = new THREE.Color();
 const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4(), _s = new THREE.Vector3();
+const _rot = new THREE.Matrix4(), _back = new THREE.Matrix4(), _base = new THREE.Matrix4(), _tilt = new THREE.Matrix4();
 
 function radialTexture(stops, size = 128) {
   const cv = document.createElement('canvas');

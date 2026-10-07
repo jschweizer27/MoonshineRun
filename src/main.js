@@ -11,11 +11,12 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, showSlots, showBarn, showStill, playDialog, money } from './screens.js';
+import { showLedger, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
+import { Salvage, payout } from './salvage.js';
 import { consume } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText } from './contracts.js';
 import { KINDS } from './trunk.js';
-import { BEATS, nextBeat } from './story.js';
+import { BEATS, nextBeat, CAST, THANKS } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
@@ -97,7 +98,8 @@ class Game {
     this.world.enableShadows();   // the truck too
     // Crates, barrels and signs the truck knocks flying, and debris from heavy crashes (juice).
     this.props = new Props(this.scene, this.world, this.citySeed);
-    this.loot = new Loot(this.scene, this.world, this.citySeed);   // pickups along the roads
+    this.loot = new Loot(this.scene, this.world, this.citySeed);   // pieces thrown onto the road in a crash
+    this.salvage = new Salvage(this.scene, this.world, this.citySeed);   // the sites where loot is found
     this.traffic = new Traffic(this.scene, this.world, this.citySeed);   // cars, vans and carts on the roads
     this.traffic.enabled = OPTIONS.traffic;
     this.roadEvents = new RoadEvents(this.world, this.traffic);   // washouts, breakdowns, fog, market days
@@ -121,7 +123,11 @@ class Game {
       farm: makeMarker(this.scene, CONFIG.dredge.palette.copper, 'DELIVERY', 'barn'),
     };
     for (const m of Object.values(this.jobMarkers)) { m.userData.off = true; m.visible = false; }
-    this.markers = [...this.marketMarkers, this.barnMarker, ...Object.values(this.jobMarkers)];
+    // The nearest salvage site that can be worked: one marker, moved to it.
+    this.siteMarker = makeMarker(this.scene, CONFIG.dredge.palette.copper, 'SALVAGE', 'stall');
+    this.siteMarker.userData.off = true;
+    this.siteMarker.visible = false;
+    this.markers = [...this.marketMarkers, this.barnMarker, ...Object.values(this.jobMarkers), this.siteMarker];
     this._barnLeft = true;
     this.debris = new Debris(this.scene);
     this.hitStop = 0;
@@ -137,7 +143,11 @@ class Game {
     this.trunkScreen = new TrunkScreen(this.ui, {
       onDiscard: (k) => this.hud.toast(`Left behind: ${k.name}`, '', 1400),
       onChange: () => { this._updateTrunkPill(); this.dredge.saveTrunk(this.trunk); },
-      onClose: () => { if (this._marketRender && this.ui.isOpen('market')) this._marketRender(); else if (!this.ui.anyOpen) this.resume(); },
+      onClose: () => {
+        // More from a salvage site: the next piece comes straight up to pack.
+        if (this._pending?.length) { this.trunkScreen.open(this.trunk, this._pending.shift()); return; }
+        if (this._marketRender && this.ui.isOpen('market')) this._marketRender(); else if (!this.ui.anyOpen) this.resume();
+      },
     });
     this.audio = new Audio();
     this.minimap = new MiniMap(this.world, $('minimap'), $('map-canvas'));
@@ -478,6 +488,7 @@ class Game {
     this.minimap.clearRoute();
     this.particles.clear();
     this.props.reset();
+    this.world.standLamps();
     this.loot.reset(this.player.position);
     this.roadEvents.reset(this.dredge.market);
     this.traffic.clear();
@@ -486,6 +497,11 @@ class Game {
     this._closedLeft = true;
     this._barnLeft = true;
     this._dropLeft = true;
+    this._siteLeft = true;
+    this._pending = [];
+    this._nightFrom = this._tally();
+    this.salvage.state = this.dredge.data.sites;
+    this.salvage.refresh(dayOf(this.dredge.market));
     this._jobLeft = true;
     this._updateJobMarker();
     // Abilities start each run ready (times are game time).
@@ -540,7 +556,7 @@ class Game {
   _guideText() {
     if (!this.dredge.data.guide) return '';
     if (this.trunk.count) return 'Follow the gold route on the radar to a ⬢ market, and stop inside its ring to sell.';
-    return 'Drive over a glowing piece of loot to pick it up. The squares on the radar show where.';
+    return 'Find salvage: drive to a SALVAGE sign (⊗ on the radar), stop beside it, and work it for what’s there.';
   }
 
   _updateGuide() {
@@ -693,6 +709,15 @@ class Game {
     if (this.player.impact > 6) this._crash(this.player.impact, p.x + this.player.forwardX * 2.5, p.z + this.player.forwardZ * 2.5);
     for (const e of this.traffic.update(dt, this.player, this.camera.position, this.env.hour)) this._onTraffic(e);
     this.props.update(dt, this._cars);
+    // Lamp posts give way: the truck knocks them over and loses a little speed.
+    for (const h of this.world.knockLamps([this.player])) {
+      this.player.vx *= 0.85; this.player.vz *= 0.85; this.player.speed *= 0.85;
+      this.audio.crash(Math.min(0.35, h.impact / 50));
+      this.chase.shake(Math.min(0.25, h.impact / 60));
+      this.particles.sparks(h.x, h.z, 0.3);
+      this.dredge.data.stats.lamps = (this.dredge.data.stats.lamps || 0) + 1;
+    }
+    this.world.updateFallenLamps(dt);
     // One piece at a time: picking one up opens the trunk, which pauses the drive.
     let taken = 0;
     const found = this.loot.update(dt, this.time, this.player, { radius: this.perks.pickupRadius, canTake: () => taken++ === 0, camera: this.camera.position });
@@ -710,10 +735,13 @@ class Game {
     this._checkMarket();
     this._checkBarn();
     this._checkDrop();
+    this._checkSalvage();
     this._checkPlace();
     this._checkStory(dt);
     this.debris.update(dt);
+    const hour0 = this.env.hour;
     this.env.update(dt, this.camera.position);
+    if (hour0 < 6 && this.env.hour >= 6) this._dawn();
     const county = this.world.inCounty(p);
     this.feel.update(dt, {
       brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: this.env.wet,
@@ -782,16 +810,93 @@ class Game {
   // Only the market nearest the camera shows its marker, and only within range: each costs
   // four draw calls, so however many towns there are it's four at most (the radar always
   // shows every market).
+  // ---------- Dawn ----------
+  _tally() {
+    const st = this.dredge.data.stats;
+    return { earned: st.earned || 0, contracts: st.contracts || 0, salvaged: st.salvaged || 0, brews: st.brews || 0 };
+  }
+
+  // Six in the morning: the night is over. Its take on a card, the lamps the truck knocked
+  // down stood back up, the sites refreshed, and the day saved.
+  _dawn() {
+    const day = dayOf(this.dredge.market), now = this._tally(), was = this._nightFrom || now;
+    this._nightFrom = now;
+    this.world.standLamps();
+    this.salvage.refresh(day);
+    this.dredge.save();
+    const earned = now.earned - was.earned, jobs = now.contracts - was.contracts, sites = now.salvaged - was.salvaged;
+    const n = (k, one) => `${k} ${one}${k === 1 ? '' : 's'}`;
+    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.`;
+    const otto = earned > 0 ? 'A night’s work. Sleep, then do it again.' : 'Nothing to show for the night. Tonight, then.';
+    this.dawns = (this.dawns || 0) + 1;
+    if (this.state !== STATE.PLAYING) { this.hud.toast(take, 'gold', 4000); return; }
+    this.pause({ showMenu: false });
+    playDialog(this.ui, [['narrator', take], ['otto', otto]], { reducedMotion: !!this.settings.reducedMotion })
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
+  }
+
+  // ---------- Salvage ----------
+  // Stop at a site to work it (if it can be: not picked clean, not a night site by day).
+  _checkSalvage() {
+    const s = this.salvage.at(this.player.position);
+    if (!s) { this._siteLeft = true; return; }
+    if (!this._siteLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
+    this._siteLeft = false;
+    const st = this.salvage.status(s, dayOf(this.dredge.market), this.env.hour);
+    if (st === 'empty') { this.hud.toast(`The ${s.name.toLowerCase()} has been picked clean. Try again in a day or two.`, '', 3000); return; }
+    if (st === 'day') { this.hud.toast(`Too many eyes about by day. Come back to the ${s.name.toLowerCase()} after dark.`, '', 3000); return; }
+    this.openSalvage(s);
+  }
+
+  openSalvage(site) {
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    if (this.state !== STATE.PAUSED) return;
+    this.salvageScreen = showSalvage(this.ui, { site, onDone: (sc) => this._onSalvaged(site, sc) });
+  }
+
+  // A site worked: it's empty for a day or two, and what it gave up goes into the trunk,
+  // one piece at a time.
+  _onSalvaged(site, sc) {
+    const day = dayOf(this.dredge.market), d = this.dredge.data;
+    this.salvage.worked(site, day);
+    this.salvage.refresh(day);
+    d.stats.salvaged = (d.stats.salvaged || 0) + 1;
+    this.dredge.save();
+    const pieces = payout(site.kind, sc);
+    if (!pieces.length) {
+      this.hud.toast(`Nothing worth taking from the ${site.name.toLowerCase()}.`, '', 2500);
+      if (!this.ui.anyOpen) this.resume();
+      return;
+    }
+    const counts = {};
+    for (const k of pieces) counts[k] = (counts[k] || 0) + 1;
+    this.hud.toast(`From the ${site.name.toLowerCase()}: ${wantsText(counts)}`, 'gold', 3000);
+    this.audio.pickup?.();
+    this._pending = pieces.slice(1);
+    this.openTrunk(pieces[0]);
+  }
+
+  // The SALVAGE marker stands at the nearest site that can be worked, within 220 m.
+  _updateSiteMarker() {
+    const s = this.salvage.nearest(this.player.position, dayOf(this.dredge.market), this.env.hour, 220), m = this.siteMarker;
+    m.userData.off = !s;
+    if (s) m.position.set(s.x, 0, s.z);
+  }
+
   _updateMarkers() {
+    this._updateSiteMarker();
     const cam = this.camera.position, range = CONFIG.dredge.market.markerRange, rank = this.dredge.data.rank || 0;
     // A town that doesn't deal with Otto yet shows no marker.
     CONFIG.dredge.towns.forEach((t, i) => { this.marketMarkers[i].userData.off = !townOpen(t, rank); });
+    // One marker on screen (the draw budget): the nearest market or job; the salvage sign only
+    // when neither is in range (the radar shows every site).
     let near = null, nd = range;
     for (const m of this.markers) {
-      if (m.userData.off) continue;
+      if (m.userData.off || m === this.siteMarker) continue;
       const d = Math.hypot(m.position.x - cam.x, m.position.z - cam.z);
       if (d < nd) { nd = d; near = m; }
     }
+    if (!near && !this.siteMarker.userData.off) near = this.siteMarker;
     for (const m of this.markers) {
       m.visible = m === near;
       animateMarker(m, this.time, cam);
@@ -989,7 +1094,7 @@ class Game {
     if ((d.rank || 0) < A.rank) { this.hud.toast(`${A.name} comes at ${CONFIG.dredge.ranks[A.rank].name}`, '', 2000); return false; }
     if (this.time < s.ready || (id === 'sweet' && this._sweet)) { this.hud.toast(this._sweet && id === 'sweet' ? 'Sweet Talk is waiting for the next sale' : `${A.name} is ready in ${Math.ceil(s.ready - this.time)} s`, '', 1800); return false; }
     s.ready = this.time + A.cooldown;
-    if (id === 'tip') { s.until = this.time + A.seconds; this.hud.toast('The Jockey’s tip: every piece on the roads is on the radar', 'gold', 2500); }
+    if (id === 'tip') { s.until = this.time + A.seconds; this.hud.toast('The Jockey’s tip: every salvage site in the county is on the radar', 'gold', 2500); }
     if (id === 'leadfoot') { s.until = this.time + A.seconds; this._leadFoot = true; this._applyPerks(); this.hud.toast('Lead Foot!', 'gold', 1500); }
     if (id === 'sweet') { this._sweet = true; this.hud.toast('Sweet Talk: the next sale or job pays 20% more', 'gold', 2500); }
     this._updateAbilities();
@@ -1105,7 +1210,7 @@ class Game {
     if (this.dredge.market.clock > c.due) { this.dropContract(true); return; }
     const p = this.player.position;
     if (Math.hypot(p.x - c.x, p.z - c.z) > CONFIG.dredge.contracts.radius) { this._jobLeft = true; return; }
-    if (!this._jobLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
+    if (!this._jobLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._jobLeft = false;
     if (!progress(c, this.trunk).ready) { this.hud.toast(`${c.name} is waiting on ${wantsText(c.wants)}.`, '', 3000); return; }
     handOver(c, this.trunk);
@@ -1126,7 +1231,20 @@ class Game {
     this.hud.cashPop(`+${money(c.pay + bonus)}`);
     this.audio.cash?.();
     this.hud.toast(`Delivered to ${c.name}: ${money(c.pay + bonus)}${bonus ? ' (sweet-talked)' : ''}`, 'gold', 3000);
+    this._handoff(c, c.pay + bonus);
     this.audio.chime?.();
+  }
+
+  // The handoff: the contact comes out, says their piece, and the money changes hands (a
+  // card, so a delivery can't pass unnoticed). The drive waits under it.
+  async _handoff(c, paid) {
+    if (!CAST[c.who]) return;
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    await playDialog(this.ui, [
+      [c.who, THANKS[c.who] || 'Much obliged.'],
+      ['narrator', `Handed over ${wantsText(c.wants)} to ${c.name}${c.place ? ` at ${c.place}` : ''}: ${money(paid)}.`],
+    ], { reducedMotion: !!this.settings.reducedMotion });
+    if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
   }
 
   // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
@@ -1203,15 +1321,16 @@ class Game {
     if (c) {
       const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, left = Math.max(0, Math.ceil(c.due - this.dredge.market.clock));
       const bearing = Math.atan2(dx, -dz) - this.chase.heading;
-      const ready = progress(c, this.trunk).ready;
-      this.hud.setObjective(ready ? `Deliver to ${c.name} · ${left} h` : `Job: ${wantsText(c.wants)} for ${c.name} · ${left} h`,
+      const ready = progress(c, this.trunk).ready, near = Math.hypot(dx, dz) < 40;
+      const at = c.place ? ` at ${c.place}` : '';
+      this.hud.setObjective(ready && near ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at} · ${left} h` : `Job: ${wantsText(c.wants)} for ${c.name} · ${left} h`,
         `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
       return;
     }
     const { place: town, dist, name } = this._destination();
     if (!town || !this.trunk.count) {
       const ev = eventFor(dayOf(this.dredge.market));
-      this.hud.setObjective(ev ? `Pick up loot · ${eventText(ev).replace(' today', '')}` : 'Pick up loot along the roads', null, 'roam');
+      this.hud.setObjective(ev ? `Find salvage · ${eventText(ev).replace(' today', '')}` : 'Find salvage: SALVAGE signs mark the sites', null, 'roam');
       return;
     }
     const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
@@ -1295,13 +1414,21 @@ class Game {
   _mapMarkers() {
     const h = this.world.home;
     const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
+    // Salvage sites within the spotter's range, or all of them on the Jockey's tip (picked-clean
+    // ones dim).
+    const tip = this.time < this.abil.tip.until;
+    const day = dayOf(this.dredge.market), pp = this.player.position, range = tip ? Infinity : Math.max(250, this.perks.mapRange);
+    for (const st of this.salvage.sites) {
+      if (Math.hypot(st.x - pp.x, st.z - pp.z) > range) continue;
+      drops.push({ kind: this.salvage.status(st, day, this.env.hour) === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
+    }
     const c = this.dredge.data.contract;
     if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const rank = this.dredge.data.rank || 0;
     return [...CONFIG.dredge.towns.map((t) => ({ kind: townOpen(t, rank) ? 'market' : 'market-closed', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
-      ...this.loot.near(this.player.position, this.time < this.abil.tip.until ? Infinity : this.perks.mapRange)];
+      ...this.loot.near(this.player.position, tip ? Infinity : this.perks.mapRange)];
   }
 
   // Draw one frame of the 3D view.
