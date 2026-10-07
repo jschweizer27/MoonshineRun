@@ -1,6 +1,6 @@
 # Shine: game design (v4)
 
-*Status: draft for approval. Nothing here is built yet. The numbers are targets to test, not promises.*
+*Status: approved direction. The numbers are targets to test, not promises.*
 
 ## Why this rewrite
 
@@ -202,9 +202,9 @@ Each stage ends playable. You play it before the next one starts.
 
 **Targets:** a first chapter of about 45–60 minutes, and the whole story in 5–7 hours.
 
-## Questions for you
+## Decided
 
-1. **Length of a day:** 16 minutes, or shorter (about 10) so nights come round faster?
-2. **Busts:** lose the cargo and a fine (as above), or harsher, such as a night in jail with the next day lost?
-3. **Tone:** is a bad batch that "blinds a customer" in the papers OK as a consequence, or keep it lighter?
-4. **Name:** keep **Shine**, the original title, for v4 (it's "Moonshine Run" today)?
+1. **Length of a day:** 16 minutes.
+2. **Busts:** you lose the cargo and pay a fine.
+3. **Tone:** yes, a bad batch can blind a customer and make the papers.
+4. **Name:** **Shine**.
