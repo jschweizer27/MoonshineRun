@@ -28,6 +28,11 @@ const DEFAULT = {
   delivered: {},             // contact -> orders delivered
   scenes: {},                // contact -> true once they've opened up at a handoff
   best: {},                  // recipe -> the best batch's quality
+  chapter: 0,                // CHAPTERS index (chapters.js); past the last when they're all done
+  steps: {},                 // chapter step id -> true once done
+  opened: {},                // chapter id -> true once its opening card has played
+  clues: {},                 // clue id -> true once found
+  tools: {},                 // tool id -> true once earned
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
@@ -85,7 +90,8 @@ export class DredgeCareer {
     // The order book (saves from before it had one contract at a time).
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
-    for (const k of ['trust', 'delivered', 'scenes', 'best']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools']) d[k] = { ...(d[k] || {}) };
+    d.chapter = Number(d.chapter) || 0;
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     this.data = d;

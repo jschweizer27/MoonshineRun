@@ -105,7 +105,24 @@ try {
   });
   if (await page.locator('#salvage-done').isVisible()) await page.click('#salvage-done');
   for (let n = 0; n < 4 && (await trunkOpen()); n++) await pack();
-  await beat('loaded', 'a few pieces packed');
+  // Chapter 1: the ruins of Braun & Sons, where Father's coil is.
+  await page.evaluate(() => {
+    const g = window.shine.game, s = g.salvage.sites.find((x) => x.story === 'ruins');
+    window.shine.step(0.6);
+    window.shine.teleport(s.stopX, s.stopZ + 30, 0); window.shine.step(0.2);
+    window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.3);
+    const sc = g.salvageScreen; sc?.manual(); sc?.step(0.5);
+  });
+  await beat('ruins', 'Chapter 1: the ruins of Braun & Sons');
+  await page.evaluate(() => {
+    const g = window.shine.game, s = g.salvage.sites.find((x) => x.story === 'ruins');
+    while (g.ui.anyOpen) g.ui.close();
+    g.resume();
+    g._onSalvaged(s, 0.9);
+  });
+  for (let n = 0; n < 2 && (await trunkOpen()); n++) await pack();
+  await page.evaluate(() => window.shine.step(0.6));
+  await beat('loaded', 'a few pieces packed, and Father’s coil');
   // Sell in the city: teleport near Lexington Market, then roll in and stop.
   await page.evaluate(() => { window.shine.teleport(-44, 80, 0); window.shine.step(0.1); });
   await drive(8, { sell: true, cap: 10 });

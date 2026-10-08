@@ -332,6 +332,9 @@ body.touch-mode .hud-br { bottom: 250px; }
 #notebook-body .note small { display: block; color: #b6ab90; }
 #notebook-body .note .stars { margin-left: auto; color: var(--gold); white-space: nowrap; letter-spacing: 0.08em; }
 #notebook-body .note .says { font-style: italic; color: #d8cfb8; }
+#notebook-body .note .done { color: #8a8270; }
+#notebook-body .note .now { color: var(--gold); }
+#notebook-body .note .later { color: #6d675d; }
 #ledger-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin-bottom: 16px; text-align: left; font-family: "Courier New", Courier, monospace; font-size: calc(14px * var(--ts)); }
 #ledger-totals div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(216, 178, 90, 0.3); padding: 3px 0; }
 #ledger-totals b { color: var(--gold); }

@@ -5,6 +5,7 @@ import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, grad
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
+import { CHAPTERS } from './chapters.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -179,14 +180,14 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
           : level ? 'Each coil makes the still easier to run: a wider band to keep it in.' : 'The still needs a copper coil before it can run. They turn up on the roads.')),
       install));
     for (const r of RECIPES) {
-      const lacks = missing(r, have), locked = rank() < r.rank;
+      const unlearned = r.learn && !d.flags[`learned:${r.id}`], lacks = missing(r, have), locked = rank() < r.rank || unlearned;
       const need = wantsText(r.needs);
       const brew = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `brew-${r.id}` }, locked ? 'LOCKED' : 'BREW');
       brew.disabled = locked || !level || lacks.length > 0;
       brew.addEventListener('click', () => onBrew(r));
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(r.id).main}`, 'aria-hidden': 'true' }), el('b', {}, r.name),
-          el('small', {}, locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${wantsText(Object.fromEntries(lacks))}.` : `Needs ${need}. Ready to brew.`)),
+          el('small', {}, unlearned ? `Somebody up the valley has to teach you this one. Needs ${need}.` : locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${wantsText(Object.fromEntries(lacks))}.` : `Needs ${need}. Ready to brew.`)),
         brew));
     }
     contractRows(body, jobs, trunk, render);
@@ -515,14 +516,30 @@ export function showLedger(ui, career) {
 }
 
 // ---------- Otto's notebook ----------
-// Dredge's encyclopedia: the order book, every contact and their trust (and what they've
-// told him once they trust him), the recipes with the best batch and the blend on hand, and
-// the clues (the chapters fill those in). `contacts` from contracts.js; `clock` game hours.
+// Dredge's encyclopedia: the chapter in hand (its steps) and the clues found, the order book,
+// every contact and their trust (and what they've told him once they trust him), and the
+// recipes with the best batch and the blend on hand. `contacts` from contracts.js; `clock`
+// game hours.
 export function showNotebook(ui, { career, contacts, clock, onBack }) {
   const d = career.data, body = $('notebook-body'), C = CONFIG.dredge.contracts;
   body.textContent = '';
   const level = (who) => Math.max(0, Math.min(5, Math.floor((d.trust[who] || 0) / C.trustPer)));
   const note = (...kids) => el('div', { class: 'note' }, ...kids);
+  // The chapter in hand, step by step, and every clue found so far.
+  const ch = CHAPTERS[d.chapter || 0];
+  body.append(el('h3', {}, ch ? `CHAPTER ${(d.chapter || 0) + 1}: ${ch.title.toUpperCase()}` : 'THE STORY SO FAR'));
+  if (ch) {
+    let next = true;
+    for (const st of ch.steps) {
+      const done = !!d.steps[st.id], now = !done && next;
+      if (!done) next = false;
+      body.append(note(el('span', { class: done ? 'done' : now ? 'now' : 'later' }, `${done ? '✓' : now ? '▸' : '·'} ${now || done ? `${st.text}${st.night ? ', after dark' : ''}` : '…'}`)));
+    }
+  } else body.append(note(el('span', {}, 'Chapter 3, The Western Line, is still to come.')));
+  body.append(el('h3', {}, 'CLUES'));
+  const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
+  if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
+  for (const c of found) body.append(note(el('div', {}, el('b', {}, c.title), el('small', { class: 'says' }, c.text))));
   body.append(el('h3', {}, `ORDERS · ${d.orders.length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {
@@ -541,12 +558,10 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   }
   body.append(el('h3', {}, 'RECIPES'));
   for (const r of RECIPES) {
-    const locked = (d.rank || 0) < r.rank, best = d.best[r.id], bl = d.market.blend?.[r.id];
+    const unlearned = r.learn && !d.flags[`learned:${r.id}`], locked = (d.rank || 0) < r.rank || unlearned, best = d.best[r.id], bl = d.market.blend?.[r.id];
     body.append(note(el('div', {}, el('b', {}, r.name),
-      el('small', {}, locked ? `Learned at a later rank. Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
+      el('small', {}, unlearned ? `Not learned yet: somebody up the valley knows it. Needs ${wantsText(r.needs)}.` : locked ? `Learned at a later rank. Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
   }
-  body.append(el('h3', {}, 'CLUES'));
-  body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
   ui.open('notebook', { onBack });
 }
 

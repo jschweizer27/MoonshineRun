@@ -22,7 +22,7 @@ test('the game boots into free roam on York Road: under ?test no agents about, n
       pill: document.getElementById('cargo').textContent,
     };
   });
-  expect(setup).toEqual({ gone: [], hud: [], police: [false, 0, 0, true], dialog: true, objective: 'Find salvage: SALVAGE signs mark the sites', pill: 'TRUNK 0/15' });
+  expect(setup).toEqual({ gone: [], hud: [], police: [false, 0, 0, true], dialog: true, objective: 'Ashes: Search the ruins of Braun & Sons in Highlandtown', pill: 'TRUNK 0/15' });
 
   // Drive up York Road into the county: no one comes after you.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
@@ -786,7 +786,9 @@ test('market events: from day 1 a town pays double for one kind, announced when 
     M.event.multiplier = 1;
     const plain = priceOf(ev.town, ev.kind, at);
     M.event.multiplier = 2;
-    // The day turns from 1 to 2: a toast, and the empty-trunk banner names the demand.
+    // The day turns from 1 to 2: a toast, and the empty-trunk banner names the demand (once
+    // the chapters are done; before that it shows the chapter's step).
+    g.dredge.data.chapter = 99;
     g.dredge.market.clock = 47.99; g._eventDay = 1;
     window.shine.step(1 / 60);
     g.dredge.market.clock = 48.01;

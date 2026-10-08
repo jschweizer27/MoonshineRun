@@ -244,7 +244,7 @@ export const CONFIG = {
     // quality x `repPerBrew`, `repPerFind` a rare find. PLACEHOLDERS: tune after playtesting.
     ranks: [
       { name: 'Junk Hauler', rep: 0 },
-      { name: 'Scavenger', rep: 30, unlocks: 'Applejack, Jockey’s Tip (1), tyres and lamps' },
+      { name: 'Scavenger', rep: 30, unlocks: 'Jockey’s Tip (1), tyres and lamps' },
       { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4, the Cockeysville Quarry Store' },
       { name: 'Brewer', rep: 150, unlocks: 'Barrel Rye, Sweet Talk (3), Sheriff Hale’s jobs' },
       { name: 'Bootlegger', rep: 250, unlocks: 'Highlandtown Lager, upgrade level 5' },
@@ -282,7 +282,8 @@ export const CONFIG = {
     // `proof` the line. Crates of one recipe on hand are one blend (src/brew.js `blend`):
     // its grade sets the price (`gradePrice`); a bad batch taints it until it's all gone,
     // and selling tainted shine blinds someone (`badRep` reputation lost). A recipe needs
-    // its ingredients (loot kinds, from the trunk and the stash) and a rank.
+    // its ingredients (loot kinds, from the trunk and the stash) and a rank, and one with
+    // `learn` must be taught first (a chapter step, chapters.js: the save's flags 'learned:<id>').
     // PLACEHOLDERS: tune after playtesting.
     brew: {
       maxLevel: 3,
@@ -299,7 +300,7 @@ export const CONFIG = {
       yields: [[0.8, 3], [0.45, 2], [0, 1]],
       recipes: [
         { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0, heat: 1, drift: 1, hearts: [0.25, 0.75], tol: 0.06, proof: 0.6 },
-        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 1, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
+        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 0, learn: true, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
         { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3, heat: 1, drift: 1.1, hearts: [0.38, 0.64], tol: 0.035, proof: 0.68 },
         { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4, heat: 0.85, drift: 0.9, hearts: [0.3, 0.7], tol: 0.045, proof: 0.4 },
       ],
@@ -374,6 +375,9 @@ export const CONFIG = {
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
         siding: { name: 'Rail siding', game: 'pry', color: '#5a6066', yields: { coil: 3, barrel: 2, 'long-crate': 2, crate: 2, keg: 1 } },
         cellar: { name: 'Back-alley cellar', game: 'search', color: '#6a4e3a', yields: { 'bottle-case': 3, jugs: 2, keg: 2, strongbox: 1, radio: 1 } },
+        // Story sites (chapters.js): open only while their chapter step is.
+        ruins: { name: 'Ruins of Braun & Sons', game: 'search', color: '#3a3430', yields: { coil: 1 } },
+        office: { name: 'Harrow Stables office', game: 'pry', color: '#7a6248', yields: { coil: 1 } },
       },
       // Pry: a needle sweeps the ring and turns back at each hit; press inside a green arc.
       // `arcs` to hit within `seconds`, `strikes` misses and the wood splinters.

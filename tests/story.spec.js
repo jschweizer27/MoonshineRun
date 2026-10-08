@@ -23,6 +23,9 @@ test('story: a new game opens with the prologue, beats play once per save at the
   const speakers = await readAll(page);
   expect(speakers.length).toBeGreaterThanOrEqual(4);
   expect(speakers).toContain('Otto Braun');
+  // Then Chapter 1 opens (chapters.js): its card, and the drive goes on.
+  await page.waitForFunction(() => window.shine.game.dredge.data.opened.ashes === true, null, { timeout: 20_000 });
+  await readAll(page);
   expect(await page.evaluate(() => window.shine.game.state)).toBe('playing');
 
   // Systems not reached yet (brewing, contracts, ranks) don't play early.
