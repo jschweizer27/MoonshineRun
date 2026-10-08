@@ -76,6 +76,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Orders and trust (v4): `contracts.js` rolls the day's offers (`offersFor`, with trust and the
+  barn's distance), `progress` checks counts and a shine order's grade against the blend, and
+  `trustLevel`/`nextDawn` are the helpers. The save keeps `orders` (the book, up to
+  `CONFIG.dredge.contracts.book`), `trust`, `delivered`, `scenes` and `best`; old single
+  `contract` saves are moved into the book. `main._checkContract` / `_deliver` / `_handoff`
+  hand orders over (shine only at night), and `_focusOrder` picks the one the banner, marker
+  and route show. `story.js` `TRUSTED` holds each contact's line at trust 3; `showNotebook`
+  (screens.js) is the notebook.
 - Agents and heat (v4): `src/police.js` is a pool of Bureau sedans (physics-only `Vehicle`s,
   `model: false`) drawn as three InstancedMeshes (bodies, roof lamps, sight cones) plus the
   sawhorses; the roadblock and the York Road checkpoint borrow extra body instances. It owns

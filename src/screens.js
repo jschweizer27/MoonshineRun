@@ -4,7 +4,7 @@ import { priceOf, quote, dayOf, eventFor, eventText, buys } from './market.js';
 import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, gradeOf, yieldFor, blendGrade } from './brew.js';
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
-import { CAST } from './story.js';
+import { CAST, TRUSTED } from './story.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -13,37 +13,42 @@ const money = (n) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleSt
 // ---------- Town market ----------
 // One row per kind of loot in the trunk: how many, what the next one fetches, SELL. Prices
 // drop as you sell (the glut), so the row shows the total for selling them all.
-// The contract board (markets, speakeasies and the barn): the job in hand with what's
-// aboard for it, and the day's offers to take. `jobs` = { active(), offers(), hoursLeft(),
-// onAccept(offer), onAbandon() }.
+// The order board (markets, speakeasies and the barn): the order book, each with what's
+// aboard for it, and the day's offers to take. `jobs` = { active(), full(), offers(),
+// hoursLeft(order), trust(who), blends(), onAccept(offer), onAbandon(order) }.
 // A contact's face: their initials on their colour (story.js CAST).
 function face(who) {
   const c = CAST[who];
   return c ? el('i', { class: 'face', style: `background:${c.color}`, 'aria-hidden': 'true' }, c.initials) : '';
 }
 
+const stars = (n) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
+// "2 corn shines (grade B+) · after dark"
+const orderText = (o) => `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}`;
+
 function contractRows(body, jobs, trunk, render) {
   if (!jobs) return;
-  body.append(el('h3', { class: 'market-head' }, 'CONTRACTS'));
-  const active = jobs.active();
-  if (active) {
-    const pr = progress(active, trunk), left = Math.max(0, Math.ceil(jobs.hoursLeft()));
-    const drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'job-drop' }, 'DROP IT');
-    drop.addEventListener('click', () => { jobs.onAbandon(); render(); });
+  const book = jobs.active(), full = jobs.full();
+  body.append(el('h3', { class: 'market-head' }, `ORDERS · ${book.length}/${CONFIG.dredge.contracts.book} IN THE BOOK`));
+  for (const o of book) {
+    const pr = progress(o, trunk, jobs.blends()), left = Math.max(0, Math.ceil(jobs.hoursLeft(o)));
+    const drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-drop-${o.id}` }, 'DROP IT');
+    drop.addEventListener('click', () => { jobs.onAbandon(o); render(); });
+    const status = pr.ready && pr.gradeOk ? ' · ready to deliver' : pr.ready ? ` · the blend is grade ${pr.grade}` : '';
     body.append(el('div', { class: 'upgrade job active' },
-      el('div', {}, face(active.who), el('b', {}, `${active.name}: ${wantsText(active.wants)}`),
-        el('small', {}, `${active.place ? `${active.place} · ` : ''}pays ${money(active.pay)} · due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${pr.ready ? ' · ready to deliver' : ''}`)),
+      el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
+        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${o.night ? 'after dark, ' : ''}due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`)),
       drop));
   }
   const offers = jobs.offers();
-  if (!offers.length && !active) body.append(el('p', { class: 'hint' }, 'No jobs left today. Come back tomorrow.'));
+  if (!offers.length) body.append(el('p', { class: 'hint' }, 'No new orders today. Come back tomorrow.'));
   for (const o of offers) {
-    const take = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-${o.id}` }, 'TAKE IT');
-    take.disabled = !!active;
+    const take = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-${o.id}` }, full ? 'BOOK FULL' : 'TAKE IT');
+    take.disabled = full;
     take.addEventListener('click', () => { jobs.onAccept(o); render(); });
     body.append(el('div', { class: 'upgrade job' },
-      el('div', {}, face(o.who), el('b', {}, `${o.name}: ${wantsText(o.wants)}`),
-        el('small', {}, `${o.place} · pays ${money(o.pay)} · ${o.hours} h to deliver`),
+      el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
+        el('small', {}, `${o.place} · ${o.km} km from the barn · pays ${money(o.pay)} · ${o.night ? 'after dark, by dawn' : `${o.hours} h to deliver`} · trust ${stars(jobs.trust(o.who))}`),
         o.line ? el('small', { class: 'says' }, `“${o.line}”`) : ''),
       take));
   }
@@ -507,6 +512,42 @@ export function showLedger(ui, career) {
     table.append(el('tr', { class: r.amount < 0 ? 'spent' : 'sale' }, el('td', {}, r.text || '—'), el('td', {}, r.amount ? money(r.amount) : '—')));
   }
   ui.open('ledger');
+}
+
+// ---------- Otto's notebook ----------
+// Dredge's encyclopedia: the order book, every contact and their trust (and what they've
+// told him once they trust him), the recipes with the best batch and the blend on hand, and
+// the clues (the chapters fill those in). `contacts` from contracts.js; `clock` game hours.
+export function showNotebook(ui, { career, contacts, clock, onBack }) {
+  const d = career.data, body = $('notebook-body'), C = CONFIG.dredge.contracts;
+  body.textContent = '';
+  const level = (who) => Math.max(0, Math.min(5, Math.floor((d.trust[who] || 0) / C.trustPer)));
+  const note = (...kids) => el('div', { class: 'note' }, ...kids);
+  body.append(el('h3', {}, `ORDERS · ${d.orders.length}/${C.book}`));
+  if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
+  for (const o of d.orders) {
+    const left = Math.max(0, Math.ceil(o.due - clock));
+    body.append(note(face(o.who), el('div', {}, el('b', {}, `${o.name}: ${orderText(o)}`),
+      el('small', {}, `${o.place} · pays ${money(o.pay)} · ${o.night ? 'after dark, ' : ''}due in ${left} h`))));
+  }
+  body.append(el('h3', {}, 'CONTACTS'));
+  for (const c of contacts) {
+    if (c.rank && (d.rank || 0) < c.rank && !d.trust[c.who]) continue;     // the Sheriff, before he deals
+    const t = level(c.who), n = d.delivered[c.who] || 0;
+    body.append(note(face(c.who), el('div', {}, el('b', {}, c.name),
+      el('small', {}, `${c.place} · ${n ? `${n} order${n === 1 ? '' : 's'} delivered` : 'no orders yet'}`),
+      d.scenes[c.who] && TRUSTED[c.who] ? el('small', { class: 'says' }, `“${TRUSTED[c.who]}”`) : ''),
+      el('span', { class: 'stars', 'aria-label': `trust ${t} of 5` }, stars(t))));
+  }
+  body.append(el('h3', {}, 'RECIPES'));
+  for (const r of RECIPES) {
+    const locked = (d.rank || 0) < r.rank, best = d.best[r.id], bl = d.market.blend?.[r.id];
+    body.append(note(el('div', {}, el('b', {}, r.name),
+      el('small', {}, locked ? `Learned at a later rank. Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
+  }
+  body.append(el('h3', {}, 'CLUES'));
+  body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
+  ui.open('notebook', { onBack });
 }
 
 export { money };

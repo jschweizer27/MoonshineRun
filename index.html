@@ -121,6 +121,7 @@
       <div class="btn-col">
         <button id="pause-resume" class="btn" data-autofocus>RESUME</button>
         <button id="pause-map" class="btn secondary">MAP</button>
+        <button id="pause-notebook" class="btn secondary">NOTEBOOK</button>
         <button id="pause-ledger" class="btn secondary">LEDGER</button>
         <button id="pause-settings" class="btn secondary">SETTINGS</button>
         <button id="pause-help" class="btn secondary">HOW TO PLAY</button>
@@ -152,7 +153,7 @@
         <li><b>Otto's barn</b> (&#8962; on the radar, just off York Road outside the city) is home: store loot in its stash, and mend the truck in its garage. Hard knocks wear the truck and slow it down.</li>
         <li>At the barn's <b>still</b>, turn loot into shine: install a copper coil, then brew from what you've gathered (Corn Shine takes a sack and jugs). A batch is three steps: keep the fire in its band, cut into the hearts and out again (cut too early and it's poison), then read the proof. It's graded A to C, and each recipe's crates on hand are one blend that sells by its grade. Pour out a bad batch, or it taints the blend and blinds someone. Jars, bottles and shine break in a hard crash. Shine sells only at the city's <b>speakeasies</b>: with crates aboard, the radar shows them.</li>
         <li><b>Revenue agents</b> patrol the roads (more at night), each watching the road ahead in a cone. If one sees shine aboard, you have <b>heat</b> (&#9733; on the HUD): they follow, then radio for a second car and a roadblock, then every car in the county comes. Get out of their sight to lose them. Boxed in and stopped, you're <b>busted</b>: the shine is taken, you're fined, and you wake at the barn. At night, turn the <b>headlamps off</b> (L, or d-pad down) to be harder to spot. A checkpoint stands at the York Road gap at night: stop and they search the trunk, or run it and they chase. A <b>false bottom</b> (an upgrade, from Runner) hides a couple of crates.</li>
-        <li><b>Contracts</b>: the people at the speakeasies and the farms post jobs each day (on the board at any market, speakeasy or the barn), and from Brewer on, Sheriff Hale sends for things to the county lockup in Cockeysville. Take one, bring what they want before it's due, and stop at their door: they pay well over the market, and keeping your word builds your name.</li>
+        <li><b>Orders</b>: the people at the speakeasies and the farms post orders each day (on the board at any market, speakeasy or the barn), and from Brewer on, Sheriff Hale sends for things to the county lockup in Cockeysville. Keep up to three in your book. Farms want goods, any time before the order is due. Once you brew, the speakeasies want <b>shine of a grade</b>, handed over only <b>after dark</b> and by dawn. Stop at their door to deliver. The further from the barn, the more an order pays. Each contact's <b>trust</b> (&#9733; to &#9733;&#9733;&#9733;&#9733;&#9733;) grows with every order kept, and better shine earns more. Trusted contacts pay more and ask for more, and in time they tell you things. Sheriff Hale, once he trusts you, can make a bust in the county go away for a price. Your <b>notebook</b> (B, or the pause menu) keeps your orders, contacts, recipes and clues.</li>
         <li>Your name earns <b>ranks</b>, from Junk Hauler to King of York Road. Each unlocks something: recipes, better upgrades, and <b>abilities</b> (keys 1 to 3, the d-pad, or the chips by the speedometer): the Jockey's Tip, Lead Foot and Sweet Talk. At the top, the bank will sell you back the Braun &amp; Sons deed at Lexington Market.</li>
       </ol>
       <div class="controls-grid">
@@ -228,6 +229,15 @@
       <div id="ledger-totals"></div>
       <table id="ledger-runs"></table>
       <button id="ledger-done" class="btn" data-autofocus>CLOSE THE BOOK</button>
+    </div>
+  </div>
+
+  <!-- Otto's notebook: orders, contacts and their trust, recipes, clues (src/screens.js showNotebook) -->
+  <div id="notebook" class="overlay hidden" role="dialog" aria-labelledby="notebook-title">
+    <div class="overlay-card wide ledger-card">
+      <h1 class="title small" id="notebook-title">OTTO'S NOTEBOOK</h1>
+      <div id="notebook-body"></div>
+      <button id="notebook-done" class="btn" data-autofocus>CLOSE THE NOTEBOOK</button>
     </div>
   </div>
 

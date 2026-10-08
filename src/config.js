@@ -333,14 +333,24 @@ export const CONFIG = {
       roadblockEvery: 18, mapRange: 160,
       checkpoint: { x: 0, z: -262, radius: 14, hours: [20, 6], stopSpeed: 3 },
     },
-    // Contracts (src/contracts.js): each in-game day posts `perDay` jobs, a `farmShare` of
-    // them from the farms (who want `farmWants`) and the rest from the speakeasies (who want
-    // `barWants`, or `shine` once Otto brews). A job pays its goods' value x `payMult`, earns
-    // pay / `repPer` reputation, and is due within `hours` (game hours) of being taken;
-    // missing it costs `failRep`. Deliver by stopping within `radius` of the contact.
-    // PLACEHOLDERS: tune after playtesting.
+    // Orders (src/contracts.js): each in-game day posts `perDay` of them, a `farmShare` from
+    // the farms (who want `farmWants`, delivered any time within `hours`) and the rest from
+    // the speakeasies and the Sheriff (who want `barWants`, or once Otto brews, crates of
+    // `shine` of at least a grade, handed over only after dark and due at the next dawn, at
+    // least `dawnMin` hours off). Otto keeps up to `book` orders at once. An order pays its
+    // goods' value x `payMult` (shine at its grade's price, `gradePrice`, x `nightPay`: the
+    // risk of the night run), more for the
+    // distance from the barn (`distPay` per km) and for trust (`trustPay` per level), and
+    // earns pay / `repPer` reputation. Missing one costs `failRep`. Deliver by stopping
+    // within `radius` of the contact.
+    // Trust (0-5) is per contact: `trustPer` points a level; an order delivered is +1 (+1 more
+    // for grade A shine), dropped -1, late -2, tainted shine -3. Higher trust asks for more
+    // and better: from level 2 some orders want grade B, from 4 grade A, from 3 one crate more.
+    // At `sceneAt` a contact opens up at the handoff; with the Sheriff at `bribeAt`, a bust in
+    // the county goes away for `bribe` x the fine. PLACEHOLDERS: tune after playtesting.
     contracts: {
-      perDay: 3, farmShare: 0.5, payMult: 1.7, repPer: 20, failRep: 15, hours: [8, 16], radius: 9,
+      perDay: 4, book: 3, farmShare: 0.4, payMult: 1.7, nightPay: 2.4, repPer: 20, failRep: 15, hours: [8, 16], radius: 9, dawnMin: 4,
+      distPay: 0.35, trustPay: 0.08, trustPer: 2, sceneAt: 3, bribeAt: 3, bribe: 1.5,
       farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
       barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
       shine: ['corn-shine', 'applejack', 'rye', 'lager'],

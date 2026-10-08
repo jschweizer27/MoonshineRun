@@ -137,6 +137,28 @@ export const THANKS = {
   sheriff: 'Much obliged, Mr. Braun. You were never here.',
 };
 
+// What each contact says once they trust Otto (contracts.js, CONFIG.dredge.contracts
+// sceneAt): a handoff where they open up. Some of them know a little about the fire.
+export const TRUSTED = {
+  kessler: 'I was there the night it burned, Otto. Somebody had wedged the fire doors. Fires don’t do that.',
+  orourke: 'A tanker barge tied up at Canton the week of your fire. Kerosene, the manifest said. Nobody unloaded it at Canton.',
+  abernathy: 'The Alliance holds its dinners in our ballroom. The Reverend tips poorly and talks loudly about you.',
+  romano: 'You’re family now, Otto. Anybody leans on you in Little Italy, they lean on me.',
+  hummel: 'The night watchman at your brewery drinks here. Says he was paid to take that night off. Paid well.',
+  pryor: 'Our trucks go everywhere and nobody looks inside. If you ever need to move something unseen, ask.',
+  healy: 'The patrolman on my corner? He’s the Sheriff’s nephew. Small county, Otto. Smaller than you think.',
+  banks: 'Rich men talk when the band plays loud. One of them laughed about a brewery fire like it was a joke he paid for.',
+  wexler: 'I write prescriptions for half the Alliance. Temperance by day, my patients by night.',
+  feld: 'Somebody pawned a brass key with “Braun & Sons” on the bow. I kept it back for you. No charge.',
+  carroll: 'My husband sold grain to your father. Fair man. The Jockey’s been sniffing round my land too. Be careful of him.',
+  ridgely: 'The Harrow estate’s been buying up every farm along the valley. Every one but yours.',
+  pruitt: 'Your father’s still was the best in the valley, and I taught him. Now I’ll teach you the rest.',
+  jockey: 'You and me, Otto, we’re going places. Stick with the Jockey and you’ll never want for anything.',
+  tolley: 'A big black car comes up the Hollow road some nights. City plates. Goes to the Harrow place.',
+  gill: 'The Grange ladies say the Reverend’s new church roof was paid for by a bank in Towson. Funny sort of tithe.',
+  sheriff: 'You’re a good customer, Mr. Braun. If the Bureau ever catches you out in my county, you come to me.',
+};
+
 // `when(data)` reads the save (dredgecareer data): stats, flags and rank. Beats for systems
 // a save hasn't reached yet simply wait.
 export const BEATS = {

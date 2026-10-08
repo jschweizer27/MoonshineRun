@@ -179,7 +179,7 @@ try {
     window.shine.teleport(o.x + 30, o.z, -Math.PI / 2); window.shine.step(0.5);
   });
   await beat('contract', 'a job taken: the DELIVERY marker and the gold ring on the radar');
-  await page.evaluate(() => { const c = window.shine.game.dredge.data.contract; if (c) { window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3); } });
+  await page.evaluate(() => { const c = window.shine.game.dredge.data.orders[0]; if (c) { window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3); } });
   await beat('delivered', 'paid at the door: the handoff card');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   // A new rank (Runner): Lead Foot, and Cockeysville's quarry store deals with Otto.
@@ -271,6 +271,11 @@ try {
   await page.evaluate(() => { const g = window.shine.game, C = g.police.checkpoint; g.player.place(C.x, C.z, 0); window.shine.step(0.2); });
   await beat('bust', 'searched with shine aboard: busted');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.police.enabled = false; g.police.reset(); });
+  // Otto's notebook: the order book, the contacts and their trust, the recipes.
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.openNotebook(); });
+  await page.waitForTimeout(200);
+  await beat('notebook', 'Otto’s notebook: orders, contacts and trust, recipes');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   // The map and the books.
   await page.evaluate(() => window.shine.game.openMap());
   await page.waitForTimeout(200);
