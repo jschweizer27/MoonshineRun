@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mainThread, openGame, waitForBoot, startRun, clearLoot, screenshot } from './helpers.js';
+import { mainThread, openGame, waitForBoot, reloadGame, startRun, clearLoot, screenshot } from './helpers.js';
 
 const state = (page) => page.evaluate(() => window.shine.game.state);
 
@@ -112,8 +112,7 @@ test('settings are remembered between visits', async ({ page }) => {
   await page.getByLabel('Large text').check();
   await screenshot(page, '10-settings');
   await page.click('#settings-done');
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   expect(await page.evaluate(() => window.shine.game.chase.distanceScale)).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.classList.contains('large-text'))).toBe(true);
 });
