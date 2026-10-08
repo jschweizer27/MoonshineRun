@@ -23,7 +23,11 @@ const DEFAULT = {
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
   rep: 0,                    // reputation, from contracts, brews and rare finds
   rank: 0,                   // CONFIG.dredge.ranks index reached (it never drops)
-  contract: null,            // the job taken: an offer from contracts.js plus `due` (game hours)
+  orders: [],                // the order book: offers from contracts.js taken, each plus `due` (game hours)
+  trust: {},                 // contact (story.js CAST id) -> trust points (contracts.js trustLevel)
+  delivered: {},             // contact -> orders delivered
+  scenes: {},                // contact -> true once they've opened up at a handoff
+  best: {},                  // recipe -> the best batch's quality
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
@@ -78,6 +82,10 @@ export class DredgeCareer {
     d.story = { ...(d.story || {}) };
     d.stash = { ...(d.stash || {}) };
     d.taken = { ...(d.taken || {}) };
+    // The order book (saves from before it had one contract at a time).
+    d.orders = Array.isArray(d.orders) ? d.orders : [];
+    if (d.contract) { d.orders.push(d.contract); delete d.contract; }
+    for (const k of ['trust', 'delivered', 'scenes', 'best']) d[k] = { ...(d[k] || {}) };
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     this.data = d;

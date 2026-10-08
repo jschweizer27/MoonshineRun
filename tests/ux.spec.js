@@ -217,12 +217,12 @@ test('markets are told apart by shape and label, not just colour', async ({ page
   expect(r.label).toBe(true);
 });
 
-test('the pause menu: resume, map, ledger, settings, help and quit; the ledger keeps the books', async ({ page }) => {
+test('the pause menu: resume, map, notebook, ledger, settings, help and quit; the ledger keeps the books', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   await page.keyboard.press('Escape');
   const buttons = await page.locator('#pause button:visible').allTextContents();
-  expect(buttons).toEqual(['RESUME', 'MAP', 'LEDGER', 'SETTINGS', 'HOW TO PLAY', 'QUIT TO TITLE']);
+  expect(buttons).toEqual(['RESUME', 'MAP', 'NOTEBOOK', 'LEDGER', 'SETTINGS', 'HOW TO PLAY', 'QUIT TO TITLE']);
   await page.click('#pause-ledger');
   await expect(page.locator('#ledger-runs')).toContainText('Nothing sold yet');
   await page.click('#ledger-done');

@@ -1,12 +1,25 @@
 import { CONFIG } from './config.js';
 import { KINDS } from './trunk.js';
 import { CAST } from './story.js';
+import { blendGrade } from './brew.js';
 
-// Contracts from Otto's contacts: the speakeasies (the named city corners) and the farms
-// (the county barns). Pure logic: each in-game day posts a few jobs, rolled from the day
-// (the same for every player), each wanting a few pieces delivered to one contact by a
-// deadline, for more than the markets pay (CONFIG.dredge.contracts).
+// Orders from Otto's contacts: the speakeasies (the named city corners), the farms (the
+// county barns) and the Sheriff. Pure logic: each in-game day posts a few, rolled from the
+// day and the contact's trust, each wanting goods delivered to one contact by a deadline,
+// for more than the markets pay (CONFIG.dredge.contracts). Shine orders want a recipe at a
+// grade, handed over only after dark, by dawn. Trust is per contact (points; a level 0-5).
 const C = CONFIG.dredge.contracts;
+const GRADES = ['C', 'B', 'A'];
+
+export const trustLevel = (points = 0) => Math.max(0, Math.min(5, Math.floor(points / C.trustPer)));
+export const gradeAtLeast = (have, want) => GRADES.indexOf(have) >= GRADES.indexOf(want || 'C');
+
+// The game clock (hours since day 0, midnight) of the next dawn at least `C.dawnMin` hours off.
+export function nextDawn(clock) {
+  let due = Math.floor(clock / 24) * 24 + 6;
+  while (due - clock < C.dawnMin) due += 24;
+  return due;
+}
 
 // Everyone who posts jobs: { id, name, place, who, x, z, kind: 'speakeasy' | 'farm', rank? }.
 // `name` is the contact (a character from story.js CAST, `who`), `place` where they are.
@@ -29,10 +42,11 @@ function roll(salt, day) {
   return (h >>> 0) / 4294967296;
 }
 
-// The day's offers. Speakeasies want bar goods, or shine once Otto brews (the recipes his
-// rank allows); farms want goods for the house and the yard. Each comes with a line from
-// its contact (`line`).
-export function offersFor(day, list, { brewing = false, rank = 0 } = {}) {
+// The day's offers. Speakeasies (and the Sheriff) want bar goods, or once Otto brews, shine
+// of a recipe his rank allows, at a grade their trust in him asks for; farms want goods for
+// the house and the yard. Each comes with a line from its contact (`line`). `home` (the
+// barn) sets the distance pay; `trust` is { who: points }.
+export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null } = {}) {
   const shine = C.shine.filter((k) => (CONFIG.dredge.brew.recipes.find((r) => r.id === k)?.rank ?? 0) <= rank);
   const out = [];
   for (let i = 0; i < C.perDay; i++) {
@@ -41,31 +55,46 @@ export function offersFor(day, list, { brewing = false, rank = 0 } = {}) {
     const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.rank || 0) <= rank);
     const contact = pool[Math.floor(r('contact') * pool.length)];
     const asks = CAST[contact.who]?.asks || [];
-    const goods = farm ? C.farmWants : brewing && shine.length ? shine : C.barWants;
+    const level = trustLevel(trust[contact.who]);
+    const night = !farm && brewing && shine.length > 0;
     const wants = {};
-    const kinds = 1 + (r('kinds') < 0.4 ? 1 : 0);
-    for (let k = 0; k < kinds; k++) {
-      const kind = goods[Math.floor(r(`kind${k}`) * goods.length)];
-      wants[kind] = (wants[kind] || 0) + 1 + Math.floor(r(`n${k}`) * 2);
+    let grade = null, worth;
+    if (night) {
+      const kind = shine[Math.floor(r('kind0') * shine.length)];
+      wants[kind] = 1 + Math.floor(r('n0') * 2) + (level >= 3 ? 1 : 0);
+      grade = level >= 4 && r('grade') < 0.5 ? 'A' : level >= 2 && r('grade') < 0.6 ? 'B' : 'C';
+      worth = KINDS[kind].value * CONFIG.dredge.brew.gradePrice[grade] * wants[kind];
+    } else {
+      const goods = farm ? C.farmWants : C.barWants;
+      const kinds = 1 + (r('kinds') < 0.4 ? 1 : 0);
+      for (let k = 0; k < kinds; k++) {
+        const kind = goods[Math.floor(r(`kind${k}`) * goods.length)];
+        wants[kind] = (wants[kind] || 0) + 1 + Math.floor(r(`n${k}`) * 2);
+      }
+      worth = Object.entries(wants).reduce((s, [k, n]) => s + KINDS[k].value * n, 0);
     }
-    const worth = Object.entries(wants).reduce((s, [k, n]) => s + KINDS[k].value * n, 0);
-    const pay = Math.round((worth * C.payMult) / 5) * 5;
+    const km = home ? Math.hypot(contact.x - home.x, contact.z - home.z) / 1000 : 0;
+    const pay = Math.round((worth * (night ? C.nightPay : C.payMult) * (1 + C.distPay * km) * (1 + C.trustPay * level)) / 5) * 5;
     const hours = Math.round(C.hours[0] + r('hours') * (C.hours[1] - C.hours[0]));
     out.push({
       id: `${day}-${i}`, contact: contact.id, name: contact.name, place: contact.place, who: contact.who, line: asks[Math.floor(r('line') * asks.length)] || '',
-      kind: contact.kind, x: contact.x, z: contact.z, wants, pay, rep: Math.round(pay / C.repPer), hours,
+      kind: contact.kind, x: contact.x, z: contact.z, wants, grade, night, pay, rep: Math.round(pay / C.repPer), hours, km: Math.round(km * 10) / 10,
     });
   }
   return out;
 }
 
-// Pieces of each wanted kind aboard, against what's wanted: { kind: [have, want] } and
-// whether it's all there.
-export function progress(contract, trunk) {
+// Pieces of each wanted kind aboard, against what's wanted: { kind: [have, want] }, whether
+// it's all there (`ready`), and for shine, the blend's grade against the order's (`gradeOk`,
+// `grade`); `blends` is the market state's blend map.
+export function progress(contract, trunk, blends = {}) {
   const have = {};
   for (const p of trunk.pieces.values()) have[p.kind] = (have[p.kind] || 0) + 1;
   const rows = Object.fromEntries(Object.entries(contract.wants).map(([k, n]) => [k, [Math.min(have[k] || 0, n), n]]));
-  return { rows, ready: Object.values(rows).every(([h, n]) => h >= n) };
+  const shine = Object.keys(contract.wants).find((k) => KINDS[k].brewed);
+  const grade = shine ? blendGrade(blends[shine]) : null;
+  const gradeOk = !contract.grade || !shine || gradeAtLeast(grade, contract.grade);
+  return { rows, ready: Object.values(rows).every(([h, n]) => h >= n), grade, gradeOk, tainted: !!(shine && blends[shine]?.bad) };
 }
 
 // Hand the goods over: take the wanted pieces out of the trunk.

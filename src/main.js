@@ -11,14 +11,14 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
+import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
 import { Salvage, payout } from './salvage.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
 import { consume, onHand, blend } from './brew.js';
-import { contacts, offersFor, progress, handOver, wantsText } from './contracts.js';
+import { contacts, offersFor, progress, handOver, wantsText, trustLevel, nextDawn } from './contracts.js';
 import { KINDS } from './trunk.js';
-import { BEATS, nextBeat, CAST, THANKS } from './story.js';
+import { BEATS, nextBeat, CAST, THANKS, TRUSTED } from './story.js';
 import { Particles } from './particles.js';
 import { JUICE, juice, VehicleFeel, Debris } from './juice.js';
 import { Props } from './props.js';
@@ -371,6 +371,8 @@ class Game {
     on('pause-resume', () => this.resume());
     on('pause-map', () => this.openMap());
     on('pause-ledger', () => this.openLedger());
+    on('pause-notebook', () => this.openNotebook());
+    on('notebook-done', () => this.ui.back());
     on('pause-settings', () => this.openSettings());
     on('pause-help', () => this.ui.open('help'));
     on('pause-skip-tips', () => { this.endGuide(true); $('pause-skip-tips').classList.add('hidden'); this.ui.focusFirst(); });
@@ -480,6 +482,17 @@ class Game {
 
   openLedger() {
     showLedger(this.ui, this.dredge);
+  }
+
+  // Otto's notebook: from the pause menu, or B while driving (the drive waits under it).
+  openNotebook() {
+    const fromRoad = this.state === STATE.PLAYING;
+    if (fromRoad) this.pause({ showMenu: false });
+    if (this.state !== STATE.PAUSED) return;
+    showNotebook(this.ui, {
+      career: this.dredge, contacts: this.contactList, clock: this.dredge.market.clock,
+      onBack: () => { this.ui.close('notebook'); if (fromRoad && !this.ui.anyOpen) this.resume(); },
+    });
   }
 
   _drawBigMap() {
@@ -679,6 +692,7 @@ class Game {
     else if (a === 'trunk') this.openTrunk();
     else if (a === 'ability1') this.useAbility('tip');
     else if (a === 'lights') this.toggleLights();
+    else if (a === 'notebook') this.openNotebook();
     else if (a === 'ability2') this.useAbility('leadfoot');
     else if (a === 'ability3') this.useAbility('sweet');
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
@@ -885,7 +899,27 @@ class Game {
 
   // Busted: the shine is taken, a fine paid, and Otto wakes at the barn.
   _bust(how) {
-    const P = CONFIG.dredge.police, d = this.dredge.data;
+    const P = CONFIG.dredge.police, d = this.dredge.data, C = CONFIG.dredge.contracts;
+    // Out in the county, a Sheriff who trusts Otto makes it go away, for a price.
+    const bribe = Math.round(Math.max(P.fineMin, d.cash * P.fine) * C.bribe);
+    if (this.world.inCounty(this.player.position) && trustLevel(d.trust.sheriff) >= C.bribeAt && d.cash >= bribe) {
+      d.cash -= bribe;
+      d.stats.bribes = (d.stats.bribes || 0) + 1;
+      d.ledger.unshift({ t: Date.now(), text: 'Sheriff Hale made a bust go away', amount: -bribe });
+      d.ledger.length = Math.min(d.ledger.length, 40);
+      this.police.reset();
+      this.audio.setSiren?.(0);
+      this.dredge.save();
+      this.hud.setCash(this.dredge.cash, true);
+      this._updateHeat();
+      this._updateObjective();
+      this.lastBust = { taken: 0, fine: 0, bribe };
+      if (this.state !== STATE.PLAYING) { this.hud.toast(`Sheriff Hale made it go away: ${money(bribe)}.`, 'gold', 5000); return; }
+      this.pause({ showMenu: false });
+      playDialog(this.ui, [['sheriff', 'Evening, boys. This one’s mine; county business. I’ll take it from here.'], ['narrator', `The Bureau men drive off grumbling. Sheriff Hale’s price for the favour: ${money(bribe)}.`]], { reducedMotion: !!this.settings.reducedMotion })
+        .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
+      return;
+    }
     let taken = 0;
     for (const p of [...this.trunk.pieces.values()]) if (KINDS[p.kind].brewed) { this.trunk.remove(p.id); taken++; }
     const fine = Math.min(d.cash, Math.max(P.fineMin, Math.round(d.cash * P.fine)));
@@ -1084,6 +1118,7 @@ class Game {
             // Into the blend on hand (the crates in the stash and the trunk), then the stash.
             const had = onHand(this.trunk, d.stash)[recipe.id] || 0;
             if (crates) blend(d.market.blend, recipe.id, had, crates, q, bad);
+            if (!bad && q > (d.best[recipe.id] || 0)) d.best[recipe.id] = q;
             d.stash[recipe.id] = (d.stash[recipe.id] || 0) + crates;
             d.stats.brews++;
             if (!bad) this._addRep(Math.round(q * CONFIG.dredge.repPerBrew));
@@ -1277,47 +1312,72 @@ class Game {
     };
   }
 
-  // ---------- Contracts ----------
-  // The board the markets, speakeasies and barn show: the job in hand and today's offers.
+  // ---------- Orders ----------
+  // The board the markets, speakeasies and barn show: the order book and today's offers.
   _jobs() {
-    const d = this.dredge.data, day = dayOf(this.dredge.market);
+    const d = this.dredge.data, day = dayOf(this.dredge.market), h = this.world.home;
     return {
-      active: () => d.contract,
-      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0 }).filter((o) => !d.taken[o.id]),
-      hoursLeft: () => (d.contract ? d.contract.due - this.dredge.market.clock : 0),
+      active: () => d.orders,
+      full: () => d.orders.length >= CONFIG.dredge.contracts.book,
+      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ } }).filter((o) => !d.taken[o.id]),
+      hoursLeft: (o) => o.due - this.dredge.market.clock,
+      trust: (who) => trustLevel(d.trust[who]),
+      blends: () => this.dredge.market.blend,
       onAccept: (o) => this.takeContract(o),
-      onAbandon: () => this.dropContract(),
+      onAbandon: (o) => this.dropContract(o),
     };
   }
 
   takeContract(offer) {
-    const d = this.dredge.data;
-    if (d.contract) return false;
-    d.contract = { ...offer, due: this.dredge.market.clock + offer.hours };
+    const d = this.dredge.data, clock = this.dredge.market.clock;
+    if (d.orders.length >= CONFIG.dredge.contracts.book || d.orders.some((o) => o.id === offer.id)) return false;
+    // Shine is handed over after dark, by the next dawn; goods within their hours.
+    d.orders.push({ ...offer, due: offer.night ? nextDawn(clock) : clock + offer.hours });
     // Taken offers don't come back; only today's and yesterday's are worth remembering.
     const day = dayOf(this.dredge.market);
     for (const id of Object.keys(d.taken)) if (Number(id.split('-')[0]) < day - 1) delete d.taken[id];
     d.taken[offer.id] = true;
     this.dredge.save();
     this._updateJobMarker();
-    this.hud.toast(`Job taken: ${wantsText(offer.wants)} for ${offer.name}${offer.place ? `, ${offer.place}` : ''}`, 'gold', 3000);
+    this.hud.toast(`Order taken: ${wantsText(offer.wants)}${offer.grade ? ` (grade ${offer.grade}+)` : ''} for ${offer.name}${offer.place ? `, ${offer.place}` : ''}${offer.night ? ' · after dark, by dawn' : ''}`, 'gold', 3500);
     return true;
   }
 
-  // Dropping a job costs a little standing; missing its deadline costs more.
-  dropContract(late = false) {
-    const d = this.dredge.data, c = d.contract;
-    if (!c) return;
-    const C = CONFIG.dredge.contracts;
+  // Dropping an order costs a little standing and a little trust; missing its deadline more.
+  dropContract(order = this.dredge.data.orders[0], late = false) {
+    const d = this.dredge.data, C = CONFIG.dredge.contracts;
+    if (!order || !d.orders.includes(order)) return;
+    d.orders.splice(d.orders.indexOf(order), 1);
     d.rep = Math.max(0, (d.rep || 0) - (late ? C.failRep : Math.round(C.failRep / 2)));
-    d.contract = null;
+    this._trust(order.who, late ? -2 : -1);
     this.dredge.save();
     this._updateJobMarker();
-    this.hud.toast(late ? `Too late: ${c.name} found someone else.` : `Dropped the job for ${c.name}.`, '', 3000);
+    this.hud.toast(late ? `Too late: ${order.name} found someone else.` : `Dropped the order for ${order.name}.`, '', 3000);
+  }
+
+  // A contact's trust moves by `delta` points; a new level says so. Returns { before, after }.
+  _trust(who, delta) {
+    const d = this.dredge.data, before = trustLevel(d.trust[who]);
+    d.trust[who] = Math.max(0, (d.trust[who] || 0) + delta);
+    const after = trustLevel(d.trust[who]);
+    if (after > before) this.hud.toast(`${CAST[who]?.name || 'They'} trusts you more: ${'★'.repeat(after)}${'☆'.repeat(5 - after)}`, 'gold', 3000);
+    return { before, after };
+  }
+
+  // The order the banner, the marker and the route point at: the nearest one ready to hand
+  // over, else the nearest.
+  _focusOrder(p = this.player.position) {
+    const orders = this.dredge.data.orders, blends = this.dredge.market.blend;
+    let best = null, bd = Infinity, ready = false;
+    for (const o of orders) {
+      const pr = progress(o, this.trunk, blends), ok = pr.ready && pr.gradeOk, dist = Math.hypot(o.x - p.x, o.z - p.z);
+      if ((ok && !ready) || (ok === ready && dist < bd)) { best = o; bd = dist; ready = ok; }
+    }
+    return best;
   }
 
   _updateJobMarker() {
-    const c = this.dredge.data.contract;
+    const c = this._focusOrder();
     for (const [kind, m] of Object.entries(this.jobMarkers)) {
       m.userData.off = !c || c.kind !== kind;
       if (!m.userData.off) m.position.set(c.x, 0, c.z);
@@ -1325,45 +1385,71 @@ class Game {
     }
   }
 
-  // The job in hand: late, or delivered by stopping at the contact with the goods aboard.
+  // The order book: late ones lost; at a contact's door, stopped, what's ready is handed over
+  // (shine only after dark, and only at the grade asked for).
   _checkContract() {
-    const d = this.dredge.data, c = d.contract;
-    if (!c) return;
-    if (this.dredge.market.clock > c.due) { this.dropContract(true); return; }
-    const p = this.player.position;
-    if (Math.hypot(p.x - c.x, p.z - c.z) > CONFIG.dredge.contracts.radius) { this._jobLeft = true; return; }
+    const d = this.dredge.data;
+    if (!d.orders.length) return;
+    for (const o of [...d.orders]) if (this.dredge.market.clock > o.due) this.dropContract(o, true);
+    const p = this.player.position, R = CONFIG.dredge.contracts.radius;
+    const here = d.orders.filter((o) => Math.hypot(p.x - o.x, p.z - o.z) <= R);
+    if (!here.length) { this._jobLeft = true; return; }
     if (!this._jobLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._jobLeft = false;
-    if (!progress(c, this.trunk).ready) { this.hud.toast(`${c.name} is waiting on ${wantsText(c.wants)}.`, '', 3000); return; }
-    handOver(c, this.trunk);
-    d.cash += c.pay;
-    d.stats.earned += c.pay;
-    d.stats.contracts++;
-    const bonus = this._sweetTalk(c.pay);
-    d.cash += bonus;
-    d.stats.earned += bonus;
-    this._addRep(c.rep);
-    d.ledger.unshift({ t: Date.now(), text: `Job for ${c.name}: ${wantsText(c.wants)}`, amount: c.pay + bonus });
-    d.ledger.length = Math.min(d.ledger.length, 40);
-    d.contract = null;
-    this.dredge.saveTrunk(this.trunk);
+    const done = [];
+    let why = '';
+    for (const o of here) {
+      const pr = progress(o, this.trunk, this.dredge.market.blend);
+      if (o.night && !this._night()) why = `${o.name}: “Not in daylight, Otto. Come back after dark.”`;
+      else if (!pr.ready) why = `${o.name} is waiting on ${wantsText(o.wants)}.`;
+      else if (!pr.gradeOk) why = `${o.name} wants grade ${o.grade} or better. The ${KINDS[Object.keys(o.wants)[0]].name} you’ve got is grade ${pr.grade}.`;
+      else done.push(this._deliver(o, pr));
+    }
+    if (!done.length) { if (why) this.hud.toast(why, '', 3500); return; }
     this._updateJobMarker();
     this._updateTrunkPill();
     this.hud.setCash(this.dredge.cash, true);
-    this.hud.cashPop(`+${money(c.pay + bonus)}`);
+    const paid = done.reduce((s, x) => s + x.paid, 0);
+    this.hud.cashPop(`+${money(paid)}`);
     this.audio.cash?.();
-    this.hud.toast(`Delivered to ${c.name}: ${money(c.pay + bonus)}${bonus ? ' (sweet-talked)' : ''}`, 'gold', 3000);
-    this._handoff(c, c.pay + bonus);
+    this.hud.toast(`Delivered to ${done[0].order.name}: ${money(paid)}${done.some((x) => x.bonus) ? ' (sweet-talked)' : ''}`, 'gold', 3000);
+    this._handoff(done[0].order, paid, done.some((x) => x.scene));
     this.audio.chime?.();
   }
 
-  // The handoff: the contact comes out, says their piece, and the money changes hands (a
-  // card, so a delivery can't pass unnoticed). The drive waits under it.
-  async _handoff(c, paid) {
+  // One order handed over: paid, standing and trust, the ledger; tainted shine blinds
+  // someone and costs most of that trust. Returns what happened.
+  _deliver(o, pr) {
+    const d = this.dredge.data;
+    handOver(o, this.trunk);
+    const bonus = this._sweetTalk(o.pay), paid = o.pay + bonus;
+    d.cash += paid;
+    d.stats.earned += paid;
+    d.stats.contracts++;
+    d.delivered[o.who] = (d.delivered[o.who] || 0) + 1;
+    this._addRep(o.rep);
+    d.ledger.unshift({ t: Date.now(), text: `Order for ${o.name}: ${wantsText(o.wants)}${o.grade ? ` (grade ${pr.grade})` : ''}`, amount: paid });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    d.orders.splice(d.orders.indexOf(o), 1);
+    const t = this._trust(o.who, pr.tainted ? -3 : 1 + (pr.grade === 'A' ? 1 : 0));
+    if (pr.tainted) this._blinded(Object.keys(o.wants)[0], { name: o.place || o.name });
+    // Trusted enough, they open up (once).
+    const scene = !pr.tainted && t.after >= CONFIG.dredge.contracts.sceneAt && !d.scenes[o.who] && !!TRUSTED[o.who];
+    if (scene) d.scenes[o.who] = true;
+    this.dredge.saveTrunk(this.trunk);
+    this.dredge.save();
+    return { order: o, paid, bonus, scene };
+  }
+
+  // The handoff: the contact comes out, says their piece (and once they trust Otto, a little
+  // more), and the money changes hands (a card, so a delivery can't pass unnoticed). The
+  // drive waits under it.
+  async _handoff(c, paid, scene = false) {
     if (!CAST[c.who]) return;
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     await playDialog(this.ui, [
       [c.who, THANKS[c.who] || 'Much obliged.'],
+      ...(scene ? [[c.who, TRUSTED[c.who]]] : []),
       ['narrator', `Handed over ${wantsText(c.wants)} to ${c.name}${c.place ? ` at ${c.place}` : ''}: ${money(paid)}.`],
     ], { reducedMotion: !!this.settings.reducedMotion });
     if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
@@ -1461,13 +1547,14 @@ class Game {
       this.hud.setObjective(`${'★'.repeat(this.police.tier)} The Bureau is after you: get out of sight to lose them`, null, 'roam');
       return;
     }
-    const c = this.dredge.data.contract;
+    const c = this._focusOrder();
     if (c) {
       const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, left = Math.max(0, Math.ceil(c.due - this.dredge.market.clock));
       const bearing = Math.atan2(dx, -dz) - this.chase.heading;
-      const ready = progress(c, this.trunk).ready, near = Math.hypot(dx, dz) < 40;
-      const at = c.place ? ` at ${c.place}` : '';
-      this.hud.setObjective(ready && near ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at} · ${left} h` : `Job: ${wantsText(c.wants)} for ${c.name} · ${left} h`,
+      const pr = progress(c, this.trunk, this.dredge.market.blend), ready = pr.ready && pr.gradeOk, near = Math.hypot(dx, dz) < 40;
+      const at = c.place ? ` at ${c.place}` : '', dark = c.night && !this._night() ? ' · after dark' : '';
+      this.hud.setObjective(ready && near && !dark ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at}${dark} · ${left} h`
+        : `Order: ${wantsText(c.wants)}${c.grade ? ` (grade ${c.grade}+)` : ''} for ${c.name} · ${left} h`,
         `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
       return;
     }
@@ -1484,8 +1571,8 @@ class Game {
 
   // With loot aboard, the radar draws the way along the roads to the nearest market.
   _updateRoute(dt) {
-    const c = this.dredge.data.contract;
-    const place = c && progress(c, this.trunk).ready ? c : this._destination().place;
+    const c = this._focusOrder(), pr = c && progress(c, this.trunk, this.dredge.market.blend);
+    const place = c && pr.ready && pr.gradeOk ? c : this._destination().place;
     if (place && (this.trunk.count || c)) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
   }
@@ -1566,8 +1653,7 @@ class Game {
       if (Math.hypot(st.x - pp.x, st.z - pp.z) > range) continue;
       drops.push({ kind: this.salvage.status(st, day, this.env.hour) === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }
-    const c = this.dredge.data.contract;
-    if (c) drops.push({ kind: 'job', x: c.x, z: c.z });
+    for (const o of this.dredge.data.orders) drops.push({ kind: 'job', x: o.x, z: o.z });
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const rank = this.dredge.data.rank || 0;

@@ -36,6 +36,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Handbrake (slide) | `Space` | A | DRIFT |
 | Open the trunk | `T` | X | — |
 | Headlamps on/off | `L` | d-pad down | — |
+| Otto's notebook | `B` | pause menu | pause menu |
 | Abilities (from rank 1 up) | `1` `2` `3` | D-pad ← ↑ → | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
@@ -120,14 +121,26 @@ Enter, the D-pad and A/B, or touch.
    the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
    **checkpoint** stands at the York Road gap at night. Stop and they search the trunk; run it
    and they chase you. The **false bottom** upgrade (from Runner) hides a couple of crates.
-10. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
+10. **Orders**: the people at the speakeasies and the farms post orders each day, on the
    board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
    Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
    own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
-   Cockeysville. Take one job (one at a time), bring what they want before it's due, and
-   stop at their door (the banner tells you when you're there): they come out, hand over the
-   money and say their piece. They pay well over the market. Keeping your word builds your
-   reputation; dropping a job or missing its deadline costs some.
+   Cockeysville.
+   - **The book:** keep up to three orders at once.
+   - **Farms** want goods, any time before the order is due.
+   - **Shine:** once you brew, the speakeasies want shine of a grade (C, B or A), handed over
+     only **after dark** and by the next dawn. That's the night run past the Bureau.
+   - **Delivering:** stop at their door (the banner tells you when you're there). They come
+     out, hand over the money and say their piece. Orders pay well over the market, and more
+     the further they are from the barn.
+   - **Trust:** each contact's trust (one to five stars) grows with every order kept. Grade A
+     shine earns extra; dropping an order costs some, missing one more, and tainted shine most
+     of it. Trusted contacts pay more and order more and better. At three stars they open up
+     at the handoff, and some of them know things about the fire. Once Sheriff Hale trusts
+     you, a bust out in the county goes away for a price; in the city, the Bureau answers to no
+     sheriff.
+   - **Otto's notebook** (`B`, or the pause menu) keeps the order book, every contact and their
+     trust, what they've told you, the recipes with your best batches, and the clues.
 11. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
    Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
    recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
