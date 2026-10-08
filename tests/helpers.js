@@ -25,6 +25,15 @@ export async function waitForBoot(page, timeout = 60_000) {
   }
 }
 
+// Reload the game and wait for it to boot again. The title screen's flyover keeps the page
+// busy, and on a slow CI runner the browser's own load event can then take minutes: stop
+// the drawing first, wait only for the navigation to start, then for the game's own flag.
+export async function reloadGame(page, timeout = 120_000) {
+  await page.evaluate(() => window.shine?.game?.renderer?.setAnimationLoop(null)).catch(() => {});
+  await page.reload({ waitUntil: 'commit', timeout });
+  await waitForBoot(page, timeout);
+}
+
 // Where the page's main thread is right now: pause it in the debugger and read the stack.
 // For failures where the page stops answering.
 export async function mainThread(page) {
