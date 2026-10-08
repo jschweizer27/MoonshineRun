@@ -234,6 +234,43 @@ try {
   await page.evaluate(() => { const g = window.shine.game; g._dawn(); window.shine.step(0.1); });
   await beat('dawn', 'dawn: the night summed up and saved');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.env.hour = 21.5; });
+  // The Bureau: a patrol's cone on a night street, a chase with the roadblock up, the
+  // checkpoint at the York Road gap, and a bust.
+  await page.evaluate(() => {
+    const g = window.shine.game, P = g.police;
+    while (g.ui.anyOpen) g.ui.close();
+    g.resume();
+    g.env.hour = 21.5;
+    P.enabled = true; P.reset();
+    g.trunk.clear(); g.trunk.place('corn-shine', 0, 0);
+    const u = P.units[0];
+    Object.assign(u, { active: true, mode: 'patrol', goal: { x: 0, z: -200 } });
+    u.car.place(0, 110, 0);
+    g.player.place(0, 150, 0);
+    g.chase.snap(g.player);
+    window.shine.step(0.3);
+  });
+  await beat('patrol', 'a Bureau patrol and its sight cone');
+  await page.evaluate(() => {
+    const g = window.shine.game, P = g.police;
+    g.player.place(0, 80, 0); window.shine.step(0.2);
+    P.heat = 2; P._setPursuers(g.player.position);
+    P.units.filter((u) => u.active).forEach((u, i) => u.car.place(-4 + i * 8, 110, 0));
+    Object.assign(P.roadblock, { active: true, x: 0, z: 30, ux: 0, uz: -1 });
+    window.shine.step(1, { throttle: 0.6 });
+  });
+  await beat('chase', 'heat 2: two cars after you, a roadblock ahead');
+  await page.evaluate(() => {
+    const g = window.shine.game, P = g.police, C = P.checkpoint;
+    P.reset(); P._patrols = () => {};
+    g.player.place(C.x, C.z + 45, 0);
+    g.chase.snap(g.player);
+    window.shine.step(0.3);
+  });
+  await beat('checkpoint', 'the York Road checkpoint at night');
+  await page.evaluate(() => { const g = window.shine.game, C = g.police.checkpoint; g.player.place(C.x, C.z, 0); window.shine.step(0.2); });
+  await beat('bust', 'searched with shine aboard: busted');
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.police.enabled = false; g.police.reset(); });
   // The map and the books.
   await page.evaluate(() => window.shine.game.openMap());
   await page.waitForTimeout(200);

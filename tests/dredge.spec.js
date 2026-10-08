@@ -5,7 +5,7 @@ import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './h
 // upgrades to buy. (It was built as "the dredge run" beside the old bootlegging game, which
 // it replaced; the code still calls it that: CONFIG.dredge, dredgecareer.js, html.dredge.)
 
-test('the game boots into free roam on York Road: no police and no heat (and under ?test, no story cards)', async ({ page }) => {
+test('the game boots into free roam on York Road: under ?test no agents about, no heat and no story cards', async ({ page }) => {
   const problems = await openGame(page);
   await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
   await startRun(page);
@@ -14,14 +14,15 @@ test('the game boots into free roam on York Road: no police and no heat (and und
   const setup = await page.evaluate(() => {
     const g = window.shine.game;
     return {
-      gone: ['mission', 'police', 'career', 'tutorial', 'fire', 'waypoint'].filter((k) => k in g),
-      hud: ['heat', 'bust', 'hint', 'status-pill', 'siren-flash', 'gameover', 'orders', 'garage'].filter((id) => document.getElementById(id)),
+      gone: ['mission', 'career', 'tutorial', 'fire', 'waypoint'].filter((k) => k in g),
+      hud: ['bust', 'hint', 'status-pill', 'siren-flash', 'gameover', 'orders', 'garage'].filter((id) => document.getElementById(id)),
+      police: [g.police.enabled, g.police.active.length, g.police.tier, document.getElementById('heat').classList.contains('hidden')],
       dialog: document.getElementById('dialog').classList.contains('hidden'),
       objective: document.getElementById('objective-text').textContent,
       pill: document.getElementById('cargo').textContent,
     };
   });
-  expect(setup).toEqual({ gone: [], hud: [], dialog: true, objective: 'Find salvage: SALVAGE signs mark the sites', pill: 'TRUNK 0/15' });
+  expect(setup).toEqual({ gone: [], hud: [], police: [false, 0, 0, true], dialog: true, objective: 'Find salvage: SALVAGE signs mark the sites', pill: 'TRUNK 0/15' });
 
   // Drive up York Road into the county: no one comes after you.
   const before = await page.evaluate(() => { const g = window.shine.game; g.renderFrame(); return window.shine.renderInfo(); });
@@ -614,7 +615,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     const g = window.shine.game;
     return { levels: { ...g.dredge.data.upgrades }, size: [g.trunk.cols, g.trunk.rows], maxSpeed: g.player.t.maxSpeed, look: g.player.look };
   });
-  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1, tyres: 0, lamps: 0, plating: 0 });
+  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 });
   expect(reloaded.size).toEqual([6, 3]);
   expect(reloaded.maxSpeed).toBe(after.maxSpeed);
   expect(reloaded.look).toBe('reinforced');
@@ -745,7 +746,7 @@ test('the game explains itself: the intro and How to Play tell the loot run, not
   await expect(page.locator('#help ol.rules')).toContainText('Glyndon Depot');
   await expect(page.locator('#help-keys')).toContainText('Open the trunk');
   const text = await page.evaluate(() => document.body.innerText);
-  for (const old of [/\bthe still\b/i, /\bheat\b/i, /\bbust/i, /\bFeds\b/, /shine aboard/i, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);
+  for (const old of [/\bFeds\b/, /horse box/i, /bootleg/i]) expect(text).not.toMatch(old);
   expect(await page.locator('.bootleg-only, .dredge-only').count()).toBe(0);
   await screenshot(page, 'dredge-help');
 });

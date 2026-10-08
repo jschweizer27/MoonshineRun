@@ -270,7 +270,7 @@ test('erasing saved progress empties the cash, the upgrades and the trunk', asyn
     const g = window.shine.game;
     return { cash: g.dredge.cash, levels: Object.values(g.dredge.data.upgrades), size: [g.trunk.cols, g.trunk.rows], count: g.trunk.count, look: g.player.look, hud: document.getElementById('cash').textContent };
   });
-  expect(r).toEqual({ cash: 0, levels: [0, 0, 0, 0, 0, 0, 0, 0], size: [5, 3], count: 0, look: 'stock', hud: '$0' });
+  expect(r).toEqual({ cash: 0, levels: [0, 0, 0, 0, 0, 0, 0, 0, 0], size: [5, 3], count: 0, look: 'stock', hud: '$0' });
 });
 
 test('installable app: manifest, icons and offline play', async ({ page, context }) => {

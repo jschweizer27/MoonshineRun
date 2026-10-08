@@ -7,7 +7,7 @@ import { buildVehicle } from './models.js';
 // handbrake lowers grip for drifts), and two collision circles along the body push it
 // out of buildings with a bounce.
 export class Vehicle {
-  constructor(scene, collision, { tuning = CONFIG.player } = {}) {
+  constructor(scene, collision, { tuning = CONFIG.player, model = true } = {}) {
     this.collision = collision;
     this.t = { ...tuning };
     this.position = new THREE.Vector3();
@@ -20,10 +20,11 @@ export class Vehicle {
     this.steerVisual = 0;
     this.spin = 0;
 
-    const model = buildVehicle();
-    this.mesh = model.group;
-    this.model = model;
-    scene.add(this.mesh);
+    // `model: false`: physics only, drawn by someone else (the agents' instanced sedans).
+    const m = model ? buildVehicle() : { group: new THREE.Object3D(), wheels: [], frontPivots: [], wheelRadius: 0.4 };
+    this.mesh = m.group;
+    this.model = m;
+    if (model) scene.add(this.mesh);
   }
 
   // The body's look ('stock', or 'reinforced' once the bed is upgraded); one mesh shows at
@@ -132,4 +133,38 @@ export class Vehicle {
     for (const w of this.model.wheels) w.rotation.x = -this.spin;
     for (const p of this.model.frontPivots) p.rotation.y = -this.steerVisual;
   }
+}
+
+// Two cars pushing apart (each two circles along its body), with a bounce; `massRatio` is
+// the share of the push the first takes. Returns the closing speed (0 if not touching).
+export function collideVehicles(a, b, massRatio = 0.5) {
+  const ra = a.t.radius, rb = b.t.radius, oa = a.t.circleOffset, ob = b.t.circleOffset;
+  let touched = 0;
+  for (const sa of [1, -1]) {
+    for (const sb of [1, -1]) {
+      const ax = a.position.x + a.forwardX * oa * sa, az = a.position.z + a.forwardZ * oa * sa;
+      const bx = b.position.x + b.forwardX * ob * sb, bz = b.position.z + b.forwardZ * ob * sb;
+      const dx = bx - ax, dz = bz - az;
+      const d = Math.hypot(dx, dz);
+      const min = ra + rb;
+      if (d >= min || d < 1e-5) continue;
+      const nx = dx / d, nz = dz / d, pen = min - d;
+      a.position.x -= nx * pen * massRatio; a.position.z -= nz * pen * massRatio;
+      b.position.x += nx * pen * (1 - massRatio); b.position.z += nz * pen * (1 - massRatio);
+      const rel = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
+      if (rel < 0) {
+        const j = -1.3 * rel;
+        a.vx -= nx * j * massRatio; a.vz -= nz * j * massRatio;
+        b.vx += nx * j * (1 - massRatio); b.vz += nz * j * (1 - massRatio);
+        touched = Math.max(touched, -rel);
+      } else {
+        touched = Math.max(touched, 0.01);
+      }
+    }
+  }
+  if (touched) {
+    a.speed = a.vx * a.forwardX + a.vz * a.forwardZ;
+    b.speed = b.vx * b.forwardX + b.vz * b.forwardZ;
+  }
+  return touched;
 }

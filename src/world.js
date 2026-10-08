@@ -245,6 +245,9 @@ export class World {
 
   inCounty(p) { return p.z < -250; }
 
+  // Nothing solid between two points on the ground (an agent's view of the truck).
+  lineOfSight(a, b) { return !this.collision.segmentBlocked(a.x, a.z, b.x, b.z); }
+
   _buildLights() {
     const s = this.scene, L = CONFIG.look;
     s.background = new THREE.Color(L.sky);

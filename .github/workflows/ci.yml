@@ -50,16 +50,16 @@ jobs:
           path: dist/Shine.html
           retention-days: 14
 
-  # The playtests render in software and take ~25 min in one go, so they run in four
-  # parallel shards.
+  # The playtests render in software and take well over half an hour in one go, so they
+  # run in five parallel shards (each well inside the time limit, retries included).
   playtest:
-    name: Playtest (${{ matrix.shard }}/4)
+    name: Playtest (${{ matrix.shard }}/5)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v7
 
@@ -80,7 +80,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Playtests
-        run: npm test -- --shard=${{ matrix.shard }}/4
+        run: npm test -- --shard=${{ matrix.shard }}/5
 
       - name: Job summary
         if: always()

@@ -35,6 +35,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
 | Handbrake (slide) | `Space` | A | DRIFT |
 | Open the trunk | `T` | X | — |
+| Headlamps on/off | `L` | d-pad down | — |
 | Abilities (from rank 1 up) | `1` `2` `3` | D-pad ← ↑ → | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
@@ -108,7 +109,18 @@ Enter, the D-pad and A/B, or touch.
    recipe runs differently: Applejack burns hot, and Rye has narrow hearts. Jars, bottles and
    shine break in a hard crash.
    Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
-9. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
+9. **Revenue agents** patrol the roads, more of them at night. Each watches the road ahead in a
+   cone. If one sees shine aboard, you have **heat** (the ★ pill):
+   - at one star, the agent follows you;
+   - at two, a second car comes and a **roadblock** goes up on your route;
+   - at three, every car in the county is after you.
+
+   Get out of their sight to lose them. Boxed in and stopped, you're **busted**: the shine is
+   taken, you pay a fine (a quarter of your cash), and you wake at the barn. At night, turn
+   the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
+   **checkpoint** stands at the York Road gap at night. Stop and they search the trunk; run it
+   and they chase you. The **false bottom** upgrade (from Runner) hides a couple of crates.
+10. **Contracts**: the people at the speakeasies and the farms post jobs each day, on the
    board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
    Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
    own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
@@ -116,14 +128,14 @@ Enter, the D-pad and A/B, or touch.
    stop at their door (the banner tells you when you're there): they come out, hand over the
    money and say their piece. They pay well over the market. Keeping your word builds your
    reputation; dropping a job or missing its deadline costs some.
-10. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
+11. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
    Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
    recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
    three **abilities**: the **Jockey's Tip** (every salvage site on the radar for a while),
    **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
-11. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
+12. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
    That's the end of the story so far; the roads stay open after it.
-12. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
+13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.
