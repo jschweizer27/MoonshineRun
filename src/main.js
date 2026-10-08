@@ -614,6 +614,8 @@ class Game {
   _chapters() {
     const d = this.dredge.data, open = openSites(d);
     if (JSON.stringify(open) !== JSON.stringify(this.salvage.story)) { this.salvage.story = open; this.salvage.refresh(dayOf(this.dredge.market)); }
+    // The story moves on only out on the road, so its cards are never lost under a screen.
+    if (this.state !== STATE.PLAYING) return false;
     const events = advance(d);
     if (!events.length) return false;
     const lines = [];
@@ -633,7 +635,7 @@ class Game {
     if (events.some((e) => e.type === 'clue')) this.hud.toast('A clue for the notebook (B)', 'gold', 4000);
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
     this._updateObjective();
-    if (!OPTIONS.story || !lines.length || this.state !== STATE.PLAYING) return false;
+    if (!OPTIONS.story || !lines.length) return false;
     this.pause({ showMenu: false });
     playDialog(this.ui, lines, { reducedMotion: !!this.settings.reducedMotion })
       .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });

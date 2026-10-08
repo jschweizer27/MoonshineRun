@@ -61,6 +61,7 @@ test('story: a new game opens with the prologue, beats play once per save at the
 test('story cards: reduced motion shows each line whole, and Esc skips', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('shine.settings.v1', JSON.stringify({ reducedMotion: true })));
   const problems = await openGame(page, '&story');
+  await page.evaluate(() => window.shine.game.renderer.setAnimationLoop(null));   // nothing after the prologue opens on its own
   await page.click('#start-btn');
   await expect(page.locator('#dialog-text')).toHaveText(/^Baltimore, 1922\. The Volstead Act/);
   await page.keyboard.press('Escape');

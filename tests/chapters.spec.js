@@ -117,8 +117,10 @@ test('the story in cards: the chapter opens, the clue is read out, and the noteb
   const problems = await openGame(page, '&story');
   await startRun(page, { loot: false });
   const skip = async () => { for (let k = 0; k < 6 && (await page.locator('#dialog').isVisible()); k++) await page.click('#dialog-skip'); };
+  // Only window.shine.step moves the story on from here (the live loop would race the clicks).
+  await page.evaluate(() => { const g = window.shine.game; g.renderer.setAnimationLoop(null); g.settings.reducedMotion = true; });
   await skip();                                            // the prologue
-  await page.evaluate(() => { const g = window.shine.game; g.renderer.setAnimationLoop(null); g.settings.reducedMotion = true; window.shine.step(0.6); });
+  await page.evaluate(() => window.shine.step(0.6));
   await expect(page.locator('#dialog')).toBeVisible();
   await expect(page.locator('#dialog-text')).toContainText('Chapter 1: Ashes');
   await skip();

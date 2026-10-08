@@ -82,7 +82,7 @@ test('abilities: the Jockey’s Tip shows every salvage site, Lead Foot opens th
 
 test('the ending: at the top rank, the Braun & Sons deed is for sale at Lexington Market, and buying it plays the last beat', async ({ page }) => {
   const problems = await openGame(page, '&story');
-  await page.evaluate(() => { const g = window.shine.game; g.dredge.data.started = true; g.dredge.data.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true, quarry: true, sheriff: true, betrayal: true }; });
+  await page.evaluate(() => { const g = window.shine.game; g.dredge.data.started = true; g.dredge.data.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true, quarry: true, sheriff: true, betrayal: true }; g.dredge.data.opened = { ashes: true }; });
   await page.click('#start-btn');
   // Not before the top rank.
   await page.evaluate(() => { window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
