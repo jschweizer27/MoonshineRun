@@ -76,6 +76,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
+- Chapters (v4): `src/chapters.js` is the story spine (`CHAPTERS`: steps tested on the save,
+  a clue and a tool each; `current`, `openSites`, `advance`). `main._chapters` (on the story
+  timer) opens the current step's story site (`salvage.story`; the ruins and the Harrow
+  office are `placeStory` sites, hidden until open), plays the cards (only with `&story`
+  under `?test`) and toasts progress; `_storySalvaged` gives the coil or a clue. The banner
+  and route lead to a step's place (`_stepGoal`) before cargo. A recipe with `learn` is
+  taught by a step (`flags['learned:<id>']`). Save: `chapter`, `steps`, `opened`, `clues`,
+  `tools` (farm tyres set `perks.field` to 1).
 - Orders and trust (v4): `contracts.js` rolls the day's offers (`offersFor`, with trust and the
   barn's distance), `progress` checks counts and a shine order's grade against the blend, and
   `trustLevel`/`nextDawn` are the helpers. The save keeps `orders` (the book, up to

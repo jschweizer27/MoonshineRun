@@ -57,6 +57,34 @@ export function placeSites(world, seed = 1) {
   return out;
 }
 
+// The story sites (chapters.js), placed on their own (no random draws, so nothing else moves):
+// the ruins of Braun & Sons on a sidewalk near the Highlandtown Speakeasy, and the Harrow
+// Stables office beside that barn. Each is the nearest clear spot to its anchor.
+export function placeStory(world) {
+  const c = world.collision, out = [];
+  const clear = (x, z, r) => !c.resolveCircle(x, z, r).hit;
+  // The ruins: a lamp-side sidewalk spot (like the cellars), near (176, 44), not on the corner.
+  const near = world.lampSpots.filter((sp) => sp.pole && !world.inCounty(sp))
+    .map((sp) => ({ sp, d: Math.hypot(sp.x - 176, sp.z - 44) })).filter((e) => e.d > 18).sort((a, b) => a.d - b.d);
+  for (const { sp } of near) {
+    const along = 6, x = sp.x + sp.tz * along, z = sp.z - sp.tx * along, stopX = x + sp.tx * 4, stopZ = z + sp.tz * 4;
+    if (clear(x, z, 1.2) && clear(stopX, stopZ, 1.6)) { out.push({ kind: 'ruins', story: 'ruins', x, z, stopX, stopZ }); break; }
+  }
+  // The office: beside the Harrow Stables barn, its stop in the yard.
+  const harrow = world.barns.find((b) => b.name === 'Harrow Stables');
+  if (harrow) {
+    found: for (const r of [9, 12, 15]) {
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2, x = harrow.stopX + Math.cos(a) * r, z = harrow.stopZ + Math.sin(a) * r;
+        const stopX = harrow.stopX + Math.cos(a) * (r - 6), stopZ = harrow.stopZ + Math.sin(a) * (r - 6);
+        if (clear(x, z, 2) && clear(stopX, stopZ, 1.6)) { out.push({ kind: 'office', story: 'office', x, z, stopX, stopZ }); break found; }
+      }
+    }
+  }
+  out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
+  return out;
+}
+
 export const isNight = (hour) => hour >= S.night[0] || hour < S.night[1];
 
 // ---------- Pry: a needle sweeps the ring; press while it's in a green arc. ----------
@@ -140,8 +168,9 @@ export function payout(kind, sc, rng = Math.random) {
 // { [id]: day worked } (dredgecareer `data.sites`).
 export class Salvage {
   constructor(scene, world, seed = 1) {
-    this.sites = placeSites(world, seed);
+    this.sites = [...placeSites(world, seed), ...placeStory(world)];
     this.state = {};
+    this.story = {};        // the story sites open now: { [story]: { night } } (chapters.js openSites)
     for (const s of this.sites) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
     const parts = [
       new THREE.BoxGeometry(1.4, 1.1, 1.2).translate(-0.6, 0.55, 0.2),
@@ -172,6 +201,11 @@ export class Salvage {
 
   // 'ok' to work, 'empty' (worked, not back yet) or 'day' (a night-only site, by day).
   status(site, day, hour) {
+    if (site.story) {
+      const open = this.story[site.story];
+      if (!open) return 'hidden';
+      return open.night && !isNight(hour) ? 'day' : 'ok';
+    }
     if (day < this.refillDay(site)) return 'empty';
     if (site.night && !isNight(hour)) return 'day';
     return 'ok';
@@ -181,7 +215,7 @@ export class Salvage {
 
   // The site whose stop point the truck is inside, or null.
   at(p) {
-    return this.sites.find((s) => Math.hypot(s.stopX - p.x, s.stopZ - p.z) < S.radius) || null;
+    return this.sites.find((s) => (!s.story || this.story[s.story]) && Math.hypot(s.stopX - p.x, s.stopZ - p.z) < S.radius) || null;
   }
 
   // The nearest site (to `p`) that can be worked now, within `range`.
@@ -195,14 +229,14 @@ export class Salvage {
     return best;
   }
 
-  // Heaps of worked sites sink low and darken until they refill.
+  // Heaps of worked sites sink low and darken until they refill; a story site shows only while open.
   refresh(day) {
     const o = new THREE.Object3D(), dim = new THREE.Color();
     this.sites.forEach((s, i) => {
-      const empty = day < this.refillDay(s);
+      const empty = !s.story && day < this.refillDay(s), hidden = s.story && !this.story[s.story];
       o.position.set(s.x, empty ? -0.6 : 0, s.z);
       o.rotation.set(0, (i * 2.399) % TAU, 0);
-      o.scale.set(1, empty ? 0.5 : 1, 1);
+      o.scale.set(hidden ? 0 : 1, hidden ? 0 : empty ? 0.5 : 1, hidden ? 0 : 1);
       o.updateMatrix();
       this.mesh.setMatrixAt(i, o.matrix);
       this.mesh.setColorAt(i, empty ? dim.copy(this._colors[i]).multiplyScalar(0.45) : this._colors[i]);

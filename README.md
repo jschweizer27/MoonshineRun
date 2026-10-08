@@ -58,6 +58,22 @@ Enter, the D-pad and A/B, or touch.
 1. Press **Enter** (or click **START DRIVING**). Otto's truck starts on **York Road**, just
    inside the city. On a new game, short tips walk you through the first pickup, packing the
    trunk and the first sale (skip them from the tip card or the pause menu).
+   **The story** runs in chapters, one step at a time. The banner and the gold route on the
+   radar show the next step when nothing more pressing is on (a chase, an order, cargo to
+   sell). **Chapter 1, Ashes:**
+   - search the ruins of Braun & Sons in Highlandtown (★ on the radar) for Father's copper coil;
+   - get the still running;
+   - earn Gus Kessler's trust;
+   - go back to the brewery cellar after dark.
+
+   **Chapter 2, Green Spring:**
+   - Ma Pruitt teaches Applejack;
+   - win over the Jockey;
+   - get into the Harrow Stables office one night.
+
+   Each chapter ends in a **clue** to who paid for the fire, and a tool. The farm tyres stop the
+   fields slowing you, so you can go round a roadblock across country. The notebook keeps the
+   steps and the clues.
 2. Find **salvage**. Wrecked trucks in the ditch, abandoned farmhouses and rail sidings out in
    the county, and back-alley cellars in the city hold crates, bottle cases, sacks, barrels,
    jugs, kegs, copper and more. A **SALVAGE** sign marks the nearest one, and ⊗ marks them

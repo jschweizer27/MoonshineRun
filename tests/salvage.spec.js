@@ -6,7 +6,7 @@ test('salvage sites: fixed spots off the roads, in the county and the city, some
   await page.click('#start-btn');                    // loot left on: there should be none anyway
   await expect(page.locator('#hud')).toBeVisible();
   const r = await page.evaluate(() => {
-    const g = window.shine.game, w = g.world, S = g.salvage;
+    const g = window.shine.game, w = g.world, S = { sites: g.salvage.sites.filter((s) => !s.story) };   // the story sites: chapters.spec
     const seg = (x, z, p, q) => { const dx = q.x - p.x, dz = q.z - p.z, t = Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - p.x - dx * t, z - p.z - dz * t); };
     const N = w.roads.nodes, roadDist = (x, z) => { let b = Infinity; for (const a of N) for (const id of a.links) b = Math.min(b, seg(x, z, a, N[id])); return b; };
     window.shine.step(5);

@@ -15,6 +15,7 @@ import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, s
 import { Salvage, payout } from './salvage.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
+import { advance, current, openSites } from './chapters.js';
 import { consume, onHand, blend } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText, trustLevel, nextDawn } from './contracts.js';
 import { KINDS } from './trunk.js';
@@ -341,7 +342,7 @@ class Game {
     this.perks = {
       pickupRadius: D.loot.pickupRadius + U.magnet.step.pickupRadius * lv('magnet'),
       mapRange: D.loot.mapRange + U.spotter.step.mapRange * lv('spotter'),
-      field: 0.7 + U.tyres.step.field * lv('tyres'),       // speed kept in the fields
+      field: this.dredge.data.tools?.tyres ? 1 : 0.7 + U.tyres.step.field * lv('tyres'),   // speed kept in the fields (all of it on farm tyres)
       wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
       light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
       wear: 1 - U.plating.step.wear * lv('plating'),       // share of a knock's wear taken
@@ -523,6 +524,7 @@ class Game {
     this._pending = [];
     this._nightFrom = this._tally();
     this.salvage.state = this.dredge.data.sites;
+    this.salvage.story = openSites(this.dredge.data);
     this.salvage.refresh(dayOf(this.dredge.market));
     this._jobLeft = true;
     this._updateJobMarker();
@@ -606,6 +608,40 @@ class Game {
   }
 
   // Play a story beat's cards (once per save): the drive pauses under them.
+  // The chapters (chapters.js): open the story site the current step needs, and when the
+  // save moves the story on, say so (toasts) and play its cards (under ?test only with
+  // &story). Returns whether cards are playing.
+  _chapters() {
+    const d = this.dredge.data, open = openSites(d);
+    if (JSON.stringify(open) !== JSON.stringify(this.salvage.story)) { this.salvage.story = open; this.salvage.refresh(dayOf(this.dredge.market)); }
+    // The story moves on only out on the road, so its cards are never lost under a screen.
+    if (this.state !== STATE.PLAYING) return false;
+    const events = advance(d);
+    if (!events.length) return false;
+    const lines = [];
+    let tool = false;
+    for (const e of events) {
+      if (e.type === 'open') lines.push(...e.chapter.open);
+      else if (e.type === 'step') { if (e.step.lines) lines.push(...e.step.lines); }
+      else if (e.type === 'clue') lines.push(['narrator', `A clue for the notebook: ${e.clue.title}. ${e.clue.text}`]);
+      else if (e.type === 'tool') { lines.push(['narrator', `Earned: ${e.tool.name}. ${e.tool.text}`]); tool = true; }
+      else if (e.type === 'close') lines.push(...e.chapter.close);
+    }
+    this.salvage.story = openSites(d);
+    this.salvage.refresh(dayOf(this.dredge.market));
+    if (tool) this._applyPerks();
+    this.dredge.save();
+    const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
+    if (events.some((e) => e.type === 'clue')) this.hud.toast('A clue for the notebook (B)', 'gold', 4000);
+    else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
+    this._updateObjective();
+    if (!OPTIONS.story || !lines.length) return false;
+    this.pause({ showMenu: false });
+    playDialog(this.ui, lines, { reducedMotion: !!this.settings.reducedMotion })
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
+    return true;
+  }
+
   async _story(id) {
     if (!OPTIONS.story || this.dredge.data.story[id]) return;
     this.dredge.data.story[id] = true;
@@ -621,6 +657,7 @@ class Game {
     this._storyT = 0.5;
     this._updateGuide();
     this._updateAbilities();
+    if (this._chapters()) return;
     const id = OPTIONS.story && nextBeat(this.dredge.data);
     if (id) this._story(id);
   }
@@ -989,6 +1026,7 @@ class Game {
   // one piece at a time.
   _onSalvaged(site, sc) {
     const day = dayOf(this.dredge.market), d = this.dredge.data;
+    if (site.story) { this._storySalvaged(site, sc); return; }
     this.salvage.worked(site, day);
     this.salvage.refresh(day);
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
@@ -1005,6 +1043,34 @@ class Game {
     this.audio.pickup?.();
     this._pending = pieces.slice(1);
     this.openTrunk(pieces[0]);
+  }
+
+  // A story site worked: the ruins give up Father's coil (and later, after dark, the
+  // cellar's clue); the Harrow office its ledger. A miss can be tried again. The chapter
+  // moves on at the next story check (main._chapters).
+  _storySalvaged(site, sc) {
+    const d = this.dredge.data, { step } = current(d);
+    if (sc <= 0.01 || !step || step.site !== site.story) {
+      this.hud.toast(`Nothing found this time. Try the ${site.name.toLowerCase()} again.`, '', 3000);
+      if (!this.ui.anyOpen) this.resume();
+      return;
+    }
+    d.stats.salvaged = (d.stats.salvaged || 0) + 1;
+    if (step.id === 'ruins') {
+      d.flags.ruinsSearched = true;
+      this.dredge.save();
+      this.hud.toast('Found in the ruins: Father’s copper coil', 'gold', 3000);
+      this.audio.pickup?.();
+      this._pending = [];
+      this.openTrunk('coil');
+      return;
+    }
+    const clue = { cellar: 'pledge', office: 'ledger' }[step.id];
+    if (clue) d.clues[clue] = true;
+    this.dredge.save();
+    this.audio.fanfare?.('rare');
+    this.hud.toast('Found something. A clue for the notebook.', 'gold', 3000);
+    if (!this.ui.anyOpen) this.resume();
   }
 
   // The SALVAGE marker stands at the nearest site that can be worked, within 220 m.
@@ -1319,7 +1385,7 @@ class Game {
     return {
       active: () => d.orders,
       full: () => d.orders.length >= CONFIG.dredge.contracts.book,
-      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ } }).filter((o) => !d.taken[o.id]),
+      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags }).filter((o) => !d.taken[o.id]),
       hoursLeft: (o) => o.due - this.dredge.market.clock,
       trust: (who) => trustLevel(d.trust[who]),
       blends: () => this.dredge.market.blend,
@@ -1558,22 +1624,42 @@ class Game {
         `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
       return;
     }
-    const { place: town, dist, name } = this._destination();
+    // The chapter's next step. One that takes what's aboard somewhere (the coil to the barn)
+    // comes before selling it; a story site to search, after (with an empty trunk).
+    const { chapter, step } = current(this.dredge.data);
+    const goal = step && this._stepGoal(step);
+    const arrow = (x, z) => {
+      const dx = x - this.player.position.x, dz = z - this.player.position.z, b = Math.atan2(dx, -dz) - this.chase.heading;
+      return [`${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(b), Math.cos(b))];
+    };
+    const stepText = step && `${chapter.title}: ${step.text}${step.night && !this._night() ? ', after dark' : ''}`;
+    if (goal && step.at) { this.hud.setObjective(stepText, ...arrow(goal.x, goal.z)); return; }
+    const { place: town, name } = this._destination();
     if (!town || !this.trunk.count) {
+      if (goal) { this.hud.setObjective(stepText, ...arrow(goal.x, goal.z)); return; }
+      if (step) { this.hud.setObjective(stepText, null, 'roam'); return; }
       const ev = eventFor(dayOf(this.dredge.market));
       this.hud.setObjective(ev ? `Find salvage · ${eventText(ev).replace(' today', '')}` : 'Find salvage: SALVAGE signs mark the sites', null, 'roam');
       return;
     }
-    const dx = town.x - this.player.position.x, dz = town.z - this.player.position.z;
-    const bearing = Math.atan2(dx, -dz) - this.chase.heading;
-    this.hud.setObjective(`Deliver to ${name}`, `${Math.max(0.1, dist / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
+    this.hud.setObjective(`Deliver to ${name}`, ...arrow(town.x, town.z));
   }
 
-  // With loot aboard, the radar draws the way along the roads to the nearest market.
+  // Where a chapter step leads, if anywhere: its story site, or the barn.
+  _stepGoal(step) {
+    if (step.site) return this.salvage.sites.find((x) => x.story === step.site) || null;
+    if (step.at === 'barn') return { x: this.world.home.stopX, z: this.world.home.stopZ };
+    return null;
+  }
+
+  // The radar's gold route: to an order ready to hand over, the chapter step's place, or with
+  // loot aboard the nearest market.
   _updateRoute(dt) {
     const c = this._focusOrder(), pr = c && progress(c, this.trunk, this.dredge.market.blend);
-    const place = c && pr.ready && pr.gradeOk ? c : this._destination().place;
-    if (place && (this.trunk.count || c)) this.minimap.updateRoute(dt, this.player.position, place);
+    const { step } = current(this.dredge.data), goal = step && this._stepGoal(step);
+    const cargo = this.trunk.count ? this._destination().place : null;
+    const place = c && pr.ready && pr.gradeOk ? c : (goal && step.at) ? goal : cargo || goal;
+    if (place) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
   }
 
@@ -1650,8 +1736,10 @@ class Game {
     const tip = this.time < this.abil.tip.until;
     const day = dayOf(this.dredge.market), pp = this.player.position, range = tip ? Infinity : Math.max(250, this.perks.mapRange);
     for (const st of this.salvage.sites) {
+      const status = this.salvage.status(st, day, this.env.hour);
+      if (st.story) { if (status !== 'hidden') drops.push({ kind: 'story', x: st.x, z: st.z }); continue; }   // at any range
       if (Math.hypot(st.x - pp.x, st.z - pp.z) > range) continue;
-      drops.push({ kind: this.salvage.status(st, day, this.env.hour) === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
+      drops.push({ kind: status === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }
     for (const o of this.dredge.data.orders) drops.push({ kind: 'job', x: o.x, z: o.z });
     const re = this.roadEvents.active;

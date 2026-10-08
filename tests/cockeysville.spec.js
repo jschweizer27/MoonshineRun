@@ -69,7 +69,7 @@ test('Cockeysville: a fourth town at the eastern crossroads, in pale stone with 
 test('the quarry store deals only with a Runner: before that no marker or route, a barred mark on the radar and word of when; then it opens with Moss Delaney’s welcome', async ({ page }) => {
   const problems = await openGame(page, '&story');
   // The earlier beats are behind this save.
-  await page.evaluate(() => { const d = window.shine.game.dredge.data; d.started = true; d.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true }; });
+  await page.evaluate(() => { const d = window.shine.game.dredge.data; d.started = true; d.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true }; d.opened = { ashes: true }; });
   await startRun(page, { loot: false });
   const before = await page.evaluate(() => {
     const g = window.shine.game;

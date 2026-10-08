@@ -45,9 +45,13 @@ function roll(salt, day) {
 // The day's offers. Speakeasies (and the Sheriff) want bar goods, or once Otto brews, shine
 // of a recipe his rank allows, at a grade their trust in him asks for; farms want goods for
 // the house and the yard. Each comes with a line from its contact (`line`). `home` (the
-// barn) sets the distance pay; `trust` is { who: points }.
-export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null } = {}) {
-  const shine = C.shine.filter((k) => (CONFIG.dredge.brew.recipes.find((r) => r.id === k)?.rank ?? 0) <= rank);
+// barn) sets the distance pay; `trust` is { who: points }; `learned` the save's flags.
+export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {} } = {}) {
+  // Recipes his rank allows, and (for one that must be taught) that he's learned.
+  const shine = C.shine.filter((k) => {
+    const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
+    return (r?.rank ?? 0) <= rank && (!r?.learn || learned[`learned:${k}`]);
+  });
   const out = [];
   for (let i = 0; i < C.perDay; i++) {
     const r = (s) => roll(`${s}:${i}`, day);
