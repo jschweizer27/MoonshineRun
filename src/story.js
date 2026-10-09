@@ -4,20 +4,22 @@
 // the valley, sells to the city's speakeasies, and finds out who paid for the fire (the
 // chapters, chapters.js, which end with the deed or the paper).
 // `asks`: the lines a contact says on the contract board when they post a job (one per job,
-// picked with it). Every speakeasy and farm has its contact (world.js DROPS, county.js
+// picked with it). `wants`: the goods a contact's orders draw from, if not the usual (the
+// farm's or the speakeasy's list, CONFIG.dredge.contracts); `shine`: a farm contact whose
+// orders, once Otto brews, are shine after dark, like a speakeasy's. Every speakeasy and farm has its contact (world.js DROPS, county.js
 // BARNS), and the Sheriff posts from the county lockup once Otto is a Brewer (or chapter 4
 // needs him).
 export const CAST = {
   narrator: { name: '', initials: '', color: '#b6ab90' },
   otto: { name: 'Otto Braun', initials: 'OB', color: '#d8b25a' },
   jockey: {
-    name: 'The Jockey', initials: 'J', color: '#5aa7d8', asks: [
+    name: 'The Jockey', initials: 'J', color: '#5aa7d8', shine: true, asks: [
       'The estates throw parties all steeplechase season, and they pay for what town won’t sell them.',
       'Bring it to the stables. The lads unload, and they’re paid not to remember faces.',
     ],
   },
   pruitt: {
-    name: 'Ma Pruitt', initials: 'MP', color: '#c8743a', asks: [
+    name: 'Ma Pruitt', initials: 'MP', color: '#c8743a', wants: ['sack', 'jugs', 'small-crate', 'barrel'], asks: [
       'A still’s only as good as what goes in it. Fetch me these, and don’t dawdle.',
       'Mash won’t wait, Otto, and neither will I.',
     ],
@@ -176,7 +178,7 @@ export const BEATS = {
       ['narrator', 'Baltimore, 1922. The Volstead Act has shuttered every brewery in Highlandtown.'],
       ['otto', 'Twenty years I made honest lager. Last night the Temperance Alliance came with torches, and Braun & Sons went up like kindling.'],
       ['otto', 'The bank has the deed now. What I have is a truck, my father’s old barn up the Green Spring Valley, and the roads.'],
-      ['otto', 'And the roads are full of what other people lost. Crates, kegs, copper. Pick it up, sell it where it pays, and buy back what was mine.'],
+      ['otto', 'And the county is full of what other people left behind: wrecks in the ditches, empty farmhouses, rail sidings nobody watches. Salvage it, sell it where it pays, and find out who paid for the fire.'],
     ],
   },
   valley: {

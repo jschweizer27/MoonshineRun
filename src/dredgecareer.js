@@ -17,7 +17,7 @@ const DEFAULT = {
   started: false,            // a run has been started in this slot
   cash: 0,
   trunk: null,               // Trunk.toJSON()
-  upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 },
+  upgrades: { trunk: 0, engine: 0, handling: 0, padding: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 },
   market: { sold: {}, clock: 21.5, blend: {} },   // clock: game hours from midnight of day 0 (a new game starts at 21:30)
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
@@ -89,6 +89,8 @@ export class DredgeCareer {
     d.market.blend = { ...(d.market.blend || {}) };
     d.stats = { ...DEFAULT.stats, ...(d.stats || {}) };
     d.upgrades = { ...DEFAULT.upgrades, ...(d.upgrades || {}) };
+    // The Long arm (street loot) became Padding: its levels carry over.
+    if (d.upgrades.magnet != null) { d.upgrades.padding = Math.max(d.upgrades.padding || 0, d.upgrades.magnet); delete d.upgrades.magnet; }
     d.ledger = Array.isArray(d.ledger) ? d.ledger : [];
     d.story = { ...(d.story || {}) };
     d.stash = { ...(d.stash || {}) };

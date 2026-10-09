@@ -121,7 +121,7 @@ export const CHAPTERS = [
         order: { who: 'kessler', at: 'kessler', wants: { [S.run.kind]: S.run.count }, night: true, pay: S.run.pay, rep: S.run.rep },
         done: (d) => !!d.flags['order:run'],
         lines: [['kessler', 'Through the Bureau’s own checkpoint! Moss Delaney sends word, Otto: the Sheriff wrote a report on your fire, and somebody paid him to bury it.']] },
-      { id: 'hale-trust', text: 'Earn Sheriff Hale’s trust (★★)', who: 'sheriff', flag: 'bribery', done: (d) => trustLevel(d.trust.sheriff) >= CONFIG.dredge.contracts.bribeAt,
+      { id: 'hale-trust', text: 'Earn Sheriff Hale’s trust (★★★)', who: 'sheriff', flag: 'bribery', done: (d) => trustLevel(d.trust.sheriff) >= 3,
         lines: [
           ['sheriff', 'So Delaney’s been talking. Fine. My report on your fire is in a box at the lockup marked CLOSED, and a closed box can be opened, for a consideration. Come by after dark.'],
           ['sheriff', 'And Mr. Braun: if the Bureau ever catches you out in my county, you come to me. Bring an envelope.'],

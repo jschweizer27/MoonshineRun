@@ -64,7 +64,10 @@ function contractRows(body, jobs, trunk, render) {
   }
 }
 
-export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), onSell, onBuy, onTrunk, onBack }) {
+// A county store's supplies (CONFIG.dredge.supplies): what a piece of `kind` costs there.
+export const supplyPrice = (kind) => Math.round(KINDS[kind].value * CONFIG.dredge.supplies.markup);
+
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), onSell, onBuy, onSupply = null, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
@@ -91,6 +94,19 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
+    // A county store sells the still's makings, straight into the trunk.
+    if (town.supplies && onSupply) {
+      body.append(el('h3', { class: 'market-head' }, 'SUPPLIES'));
+      for (const kind of CONFIG.dredge.supplies.kinds) {
+        const k = KINDS[kind], price = supplyPrice(kind), room = !!trunk.findSpot(kind);
+        const buy = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `supply-${kind}` }, room ? `BUY ${money(price)}` : 'NO ROOM');
+        buy.disabled = !room || career.cash < price;
+        buy.addEventListener('click', () => { onSupply(kind); render(); });
+        body.append(el('div', { class: 'upgrade' },
+          el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }), el('b', {}, k.name),
+            el('small', {}, `For the still. In the trunk: ${counts[kind] || 0}.`)), buy));
+      }
+    }
     // One of the endings, at Lexington Market once the story's last chapter is done.
     if (deed) {
       body.append(el('h3', { class: 'market-head' }, 'THE DEED'));
@@ -112,7 +128,9 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
           cost == null ? 'MAXED' : locked != null ? `AT ${CONFIG.dredge.ranks[locked].name.toUpperCase()}` : `BUY ${money(cost)}`);
         if (cost == null || locked != null || career.cash < cost) btn.disabled = true;
         btn.addEventListener('click', () => { onBuy(id); render(); });
-        body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, u.desc)), btn));
+        // The false bottom says how many crates it hides now (chapter 3's own floor counts too).
+        const hides = id === 'falsebottom' ? ` Hides ${u.step.hidden * (lvl + (career.data.tools?.falsebottom ? 1 : 0))} now.` : '';
+        body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, `${u.desc}${hides}`)), btn));
       }
     }
     const all = quote(town.id, trunk, career.market, null, keep()), every = quote(town.id, trunk, career.market);
@@ -124,7 +142,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     const kept = every.count - all.count;
     $('market-note').textContent = (all.count || kept
       ? `Prices change day to day, and drop as you sell more of the same thing here.${kept ? ` SELL EVERYTHING keeps back the ${kept} piece${kept === 1 ? '' : 's'} your orders${keep().coil ? ' and the still' : ''} need.` : ''}`
-      : speakeasy ? 'Nothing aboard they want: a speakeasy only buys shine.' : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.')
+      : speakeasy ? 'Nothing aboard they want: a speakeasy only buys shine.' : 'Nothing in the trunk to sell. Work the salvage sites (⊗ on the radar) and bring back what you find.')
       + (unsold && all.count ? (speakeasy ? ' They only buy shine.' : ' Shine sells at the speakeasies, not the markets.') : '')
       + (ev && !speakeasy ? ` ${eventText(ev)}.` : '')
       + (career.market.marketDay?.town === town.id && (career.market.clock || 0) < career.market.marketDay.until
@@ -187,7 +205,7 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
     body.append(el('div', { class: 'upgrade' },
       el('div', {}, el('b', {}, level ? 'Another copper coil' : 'A copper coil'),
         el('small', {}, level >= CONFIG.dredge.brew.maxLevel ? 'The still is as good as it gets.'
-          : level ? 'Each coil makes the still easier to run: a wider band to keep it in.' : 'The still needs a copper coil before it can run. They turn up on the roads.')),
+          : level ? 'Each coil makes the still easier to run: a wider band to keep it in.' : 'The still needs a copper coil before it can run. Rail sidings and wrecks turn them up.')),
       install));
     for (const r of RECIPES) {
       const unlearned = r.learn && !d.flags[`learned:${r.id}`], lacks = missing(r, have), locked = rank() < r.rank || unlearned;
@@ -532,6 +550,16 @@ export function showLedger(ui, career) {
     ['Rank', `${CONFIG.dredge.ranks[career.data.rank || 0].name} (${(career.data.rep || 0).toLocaleString()} rep)`], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
     ['Time on the road', playTime(s.playSeconds)],
   ];
+  // How long each chapter took on the road (from the last one's end to its own last step),
+  // and the one in hand so far. Saves from before the times were kept show none.
+  const times = career.data.stepTimes || {}, now = career.data.chapter || 0;
+  let from = 0;
+  for (const [i, c] of CHAPTERS.entries()) {
+    const t = c.steps.map((st) => times[st.id]);
+    if (i < now && t.every((x) => x != null)) { rows.push([`Chapter ${i + 1}, ${c.title}`, playTime(Math.max(...t) - from)]); from = Math.max(...t); continue; }
+    if (i === now) rows.push([`Chapter ${i + 1}, ${c.title}`, `${playTime(s.playSeconds - from)} so far`]);
+    break;
+  }
   for (const [k, v] of rows) $('ledger-totals').append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));
   const table = $('ledger-runs');
   table.textContent = '';

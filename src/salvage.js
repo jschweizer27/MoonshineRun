@@ -196,6 +196,19 @@ export function payout(kind, sc, rng = Math.random) {
   return out;
 }
 
+// A rare find at a night site worked well (CONFIG.dredge.salvage.rare): the pocket watch or
+// the bonds, or null. Rolled from the site and the day, so it's the same for everyone.
+export function rareFind(site, day, sc) {
+  if (!site.night || site.story || sc < S.rare.score) return null;
+  let h = 2166136261;
+  for (const c of `rare:${site.id}:${day}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13;
+  const r = (h >>> 0) / 4294967296;
+  if (r >= S.rare.chance) return null;
+  const rares = CONFIG.dredge.loot.kinds.filter((k) => k.rare);
+  return rares[Math.floor((r / S.rare.chance) * rares.length)].id;
+}
+
 // The sites in the world: one instanced heap each (crates, a barrel, a plank), tinted by
 // kind, sunk low once worked; a collider at the heap (a story site's only while it's open,
 // so a hidden one blocks nothing). `state` is the save's { [id]: day worked } (dredgecareer

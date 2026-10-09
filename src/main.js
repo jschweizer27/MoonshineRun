@@ -11,8 +11,8 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, playDialog, money } from './screens.js';
-import { Salvage, payout } from './salvage.js';
+import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, playDialog, money, supplyPrice } from './screens.js';
+import { Salvage, payout, rareFind } from './salvage.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
 import { Railway, RAILWAY, inWindow } from './railway.js';
@@ -365,8 +365,11 @@ class Game {
     };
     const [cols, rows] = U.trunk.sizes[Math.min(lv('trunk'), U.trunk.sizes.length - 1)];
     this.perks = {
-      pickupRadius: D.loot.pickupRadius + U.magnet.step.pickupRadius * lv('magnet'),
-      mapRange: D.loot.mapRange + U.spotter.step.mapRange * lv('spotter'),
+      pickupRadius: D.loot.pickupRadius,
+      mapRange: D.loot.mapRange,                           // pieces spilled on the road
+      // salvage sites on the radar: further with each Spotter level, all of them at the top
+      siteRange: lv('spotter') >= U.spotter.costs.length ? Infinity : D.salvage.mapRange + U.spotter.step.siteRange * lv('spotter'),
+      padding: 1 - U.padding.step.padding * lv('padding'),   // share of a crash's breakage chance felt
       field: this.dredge.data.tools?.tyres ? 1 : 0.7 + U.tyres.step.field * lv('tyres'),   // speed kept in the fields (all of it on farm tyres)
       wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
       light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
@@ -547,8 +550,8 @@ class Game {
   }
 
   // ---------- Run flow ----------
-  // A run starts on York Road, just inside the city, with fresh loot along the roads. Cash,
-  // upgrades and whatever is in the trunk carry over from the save.
+  // A run starts on York Road, just inside the city. Cash, upgrades, the clock and whatever
+  // is in the trunk carry over from the save.
   resetRun() {
     const s = CONFIG.dredge.spawn;
     this._syncHour();
@@ -1196,7 +1199,19 @@ class Game {
     this.salvage.refresh(day);
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
     this.dredge.save();
-    const pieces = payout(site.kind, sc);
+    const pieces = payout(site.kind, sc), rare = rareFind(site, day, sc);
+    if (rare) {
+      // A rare find on top: first up to pack, with word of where it pays.
+      pieces.unshift(rare);
+      d.stats.rares = (d.stats.rares || 0) + 1;
+      this._addRep(CONFIG.dredge.repPerFind);
+      const k = KINDS[rare], pays = CONFIG.dredge.towns.find((t) => t.id === k.paysAt);
+      d.ledger.unshift({ t: Date.now(), text: `A rare find: the ${k.name.toLowerCase()}, at the ${site.name.toLowerCase()}`, amount: 0 });
+      d.ledger.length = Math.min(d.ledger.length, 40);
+      this.audio.fanfare?.('rare');
+      this.dredge.save();
+      this.hud.toast(`A rare find: the ${k.name.toLowerCase()}! It pays best in ${pays.town}.`, 'gold', 4500);
+    }
     if (!pieces.length) {
       this.hud.toast(`Nothing worth taking from the ${site.name.toLowerCase()}.`, '', 2500);
       if (!this.ui.anyOpen) this.resume();
@@ -1204,7 +1219,7 @@ class Game {
     }
     const counts = {};
     for (const k of pieces) counts[k] = (counts[k] || 0) + 1;
-    this.hud.toast(`From the ${site.name.toLowerCase()}: ${wantsText(counts)}`, 'gold', 3000);
+    if (!rare) this.hud.toast(`From the ${site.name.toLowerCase()}: ${wantsText(counts)}`, 'gold', 3000);
     this.audio.pickup?.();
     this._pending = pieces.slice(1);
     this.openTrunk(pieces[0]);
@@ -1454,7 +1469,7 @@ class Game {
   _breakage(impact) {
     const K = CONFIG.dredge.breakage;
     if (impact <= K.from || !this.trunk.count) return;
-    const chance = Math.min(K.max, (impact - K.from) * K.perMs);
+    const chance = Math.min(K.max, (impact - K.from) * K.perMs) * this.perks.padding;
     const broke = [];
     for (const p of [...this.trunk.pieces.values()]) {
       if (!(KINDS[p.kind].brewed || K.kinds.includes(p.kind)) || this._breakRng() >= chance) continue;
@@ -1610,7 +1625,7 @@ class Game {
       full: () => d.orders.filter((o) => !o.story).length >= CONFIG.dredge.contracts.book,
       offers: () => offersFor(day, this.contactList, {
         brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags,
-        focus: current(d).step?.who, exclude: d.flags.betrayed ? ['jockey'] : [],
+        focus: current(d).step?.who, focusN: d.delivered[current(d).step?.who] || 0, exclude: d.flags.betrayed ? ['jockey'] : [],
       }).filter((o) => !d.taken[o.id]),
       hoursLeft: (o) => (o.due == null ? null : o.due - this.dredge.market.clock),
       trust: (who) => trustLevel(d.trust[who]),
@@ -1831,10 +1846,27 @@ class Game {
         this.hud.cashPop(`−${money(CONFIG.dredge.upgrades[id].costs[this.dredge.level(id) - 1])}`);
         this.audio.cash?.();
       } : null,
+      onSupply: town.supplies ? (kind) => this.buySupply(kind, town) : null,
       onTrunk: () => this.trunkScreen.open(this.trunk),
       onBack: close,
     });
     this._guideLine('market-guide', 'SELL EVERYTHING turns the trunk into cash. Each town pays differently, and a price drops as you sell more of one thing; upgrades come once you’ve saved up.');
+  }
+
+  // A county store's supplies: one piece of `kind` for cash, into the trunk if it fits.
+  buySupply(kind, town) {
+    const d = this.dredge.data, price = supplyPrice(kind), spot = this.trunk.findSpot(kind);
+    if (!spot || d.cash < price) return false;
+    this.trunk.place(kind, spot.x, spot.y, spot.rot);
+    d.cash -= price;
+    d.ledger.unshift({ t: Date.now(), text: `Bought ${KINDS[kind].name.toLowerCase()} at ${town.name}`, amount: -price });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.dredge.saveTrunk(this.trunk);
+    this.hud.setCash(this.dredge.cash, true);
+    this.hud.cashPop(`−${money(price)}`);
+    this.audio.cash?.();
+    this._updateTrunkPill();
+    return true;
   }
 
   // What SELL EVERYTHING holds back: the goods the orders in the book want, and what the
@@ -2014,7 +2046,7 @@ class Game {
     // Salvage sites within the spotter's range, or all of them on the Jockey's tip (picked-clean
     // ones dim).
     const tip = this.time < this.abil.tip.until;
-    const day = dayOf(this.dredge.market), pp = this.player.position, range = tip ? Infinity : Math.max(250, this.perks.mapRange);
+    const day = dayOf(this.dredge.market), pp = this.player.position, range = tip ? Infinity : this.perks.siteRange;
     for (const st of this.salvage.sites) {
       const status = this.salvage.status(st, day, this.env.hour);
       if (st.story) { if (status !== 'hidden') drops.push({ kind: 'story', x: st.x, z: st.z }); continue; }   // at any range
