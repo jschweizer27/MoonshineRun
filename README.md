@@ -71,9 +71,36 @@ Enter, the D-pad and A/B, or touch.
    - win over the Jockey;
    - get into the Harrow Stables office one night.
 
-   Each chapter ends in a **clue** to who paid for the fire, and a tool. The farm tyres stop the
-   fields slowing you, so you can go round a roadblock across country. The notebook keeps the
-   steps and the clues.
+   **Chapter 3, The Western Line:**
+   - win Mags O'Rourke's trust;
+   - load two crates of Corn Shine onto the **midnight freight**, which stands at the Glyndon
+     siding only from 23:00 to 01:30;
+   - search the guard's van before it pulls out.
+
+   **Chapter 4, Stone and Iron:**
+   - collect Moss Delaney's crates at the Cockeysville quarry after dark;
+   - get them to Gus Kessler past the York Road checkpoint;
+   - win Sheriff Hale's trust (from then on, he can make a bust in the county go away, for a
+     price);
+   - buy his buried report on the fire at the lockup.
+
+   **Chapter 5, Drowned Warren:** drive out east of Cockeysville to **Loch Raven**, where the
+   mill town of Warren went under the reservoir, and search the drowned mill after dark. Then
+   get away.
+
+   Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
+   - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
+   - the **false bottom** hides two crates from a search;
+   - the **police-band radio** shows every Bureau car on the radar, and which way it's looking.
+
+   While a step waits on someone, they post an order every day. Some steps put a **story order**
+   in the book: no deadline, but it can't be dropped. The notebook keeps the steps and the clues.
+
+   **The endings.** After chapter 5 the choice is yours, and it ends the story:
+   - **the deed:** buy back Braun & Sons at Lexington Market ($20,000) and go legit;
+   - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
+
+   Either way the roads stay open afterwards.
 2. Find **salvage**. Wrecked trucks in the ditch, abandoned farmhouses and rail sidings out in
    the county, and back-alley cellars in the city hold crates, bottle cases, sacks, barrels,
    jugs, kegs, copper and more. A **SALVAGE** sign marks the nearest one, and ⊗ marks them
@@ -162,8 +189,7 @@ Enter, the D-pad and A/B, or touch.
    recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
    three **abilities**: the **Jockey's Tip** (every salvage site on the radar for a while),
    **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
-12. At the top rank, the bank will sell you back the **Braun & Sons deed** at Lexington Market.
-   That's the end of the story so far; the roads stay open after it.
+12. The story ends with **the deed or the paper** (above). The roads stay open after it.
 13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
@@ -260,7 +286,7 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   `node scripts/economy.mjs 10` plays ten game minutes on autopilot and prints what the run
   earns a minute, for tuning prices and upgrade costs (`node scripts/economy.mjs 10 0 3 rare`
   uses city seed 3 and fetches rare finds; compare a few seeds). `node scripts/progress.mjs
-  200` projects, from that $/min and the tuning, the hour each rank and the deed come for a
+  200` projects, from that $/min and the tuning, the hour each rank comes and the cash for the deed, for a
   busy player and an easy one.
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
   clock stands still), `?seed=123` (a different city layout).

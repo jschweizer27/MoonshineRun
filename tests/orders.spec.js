@@ -140,7 +140,7 @@ test('trust: a contact who comes to trust Otto opens up at the handoff, and the 
   expect(problems).toEqual([]);
 });
 
-test('Sheriff Hale: once he trusts Otto, a bust out in the county goes away for a price; in the city the Bureau answers to no sheriff', async ({ page }) => {
+test('Sheriff Hale: once he trusts Otto (and chapter 4 opens bribery), a bust out in the county goes away for a price; in the city the Bureau answers to no sheriff', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   const r = await page.evaluate(() => {
@@ -148,6 +148,7 @@ test('Sheriff Hale: once he trusts Otto, a bust out in the county goes away for 
     g.renderer.setAnimationLoop(null);
     const load = () => { g.trunk.clear(); const s = g.trunk.findSpot('corn-shine'); g.trunk.place('corn-shine', s.x, s.y, s.rot); };
     d.trust.sheriff = 6;
+    d.flags.bribery = true;                                  // chapter 4 opened it (chapters.js)
     d.cash = 1000;
     load();
     g.player.place(0, -600, 0);

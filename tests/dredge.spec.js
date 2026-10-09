@@ -787,8 +787,8 @@ test('market events: from day 1 a town pays double for one kind, announced when 
     const plain = priceOf(ev.town, ev.kind, at);
     M.event.multiplier = 2;
     // The day turns from 1 to 2: a toast, and the empty-trunk banner names the demand (once
-    // the chapters are done; before that it shows the chapter's step).
-    g.dredge.data.chapter = 99;
+    // the story's over; before that it shows the chapter's step, or the ending's choice).
+    g.dredge.data.chapter = 99; g.dredge.data.ending = 'paper';
     g.dredge.market.clock = 47.99; g._eventDay = 1;
     window.shine.step(1 / 60);
     g.dredge.market.clock = 48.01;

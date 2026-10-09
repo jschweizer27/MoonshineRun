@@ -248,7 +248,7 @@ export const CONFIG = {
       { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4, the Cockeysville Quarry Store' },
       { name: 'Brewer', rep: 150, unlocks: 'Barrel Rye, Sweet Talk (3), Sheriff Hale’s jobs' },
       { name: 'Bootlegger', rep: 250, unlocks: 'Highlandtown Lager, upgrade level 5' },
-      { name: 'King of York Road', rep: 360, unlocks: 'the Braun & Sons deed, at Lexington Market' },
+      { name: 'King of York Road', rep: 360, unlocks: 'a name every speakeasy in Baltimore knows' },
     ],
     repPerBrew: 6,
     repPerFind: 5,
@@ -261,8 +261,23 @@ export const CONFIG = {
       leadfoot: { name: 'Lead Foot', key: '2', rank: 2, seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
       sweet: { name: 'Sweet Talk', key: '3', rank: 3, cooldown: 180, bonus: 0.2 },
     },
-    // The ending: buy back the Braun & Sons brewery deed at Lexington Market, at the top rank.
-    deed: { cost: 20000, rank: 5, town: 'baltimore' },
+    // One of the two endings (chapters.js ENDINGS): once the story's last chapter is done, buy
+    // back the Braun & Sons brewery deed at Lexington Market.
+    deed: { cost: 20000, town: 'baltimore' },
+    // The story's own numbers (chapters.js). The midnight freight stands at the Glyndon siding
+    // in its `window` (game hours, wrapping past midnight; railway.js), and chapter 3's load
+    // onto it (`count` crates of `kind`) pays `pay` and `rep`. Chapter 4: Moss Delaney's
+    // consignment (`count` crates of `kind` at quality `q`, into the blend on hand) and the
+    // run with it to Gus Kessler (`run`); what Sheriff Hale asks for his report (`report`).
+    // Chapter 5's ambush at Warren: the heat it starts at, the seconds it holds before it can
+    // cool, and how far out (metres) the cars come in. PLACEHOLDERS: tune after playtesting.
+    story: {
+      freight: { window: [23, 1.5], kind: 'corn-shine', count: 2, pay: 350, rep: 15 },
+      consignment: { kind: 'corn-shine', count: 2, q: 0.6 },
+      run: { kind: 'corn-shine', count: 2, pay: 420, rep: 20 },
+      report: 500,
+      ambush: { tier: 3, hold: 12, range: [70, 150] },
+    },
     // Brewing at Otto's still (src/brew.js), in three phases:
     // 1. The fire (`seconds`): hold STOKE to raise the temperature (`heat.up` a second), let
     //    go and it falls (`heat.down`), keeping it in a band that drifts around
@@ -347,11 +362,12 @@ export const CONFIG = {
     // Trust (0-5) is per contact: `trustPer` points a level; an order delivered is +1 (+1 more
     // for grade A shine), dropped -1, late -2, tainted shine -3. Higher trust asks for more
     // and better: from level 2 some orders want grade B, from 4 grade A, from 3 one crate more.
-    // At `sceneAt` a contact opens up at the handoff; with the Sheriff at `bribeAt`, a bust in
-    // the county goes away for `bribe` x the fine. PLACEHOLDERS: tune after playtesting.
+    // At `sceneAt` a contact opens up at the handoff; once chapter 4 opens bribery, with the
+    // Sheriff at `bribeAt` a bust in the county goes away for `bribe` x the fine.
+    // PLACEHOLDERS: tune after playtesting.
     contracts: {
       perDay: 4, book: 3, farmShare: 0.4, payMult: 1.7, nightPay: 2.4, repPer: 20, failRep: 15, hours: [8, 16], radius: 9, dawnMin: 4,
-      distPay: 0.35, trustPay: 0.08, trustPer: 2, sceneAt: 3, bribeAt: 3, bribe: 1.5,
+      distPay: 0.35, trustPay: 0.08, trustPer: 2, sceneAt: 3, bribeAt: 2, bribe: 1.5,
       farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
       barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
       shine: ['corn-shine', 'applejack', 'rye', 'lager'],
@@ -375,9 +391,16 @@ export const CONFIG = {
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
         siding: { name: 'Rail siding', game: 'pry', color: '#5a6066', yields: { coil: 3, barrel: 2, 'long-crate': 2, crate: 2, keg: 1 } },
         cellar: { name: 'Back-alley cellar', game: 'search', color: '#6a4e3a', yields: { 'bottle-case': 3, jugs: 2, keg: 2, strongbox: 1, radio: 1 } },
-        // Story sites (chapters.js): open only while their chapter step is.
+        // Story sites (chapters.js): open only while their chapter step is. `game` is the
+        // mini-game, or 'none' (handed over), 'pay' (a price, chapters.js `price`) or 'give'
+        // (the Sun: one of the endings). `wait` is said when stopping outside its hours.
         ruins: { name: 'Ruins of Braun & Sons', game: 'search', color: '#3a3430', yields: { coil: 1 } },
         office: { name: 'Harrow Stables office', game: 'pry', color: '#7a6248', yields: { coil: 1 } },
+        waybills: { name: 'The guard’s van', game: 'search', color: '#8a2a1c', yields: { crate: 1 }, wait: 'The midnight freight isn’t in. It stands at the Glyndon siding from 23:00 to 01:30.' },
+        consignment: { name: 'Moss Delaney’s consignment', game: 'none', color: '#a89a80', yields: { crate: 1 } },
+        report: { name: 'Sheriff Hale’s lockup', game: 'pay', color: '#5a6066', yields: { crate: 1 } },
+        mill: { name: 'The drowned mill at Warren', game: 'search', color: '#4a5a5e', yields: { crate: 1 } },
+        sun: { name: 'The Baltimore Sun', game: 'give', color: '#d8d2c4', yields: { crate: 1 } },
       },
       // Pry: a needle sweeps the ring and turns back at each hit; press inside a green arc.
       // `arcs` to hit within `seconds`, `strikes` misses and the wood splinters.

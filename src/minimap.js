@@ -61,7 +61,7 @@ export class MiniMap {
     this._routeTimer = 0.5;
     this._routeTarget = { x: to.x, z: to.z };
     const roads = this.world.roads;
-    const a = roads.nearest(from.x, from.z), b = roads.nearest(to.x, to.z);
+    const a = this.world.nearestNode(from.x, from.z), b = this.world.nearestNode(to.x, to.z);   // each on its side of the wall
     const ids = roads.path(a.id, b.id, this.blocked) || roads.path(a.id, b.id) || [];
     this.route = [...ids.map((i) => roads.nodes[i]), { x: to.x, z: to.z }];
   }
@@ -111,7 +111,7 @@ export class MiniMap {
       return [c + dx, c + dz, edge];
     };
     const r = size * 0.045;
-    for (const m of markers) { const [x, y] = place(m.x, m.z); drawMarker(g, m.kind, x, y, r); }
+    for (const m of markers) { const [x, y] = place(m.x, m.z); drawMarker(g, m.kind, x, y, r, m.look == null ? null : m.look - (this.rotate ? h : 0)); }
     drawPlayer(g, c, c, this.rotate ? 0 : h, r * 1.3);
     if (this.rotate) {
       const [nx, ny] = [c + (c - size * 0.08) * Math.sin(-h), c - (c - size * 0.08) * Math.cos(-h)];
@@ -156,14 +156,24 @@ export class MiniMap {
       for (const l of this.world.mapLabels) g.fillText(l.text, X(l.x), Z(l.z));
     }
     const r = size / 70;
-    for (const m of markers) drawMarker(g, m.kind, X(m.x), Z(m.z), r);
+    for (const m of markers) drawMarker(g, m.kind, X(m.x), Z(m.z), r, m.look ?? null);
     drawPlayer(g, X(player.position.x), Z(player.position.z), player.heading, r * 1.5);
   }
 }
 
 // market = hexagon, loot = small square, premium loot = a bigger diamond (shape + colour for
 // colour-blind players)
-function drawMarker(g, kind, x, y, r) {
+// `look`: the heading a Bureau car faces (the police-band radio), drawn as a pale wedge.
+function drawMarker(g, kind, x, y, r, look = null) {
+  if (look != null) {
+    const a = look - Math.PI / 2;
+    g.fillStyle = 'rgba(232, 115, 90, 0.28)';
+    g.beginPath();
+    g.moveTo(x, y);
+    g.arc(x, y, r * 3.4, a - 0.6, a + 0.6);
+    g.closePath();
+    g.fill();
+  }
   g.lineWidth = Math.max(1.5, r * 0.3);
   g.strokeStyle = '#0b0d14';
   g.fillStyle = COLORS[kind] || '#fff';

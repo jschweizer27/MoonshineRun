@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { atlasMaterial } from './atlas.js';
 import { createRng } from './rng.js';
+import { LOCH, lochLayout, buildLoch, addLochRoads } from './loch.js';
+import { RAILWAY } from './railway.js';
 
 // Green Spring Valley: farm roads north of Baltimore up York Road, with red barns (one of
 // them Otto's), woods, stone walls, white steeplechase fences and the village of Monkton
@@ -63,14 +65,14 @@ export function buildCounty(world, rng) {
   world.collision.addZone(COUNTY.minX, COUNTY.minZ, COUNTY.maxX, COUNTY.maxZ);
   world.collision.addZone(-7, -262, 7, -215);
 
-  // Grass.
+  // Grass, running on east under Loch Raven (loch.js) at the same density.
   const grass = new THREE.CanvasTexture(noiseCanvas(rng, 256, ['#23311c', '#2a3a20', '#1d2917', '#314224']));
   grass.colorSpace = THREE.SRGBColorSpace;
   grass.wrapS = grass.wrapT = THREE.RepeatWrapping;
-  grass.repeat.set(70, 60);
-  const gw = COUNTY.maxX - COUNTY.minX + 60, gd = COUNTY.maxZ - COUNTY.minZ + 60;
+  const gx0 = COUNTY.minX - 30, gx1 = LOCH.maxX + 30, gw = gx1 - gx0, gd = COUNTY.maxZ - COUNTY.minZ + 60;
+  grass.repeat.set((70 * gw) / (COUNTY.maxX - COUNTY.minX + 60), 60);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
-  ground.position.set(0, -0.01, (COUNTY.minZ + COUNTY.maxZ) / 2);
+  ground.position.set((gx0 + gx1) / 2, -0.01, (COUNTY.minZ + COUNTY.maxZ) / 2);
   scene.add(ground);
 
   // Dirt roads as one merged ribbon mesh with world-space texture coordinates.
@@ -85,12 +87,16 @@ export function buildCounty(world, rng) {
       edges.push([a, b, n.tag === 'lane' || m.tag === 'lane' ? 7 : ROAD_W]);
     }
   }
-  world.countyEdges = edges;
+  // Loch Raven's roads (loch.js), east through the wall: added after the county's own edges
+  // are listed, so the woods and the villages (which read `edges`) never see them and every
+  // random draw stays put. The ribbon draws them, and the fields count them as road.
+  const lochEdges = addLochRoads(world, ids);
+  world.countyEdges = edges.concat(lochEdges);
   const dirt = new THREE.CanvasTexture(noiseCanvas(rng, 256, ['#5a4a36', '#65543d', '#4f412f', '#6f5d44']));
   dirt.colorSpace = THREE.SRGBColorSpace;
   dirt.wrapS = dirt.wrapT = THREE.RepeatWrapping;
   world.dirtMaterial = new THREE.MeshStandardMaterial({ map: dirt, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1 });
-  const roads = new THREE.Mesh(ribbonGeometry(edges, world.roads.nodes.filter((n) => n.tag !== 'city')), world.dirtMaterial);
+  const roads = new THREE.Mesh(ribbonGeometry(world.countyEdges, world.roads.nodes.filter((n) => n.tag !== 'city')), world.dirtMaterial);
   scene.add(roads);
 
   // Barns (instanced bodies and roofs) with a lantern by each door.
@@ -154,10 +160,13 @@ export function buildCounty(world, rng) {
   const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(3.2, 0).translate(0, 6.2, 0),
     new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), trees.length);
   const greens = [0x24381f, 0x2c4424, 0x1f3019, 0x34502a, 0x2a3b1c];
-  // A tree standing on a village house is left out (scaled to nothing, no collider). It
-  // still draws its random numbers, so everything built after the woods stays put.
+  // A tree standing on a village house, on a road out to Loch Raven or beside the railway
+  // along the west edge (railway.js) is left out (scaled to nothing, no collider). It still
+  // draws its random numbers, so everything built after the woods stays put. (Only trees
+  // that close: wider, and some salvage site that a tree turned away would move.)
   const onHouse = ([x, z]) => village.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3)
-    || quarry.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3);
+    || quarry.some((h) => Math.hypot(x - h.x, z - h.z) < Math.hypot(h.w, h.d) / 2 + 3)
+    || x < RAILWAY.clear || lochEdges.some(([a, b]) => distToSegment(x, z, a, b) < 8);
   trees.forEach(([x, z, sc], i) => {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * Math.PI * 2);
     const k = onHouse([x, z]) ? 0 : 1;
@@ -198,8 +207,13 @@ export function buildCounty(world, rng) {
 
   // Low fieldstone walls mark the edge of the county, and the quarry's cut blocks are stacked
   // in layers of the same stone (one instanced draw for them all).
+  // The east wall opens where the roads to Loch Raven go through.
   const { minX, maxX, minZ, maxZ } = COUNTY;
-  const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], [maxX, minZ, maxX, maxZ], [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
+  const east = [];
+  let from = minZ;
+  for (const z of [...world.lochGaps].sort((a, b) => a - b)) { east.push([maxX, from, maxX, z - 8]); from = z + 8; }
+  east.push([maxX, from, maxX, maxZ]);
+  const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], ...east, [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
   const blocks = quarry.flatMap((b) => Array.from({ length: b.layers }, (_, k) => [b, k]));
   const wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.2, 1).translate(0, 0.6, 0),
     atlasMaterial(world.atlas, { side: 'fieldstone', tile: 2.5, color: 0xb8b8b8, roughness: 1 }), walls.length + blocks.length);
@@ -219,6 +233,13 @@ export function buildCounty(world, rng) {
   }
   wallMesh.instanceMatrix.needsUpdate = true;
   scene.add(wallMesh);
+
+  // Loch Raven (loch.js): its own random stream and meshes, in the county's kit.
+  buildLoch(world, lochLayout(world.seed ?? 0, lochEdges), {
+    box: body.geometry, body: body.material, roofShape: roof.geometry, roof: roof.material,
+    trunkShape: trunk.geometry, trunk: trunk.material, crownShape: crown.geometry, crown: crown.material,
+    wallShape: wallMesh.geometry, stone: wallMesh.material,
+  });
 
   return { barns: barnSpots, home };
 }

@@ -198,7 +198,7 @@ body.touch-mode .hud-br { bottom: 250px; }
 #salvage-grid button:disabled { cursor: default; }
 #salvage-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #salvage-progress i { display: block; height: 100%; width: 100%; background: var(--gold); }
-#pause, #settings, #help, #map, #confirm, #ledger, #notebook, #slots, #barn, #still, #salvage { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#pause, #settings, #help, #map, #confirm, #ledger, #notebook, #slots, #barn, #still, #salvage, #ending { background: rgba(3, 4, 7, 0.82); z-index: 25; }
 #dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
 #dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
 .dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }
@@ -338,6 +338,10 @@ body.touch-mode .hud-br { bottom: 250px; }
 #ledger-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin-bottom: 16px; text-align: left; font-family: "Courier New", Courier, monospace; font-size: calc(14px * var(--ts)); }
 #ledger-totals div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(216, 178, 90, 0.3); padding: 3px 0; }
 #ledger-totals b { color: var(--gold); }
+#ending .overlay-card { max-width: 720px; }
+#ending-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin: 12px 0 18px; text-align: left; font-family: "Courier New", Courier, monospace; font-size: calc(14px * var(--ts)); }
+#ending-stats div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(216, 178, 90, 0.3); padding: 3px 0; }
+#ending-stats b { color: var(--gold); }
 #ledger-runs { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-family: "Courier New", Courier, monospace; font-size: calc(13px * var(--ts)); text-align: left; }
 #ledger-runs th { color: var(--gold); font-weight: normal; border-bottom: 1px solid rgba(216, 178, 90, 0.5); padding: 4px; }
 #ledger-runs td { padding: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #d8cfb8; }

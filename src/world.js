@@ -6,6 +6,8 @@ import { createRng } from './rng.js';
 import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
 import { buildCounty, COUNTY } from './county.js';
+import { LOCH, LAKE, WARREN, crossesLake } from './loch.js';
+import { RAILWAY } from './railway.js';
 import { ATLAS, region, makePaintedAtlas, atlasMaterial, uvToRegion } from './atlas.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 
@@ -244,6 +246,27 @@ export class World {
   }
 
   inCounty(p) { return p.z < -250; }
+
+  // Which side of the county's east wall a point is on: 'loch' (Loch Raven, loch.js) or
+  // 'main'. The nearest road node to a point is taken on its own side (`nearestNode`), so a
+  // route or a Bureau car never starts out through the wall.
+  regionOf(x) { return x > LOCH.minX ? 'loch' : 'main'; }
+
+  nearestNode(x, z, filter = null) {
+    const loch = this.regionOf(x) === 'loch';
+    return this.roads.nearest(x, z, (n) => (n.region === 'loch') === loch && (!filter || filter(n)));
+  }
+
+  // Would a straight run from a to b cross Loch Raven's water?
+  crossesWater(a, b) { return crossesLake(a.x, a.z, b.x, b.z); }
+
+  // Loch Raven's meshes hide when the camera is far off (the fog has them by then), so the
+  // city's views draw nothing more.
+  updateFar(cam) {
+    if (!this.lochGroup) return;
+    const dx = Math.max(0, LOCH.minX - cam.x, cam.x - LOCH.maxX), dz = Math.max(0, LOCH.minZ - cam.z, cam.z - LOCH.maxZ);
+    this.lochGroup.visible = Math.hypot(dx, dz) < 480;
+  }
 
   // Nothing solid between two points on the ground (an agent's view of the truck).
   lineOfSight(a, b) { return !this.collision.segmentBlocked(a.x, a.z, b.x, b.z); }
@@ -882,32 +905,48 @@ export class World {
     this.lampPools.instanceColor.needsUpdate = true;
   }
 
-  // The Inner Harbor beyond the docks.
+  // The Inner Harbor beyond the docks, and Loch Raven's water (loch.js): just over the
+  // grass and nudged forward in depth so the grass never shows through at a distance; it
+  // only takes shadows, and hides with the region.
   _buildWater() {
     this.waterMaterial = new THREE.MeshStandardMaterial({ color: 0x0f1c26, roughness: 0.25, metalness: 0.4 });
     const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 700).rotateX(-Math.PI / 2), this.waterMaterial);
     water.position.set(0, -0.3, 600);
     this.scene.add(water);
+    this.lakeMaterial = new THREE.MeshStandardMaterial({ color: 0x1c2a34, roughness: 0.16, metalness: 0.35, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const lake = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(LAKE.map(([x, z]) => new THREE.Vector2(x, -z)))).rotateX(-Math.PI / 2), this.lakeMaterial);
+    lake.position.y = 0.05;
+    lake.name = 'lake';
+    lake.userData.noShadow = true;
+    (this.lochGroup || this.scene).add(lake);
+    this.lake = lake;
   }
 
   _buildBounds() {
     const e = this.edge;
     this.collision.addZone(-e, -e, e, e);
-    this.mapBounds = { minX: COUNTY.minX - 20, maxX: COUNTY.maxX + 20, minZ: COUNTY.minZ - 20, maxZ: 300 };
+    this.mapBounds = { minX: COUNTY.minX - 20, maxX: LOCH.maxX + 20, minZ: COUNTY.minZ - 20, maxZ: 300 };
     this.mapLabels = [
       { text: 'HIGHLANDTOWN', x: 175, z: 22 }, { text: 'FELLS POINT', x: 150, z: 198 },
       { text: 'MOUNT VERNON', x: 0, z: -110 }, { text: 'LITTLE ITALY', x: 60, z: 110 },
       { text: 'HAMPDEN', x: -175, z: -154 }, { text: 'FEDERAL HILL', x: -110, z: 198 },
       { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
       { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 }, { text: 'GLYNDON', x: -390, z: -742 },
-      { text: 'COCKEYSVILLE', x: 392, z: -702 },
+      { text: 'COCKEYSVILLE', x: 392, z: -702 }, { text: 'LOCH RAVEN', x: 690, z: -822 }, { text: 'WARREN', x: WARREN.x, z: WARREN.z + 30 },
     ];
   }
 
-  // Background of the prerendered map: county fields, woods and the harbor.
+  // Background of the prerendered map: county fields, Loch Raven, woods, the railway and the
+  // harbor.
   drawMapGround(g, X, Z, s) {
     g.fillStyle = '#16211a';
     g.fillRect(X(COUNTY.minX), Z(COUNTY.minZ), (COUNTY.maxX - COUNTY.minX) * s, (COUNTY.maxZ - COUNTY.minZ) * s);
+    g.fillRect(X(LOCH.minX), Z(LOCH.minZ), (LOCH.maxX - LOCH.minX) * s, (LOCH.maxZ - LOCH.minZ) * s);
+    g.fillStyle = '#0f1c26';
+    g.beginPath();
+    LAKE.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](X(x), Z(z)));
+    g.closePath();
+    g.fill();
     g.fillStyle = '#0f1c26';
     g.fillRect(X(this.mapBounds.minX), Z(250), (this.mapBounds.maxX - this.mapBounds.minX) * s, 60 * s);
     g.fillStyle = '#1d2c1e';
@@ -915,6 +954,15 @@ export class World {
     g.fillRect(X(-R * B - 22), Z(-R * B - 22), (R * B * 2 + 44) * s, (R * B * 2 + 44) * s);
     g.fillStyle = '#243a22';
     for (const [x, z, sc] of this.trees || []) { g.beginPath(); g.arc(X(x), Z(z), 2.6 * sc * s, 0, Math.PI * 2); g.fill(); }
+    // The railway: a dark line with ties.
+    g.strokeStyle = '#3e3a35';
+    g.lineWidth = Math.max(1, 2.2 * s);
+    g.setLineDash([Math.max(2, 5 * s), Math.max(1, 2 * s)]);
+    g.beginPath();
+    g.moveTo(X(RAILWAY.x), Z(RAILWAY.z0)); g.lineTo(X(RAILWAY.x), Z(RAILWAY.z1));
+    g.moveTo(X(RAILWAY.siding.x), Z(RAILWAY.siding.z0 + 14)); g.lineTo(X(RAILWAY.siding.x), Z(RAILWAY.siding.z1 - 14));
+    g.stroke();
+    g.setLineDash([]);
   }
 
   // A road node position, optionally at least `minDist` from `avoid`.
@@ -963,12 +1011,13 @@ export class World {
     m.target.updateMatrixWorld();
   }
 
-  // Everything solid casts and receives shadows; flat ground only receives.
+  // Everything solid casts and receives shadows; flat ground (and anything marked
+  // `userData.noShadow`: the lake, the railway's track) only receives.
   enableShadows(root = this.scene) {
     root.traverse((o) => {
       if (!o.isMesh || !o.material || o.material.transparent || !o.material.isMeshStandardMaterial) return;
       o.receiveShadow = true;
-      o.castShadow = o.geometry.type !== 'PlaneGeometry';
+      o.castShadow = o.geometry.type !== 'PlaneGeometry' && !o.userData.noShadow;
     });
   }
 

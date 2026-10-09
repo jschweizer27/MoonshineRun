@@ -33,6 +33,7 @@ const DEFAULT = {
   opened: {},                // chapter id -> true once its opening card has played
   clues: {},                 // clue id -> true once found
   tools: {},                 // tool id -> true once earned
+  ending: null,              // 'deed' or 'paper' once an ending is chosen (chapters.js ENDINGS)
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
@@ -94,6 +95,9 @@ export class DredgeCareer {
     d.chapter = Number(d.chapter) || 0;
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
+    d.ending = d.ending || null;
+    // Bribery waits on chapter 4 now; a save whose Sheriff already took envelopes keeps it.
+    if (d.flags.bribery == null && (d.trust.sheriff || 0) >= CONFIG.dredge.contracts.trustPer * 3) d.flags.bribery = true;
     this.data = d;
   }
 

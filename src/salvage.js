@@ -3,6 +3,8 @@ import { CONFIG } from './config.js';
 import { createRng } from './rng.js';
 import { KINDS } from './trunk.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
+import { RAILWAY, inWindow } from './railway.js';
+import { MILL } from './loch.js';
 
 // Salvage sites: where Otto finds things now (CONFIG.dredge.salvage). Wrecks in the ditch,
 // abandoned farmhouses and rail sidings out in the county, back-alley cellars in the city,
@@ -23,7 +25,7 @@ export function placeSites(world, seed = 1) {
   for (const a of N) for (const id of a.links) {
     const b = N[id];
     if (id > a.id) all.push([a, b]);
-    if (id > a.id && a.tag === 'county' && b.tag === 'county') edges.push([a, b]);
+    if (id > a.id && a.tag === 'county' && b.tag === 'county' && !a.region && !b.region) edges.push([a, b]);   // not Loch Raven's (loch.js)
   }
   // Clear of every road (the heap, not just its stop point, stays off the roadway).
   const offRoad = (x, z, d) => all.every(([a, b]) => {
@@ -58,18 +60,37 @@ export function placeSites(world, seed = 1) {
 }
 
 // The story sites (chapters.js), placed on their own (no random draws, so nothing else moves):
-// the ruins of Braun & Sons on a sidewalk near the Highlandtown Speakeasy, and the Harrow
-// Stables office beside that barn. Each is the nearest clear spot to its anchor.
-export function placeStory(world) {
+// the ruins of Braun & Sons on a sidewalk near the Highlandtown Speakeasy, the Harrow
+// Stables office beside that barn, the guard's van at the Glyndon siding (railway.js), Moss
+// Delaney's consignment by the Cockeysville quarry yard, Sheriff Hale's lockup, the drowned
+// mill at Warren (loch.js) and the Baltimore Sun downtown. Each is the nearest clear spot to
+// its anchor; the newer ones also keep clear of the regular sites (`regular`) and each other.
+export function placeStory(world, regular = []) {
   const c = world.collision, out = [];
   const clear = (x, z, r) => !c.resolveCircle(x, z, r).hit;
-  // The ruins: a lamp-side sidewalk spot (like the cellars), near (176, 44), not on the corner.
-  const near = world.lampSpots.filter((sp) => sp.pole && !world.inCounty(sp))
-    .map((sp) => ({ sp, d: Math.hypot(sp.x - 176, sp.z - 44) })).filter((e) => e.d > 18).sort((a, b) => a.d - b.d);
-  for (const { sp } of near) {
-    const along = 6, x = sp.x + sp.tz * along, z = sp.z - sp.tx * along, stopX = x + sp.tx * 4, stopZ = z + sp.tz * 4;
-    if (clear(x, z, 1.2) && clear(stopX, stopZ, 1.6)) { out.push({ kind: 'ruins', story: 'ruins', x, z, stopX, stopZ }); break; }
-  }
+  const apart = (x, z, d = 20) => [...regular, ...out].every((s) => Math.hypot(s.x - x, s.z - z) > d);
+  // A sidewalk spot by a lamp (like the cellars): the nearest to (ax, az) at least `from`
+  // metres off it (off the corner itself).
+  const sidewalk = (story, kind, ax, az, from, check = () => true) => {
+    const near = world.lampSpots.filter((sp) => sp.pole && !world.inCounty(sp))
+      .map((sp) => ({ sp, d: Math.hypot(sp.x - ax, sp.z - az) })).filter((e) => e.d > from).sort((a, b) => a.d - b.d);
+    for (const { sp } of near) {
+      const along = 6, x = sp.x + sp.tz * along, z = sp.z - sp.tx * along, stopX = x + sp.tx * 4, stopZ = z + sp.tz * 4;
+      if (clear(x, z, 1.2) && clear(stopX, stopZ, 1.6) && check(x, z)) { out.push({ kind, story, x, z, stopX, stopZ }); return; }
+    }
+  };
+  // Out in the county: the nearest clear spot to (ax, az), its stop `toward` (dx, dz) 6 m
+  // off, with a clear way between.
+  const field = (story, kind, ax, az, [dx, dz], check = () => true) => {
+    for (let r = 0; r <= 24; r += 3) {
+      for (let k = 0; k < (r ? 16 : 1); k++) {
+        const a = (k / 16) * Math.PI * 2, x = ax + Math.cos(a) * r, z = az + Math.sin(a) * r, stopX = x + dx * 6, stopZ = z + dz * 6;
+        if (clear(x, z, 2.2) && clear(stopX, stopZ, 1.8) && clear((x + stopX) / 2, (z + stopZ) / 2, 1.6) && apart(x, z) && check(x, z)) { out.push({ kind, story, x, z, stopX, stopZ }); return; }
+      }
+    }
+  };
+  // The ruins: near (176, 44), not on the corner.
+  sidewalk('ruins', 'ruins', 176, 44, 18);
   // The office: beside the Harrow Stables barn, its stop in the yard.
   const harrow = world.barns.find((b) => b.name === 'Harrow Stables');
   if (harrow) {
@@ -81,11 +102,23 @@ export function placeStory(world) {
       }
     }
   }
+  // Chapter 3: the guard's van, at the freight's south end (the stop away from the train).
+  field('van', 'waybills', RAILWAY.van.x, RAILWAY.van.z, [1, 0], (x) => x > RAILWAY.siding.x + 6);
+  // Chapter 4: Delaney's consignment on the quarry yard's north side, clear of the store's
+  // ring; the Sheriff's report round the back of his lockup, clear of where his orders go.
+  const town = (x, z) => Math.hypot(x - 400, z + 650) > 26;
+  field('quarry', 'consignment', 428, -674, [-1, 0], town);
+  if (world.lockup) field('lockup', 'report', 418, -628, [-1, 0], (x, z) => town(x, z) && Math.hypot(x - world.lockup.x, z - world.lockup.z) > 20);
+  // Chapter 5: the mill by the Warren landing on Loch Raven.
+  field('mill', 'mill', MILL.x, MILL.z, [-0.77, 0.63]);
+  // The paper: the Sun's office on Charles Street by the harbour, away from the speakeasies.
+  sidewalk('sun', 'sun', 0, 205, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 40));
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }
 
 export const isNight = (hour) => hour >= S.night[0] || hour < S.night[1];
+export { inWindow };
 
 // ---------- Pry: a needle sweeps the ring; press while it's in a green arc. ----------
 export function newPry(rng = Math.random) {
@@ -168,9 +201,10 @@ export function payout(kind, sc, rng = Math.random) {
 // { [id]: day worked } (dredgecareer `data.sites`).
 export class Salvage {
   constructor(scene, world, seed = 1) {
-    this.sites = [...placeSites(world, seed), ...placeStory(world)];
+    const regular = placeSites(world, seed);
+    this.sites = [...regular, ...placeStory(world, regular)];
     this.state = {};
-    this.story = {};        // the story sites open now: { [story]: { night } } (chapters.js openSites)
+    this.story = {};        // the story sites open now: { [story]: { night, window } } (chapters.js openSites)
     for (const s of this.sites) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
     const parts = [
       new THREE.BoxGeometry(1.4, 1.1, 1.2).translate(-0.6, 0.55, 0.2),
@@ -199,11 +233,13 @@ export class Salvage {
     return d + S.refillDays[0] + (h % (S.refillDays[1] - S.refillDays[0] + 1));
   }
 
-  // 'ok' to work, 'empty' (worked, not back yet) or 'day' (a night-only site, by day).
+  // 'ok' to work, 'empty' (worked, not back yet) or 'day' (a night-only site, by day); a
+  // story site is 'hidden' until its step opens it, and 'closed' outside its hours.
   status(site, day, hour) {
     if (site.story) {
       const open = this.story[site.story];
       if (!open) return 'hidden';
+      if (open.window && !inWindow(hour, open.window)) return 'closed';
       return open.night && !isNight(hour) ? 'day' : 'ok';
     }
     if (day < this.refillDay(site)) return 'empty';

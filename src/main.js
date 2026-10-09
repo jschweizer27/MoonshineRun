@@ -11,11 +11,13 @@ import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { Environment } from './environment.js';
-import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, playDialog, money } from './screens.js';
+import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, playDialog, money } from './screens.js';
 import { Salvage, payout } from './salvage.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
-import { advance, current, openSites } from './chapters.js';
+import { Railway, RAILWAY, inWindow } from './railway.js';
+import { LOCH_NODES, WARREN } from './loch.js';
+import { advance, current, openSites, choiceOpen, ENDINGS } from './chapters.js';
 import { consume, onHand, blend } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText, trustLevel, nextDawn } from './contracts.js';
 import { KINDS } from './trunk.js';
@@ -36,6 +38,8 @@ import { MATERIALS, WHEELS } from './models.js';
 import { MODELS, loadModels } from './assets.js';
 
 const STATE = { INTRO: 'intro', PLAYING: 'playing', PAUSED: 'paused' };
+// A window of game hours as a clock reads it: "23:00–01:30".
+const hoursText = ([a, b]) => [a, b].map((h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`).join('–');
 const $ = (id) => document.getElementById(id);
 
 // URL options: ?debug (dev overlay + test API), ?test (test API, deterministic: the clock
@@ -104,6 +108,8 @@ class Game {
     this.props = new Props(this.scene, this.world, this.citySeed);
     this.loot = new Loot(this.scene, this.world, this.citySeed);   // pieces thrown onto the road in a crash
     this.salvage = new Salvage(this.scene, this.world, this.citySeed);   // the sites where loot is found
+    this.railway = new Railway(this.scene, this.world);                   // the line down the west edge, and the midnight freight
+    this.railway.train.castShadow = true;
     this._breakRng = createRng((this.citySeed ^ 0xb4ea6) >>> 0);           // what breaks in a crash
     this.police = new Police(this.scene, this.world, this.citySeed);   // revenue agents, heat and the checkpoint
     this.police.enabled = OPTIONS.police;
@@ -346,7 +352,9 @@ class Game {
       wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
       light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
       wear: 1 - U.plating.step.wear * lv('plating'),       // share of a knock's wear taken
-      hidden: U.falsebottom.step.hidden * lv('falsebottom'), // crates of shine a search misses
+      // crates of shine a search misses (the upgrade's levels, and chapter 3's false bottom)
+      hidden: U.falsebottom.step.hidden * (lv('falsebottom') + (this.dredge.data.tools?.falsebottom ? 1 : 0)),
+      agentRange: this.dredge.data.tools?.policeband ? Infinity : D.police.mapRange,   // the radar's Bureau cars (all of them on the police band)
       cols, rows,
     };
     if (this.feel) { this._lampBase ??= this.feel.headlightBase; this.feel.headlightBase = this._lampBase * this.perks.light * (this.lightsOff ? 0 : 1); }
@@ -403,7 +411,8 @@ class Game {
     const d = this.dredge.data, parts = [`Slot ${slot}`];
     if (d.rank) parts.push(CONFIG.dredge.ranks[d.rank].name);
     if (s.sold) parts.push(`Cash on hand: ${money(this.dredge.cash)}`, `Sold so far: ${s.sold} piece${s.sold === 1 ? '' : 's'} for ${money(s.earned)}`);
-    if (d.flags.deed) parts.push('Braun & Sons is yours again');
+    if (d.ending) parts.push(ENDINGS[d.ending].after);
+    else if (d.flags.deed) parts.push('Braun & Sons is yours again');
     $('intro-best').textContent = this.dredge.started || s.sold ? parts.join(' · ') : '';
   }
 
@@ -522,6 +531,10 @@ class Game {
     this._dropLeft = true;
     this._siteLeft = true;
     this._pending = [];
+    this._jobWhy = this._siteWhy = '';
+    // A run cut short mid-ambush (quit, reload): Otto got away with the letters.
+    if (this.dredge.data.flags.ambush && !this.dredge.data.flags.escaped) { this.dredge.data.flags.escaped = true; this.dredge.save(); }
+    this._ambushOn = false;
     this._nightFrom = this._tally();
     this.salvage.state = this.dredge.data.sites;
     this.salvage.story = openSites(this.dredge.data);
@@ -614,6 +627,7 @@ class Game {
   _chapters() {
     const d = this.dredge.data, open = openSites(d);
     if (JSON.stringify(open) !== JSON.stringify(this.salvage.story)) { this.salvage.story = open; this.salvage.refresh(dayOf(this.dredge.market)); }
+    this._storyOrders();
     // The story moves on only out on the road, so its cards are never lost under a screen.
     if (this.state !== STATE.PLAYING) return false;
     const events = advance(d);
@@ -630,16 +644,65 @@ class Game {
     this.salvage.story = openSites(d);
     this.salvage.refresh(dayOf(this.dredge.market));
     if (tool) this._applyPerks();
+    this._storyOrders();
     this.dredge.save();
     const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
     if (events.some((e) => e.type === 'clue')) this.hud.toast('A clue for the notebook (B)', 'gold', 4000);
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
+    else if (done && choiceOpen(d)) this.hud.toast('The choice is yours: the deed, or the paper', 'gold', 4000);
     this._updateObjective();
-    if (!OPTIONS.story || !lines.length) return false;
+    // The trap at Warren springs once its cards are read (or at once without them).
+    const trap = events.some((e) => e.type === 'step' && e.step.ambush);
+    if (!OPTIONS.story || !lines.length) { if (trap) this._ambush(); return false; }
     this.pause({ showMenu: false });
     playDialog(this.ui, lines, { reducedMotion: !!this.settings.reducedMotion })
-      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); if (trap) this._ambush(); });
     return true;
+  }
+
+  // The chapter step's story order (chapters.js `order`) is in the book while the step is
+  // current, and only then. Once the Jockey has sold Otto out, his orders quietly go.
+  _storyOrders() {
+    const d = this.dredge.data, { step } = current(d);
+    const want = step?.order && !d.flags[`order:${step.id}`] ? step : null, had = d.orders.length;
+    d.orders = d.orders.filter((o) => (!o.story || o.story === want?.id) && !(d.flags.betrayed && o.who === 'jockey'));
+    let added = null;
+    if (want && !d.orders.some((o) => o.story === want.id)) d.orders.push(added = this._storyOrder(want));
+    if (!added && d.orders.length === had) return;
+    this.dredge.save();
+    this._updateJobMarker();
+    if (added) this.hud.toast(`In the book: ${wantsText(added.wants)} for ${added.name}, ${added.place}${added.window ? ` · ${hoursText(added.window)}` : added.night ? ' · after dark' : ''}`, 'gold', 4000);
+  }
+
+  // A story order (chapters.js `order`): no deadline (`due` null), only after dark or in its
+  // `window`, and not to be dropped. `at` is 'load' (the midnight freight) or a contact.
+  _storyOrder(step) {
+    const O = step.order, c = O.at === 'load' ? { ...RAILWAY.load, place: O.place } : this.contactList.find((x) => x.who === O.at);
+    return {
+      id: `story:${step.id}`, story: step.id, contact: c.id || null, who: O.who, name: CAST[O.who].name, place: O.place || c.place, kind: 'speakeasy', x: c.x, z: c.z,
+      wants: { ...O.wants }, grade: null, night: !!O.night, window: O.window || null, pay: O.pay, rep: O.rep, hours: 0, km: 0, line: '', due: null,
+    };
+  }
+
+  // Chapter 5's trap at Warren: the Bureau comes at once, every car (police.alert), and
+  // getting away with the letters is the chapter's last step. With the agents off (?test
+  // without &police) there's nobody to get away from.
+  _ambush() {
+    const d = this.dredge.data, A = CONFIG.dredge.story.ambush;
+    if (!d.flags.ambush || d.flags.escaped || this._ambushOn) return;
+    if (!this.police.enabled) { d.flags.escaped = true; this.dredge.save(); return; }
+    this._ambushOn = true;
+    for (const e of this.police.alert(this.player.position, A.tier, { hold: A.hold, range: A.range })) this._onPolice(e);
+    this._updateHeat();
+  }
+
+  // Away from the ambush: lost them, or busted (the letters were in Otto's coat).
+  _escaped() {
+    const d = this.dredge.data;
+    if (!d.flags.ambush || d.flags.escaped) return;
+    d.flags.escaped = true;
+    this._ambushOn = false;
+    this.dredge.save();
   }
 
   async _story(id) {
@@ -798,14 +861,17 @@ class Game {
     this._checkEvent();
     this._updateMarkers();
     this._tickAbilities();
-    this._checkContract();
-    this._checkMarket();
-    this._checkBarn();
-    this._checkDrop();
-    this._checkSalvage();
+    // The stops: once one opens a screen (the game pauses), the rest wait for the next step,
+    // so two never open on one stop.
+    for (const check of [this._checkContract, this._checkMarket, this._checkBarn, this._checkDrop, this._checkSalvage]) {
+      if (this.state !== STATE.PLAYING) break;
+      check.call(this);
+    }
     this._checkPlace();
     this._checkStory(dt);
     this.debris.update(dt);
+    // The midnight freight at Glyndon: in and out on its timetable, a whistle as it pulls in.
+    if (this.railway.update(this.env.hour, this.camera.position) === 'arrived' && Math.hypot(p.x - this.railway.train.position.x, p.z - this.railway.train.position.z) < 400) this.audio.whistle?.();
     const hour0 = this.env.hour;
     this.env.update(dt, this.camera.position);
     if (hour0 < 6 && this.env.hour >= 6) this._dawn();
@@ -836,6 +902,12 @@ class Game {
 
   // The named place nearest a spot in the county: a farm or a village.
   _landmark(x, z) {
+    if (this.world.regionOf(x) === 'loch') return Math.hypot(x - WARREN.x, z - WARREN.z) < 120 ? 'Warren' : 'Loch Raven';
+    if (!this.world.inCounty({ x, z })) {   // in the city: its nearest named quarter
+      let best = 'the city', bd = Infinity;
+      for (const l of this.world.mapLabels) if (l.z > -250 && Math.hypot(l.x - x, l.z - z) < bd) { bd = Math.hypot(l.x - x, l.z - z); best = l.text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
+      return best;
+    }
     let best = 'the valley', bd = Infinity;
     for (const p of [...(this.world.barns || []), ...(this.world.villages || [])]) {
       const d = Math.hypot(p.x - x, p.z - z);
@@ -917,7 +989,8 @@ class Game {
     if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; }
     else if (e.type === 'tier' && e.up && e.tier >= 2) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
     else if (e.type === 'tier' && !e.up) this.hud.toast('Fewer of them now. Keep out of sight.', '', 2500);
-    else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; }
+    else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; if (this._ambushOn) this._escaped(); }
+    else if (e.type === 'roadblock' && this.dredge.data.tools.policeband) this.hud.toast(`Police band: a roadblock going up near ${this._landmark(e.x, e.z)}`, 'red', 3500);
     else if (e.type === 'ran') this.hud.toast('You ran the checkpoint! They’re coming.', 'red', 3500);
     else if (e.type === 'search') return this._searched();
     else if (e.type === 'bust') { this._bust('The Bureau boxed you in.'); return true; }
@@ -939,7 +1012,8 @@ class Game {
     const P = CONFIG.dredge.police, d = this.dredge.data, C = CONFIG.dredge.contracts;
     // Out in the county, a Sheriff who trusts Otto makes it go away, for a price.
     const bribe = Math.round(Math.max(P.fineMin, d.cash * P.fine) * C.bribe);
-    if (this.world.inCounty(this.player.position) && trustLevel(d.trust.sheriff) >= C.bribeAt && d.cash >= bribe) {
+    this._escaped();
+    if (this.world.inCounty(this.player.position) && d.flags.bribery && trustLevel(d.trust.sheriff) >= C.bribeAt && d.cash >= bribe) {
       d.cash -= bribe;
       d.stats.bribes = (d.stats.bribes || 0) + 1;
       d.ledger.unshift({ t: Date.now(), text: 'Sheriff Hale made a bust go away', amount: -bribe });
@@ -1007,19 +1081,51 @@ class Game {
   // Stop at a site to work it (if it can be: not picked clean, not a night site by day).
   _checkSalvage() {
     const s = this.salvage.at(this.player.position);
-    if (!s) { this._siteLeft = true; return; }
+    if (!s) { this._siteLeft = true; this._siteWhy = ''; return; }
     if (!this._siteLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._siteLeft = false;
     const st = this.salvage.status(s, dayOf(this.dredge.market), this.env.hour);
     if (st === 'empty') { this.hud.toast(`The ${s.name.toLowerCase()} has been picked clean. Try again in a day or two.`, '', 3000); return; }
-    if (st === 'day') { this.hud.toast(`Too many eyes about by day. Come back to the ${s.name.toLowerCase()} after dark.`, '', 3000); return; }
+    // Too early: said once, and it opens as soon as its hours come (waiting there).
+    if (st === 'day' || st === 'closed') {
+      const why = st === 'day' ? `Too many eyes about by day. Come back to the ${s.name.toLowerCase()} after dark.` : CONFIG.dredge.salvage.kinds[s.kind].wait || 'Not now. Come back later.';
+      if (this._siteWhy !== why) this.hud.toast(why, '', 3500);
+      this._siteWhy = why;
+      this._siteLeft = true;
+      return;
+    }
     this.openSalvage(s);
   }
 
   openSalvage(site) {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
+    const game = CONFIG.dredge.salvage.kinds[site.kind].game;
+    if (game === 'none') { this._storySalvaged(site, 1); return; }
+    if (game === 'pay' || game === 'give') { this._storyDeal(site, game); return; }
     this.salvageScreen = showSalvage(this.ui, { site, onDone: (sc) => this._onSalvaged(site, sc) });
+  }
+
+  // A story stop that's a deal, not a mini-game: Sheriff Hale's report for a price, or the
+  // letters to the Sun (one of the endings). A confirm, then on.
+  async _storyDeal(site, game) {
+    const d = this.dredge.data;
+    if (game === 'give') {
+      if (await this.ui.confirm('THE PAPER?', 'Give the Jockey’s letters to the Baltimore Sun? The Alliance falls, and Otto stays a bootlegger. This ends the story; the roads stay open after it.', 'TAKE THEM IN')) { this._end('paper'); return; }
+    } else {
+      const price = CONFIG.dredge.story.report;
+      if (d.cash < price) this.hud.toast(`Sheriff Hale wants ${money(price)} for his report. Come back with it.`, '', 3500);
+      else if (await this.ui.confirm('THE REPORT?', `Pay Sheriff Hale ${money(price)} for his report on the Braun & Sons fire?`, `PAY ${money(price)}`)) {
+        d.cash -= price;
+        d.ledger.unshift({ t: Date.now(), text: 'Sheriff Hale’s report on the fire', amount: -price });
+        d.ledger.length = Math.min(d.ledger.length, 40);
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`−${money(price)}`);
+        this._storySalvaged(site, 1);
+        return;
+      }
+    }
+    if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
   }
 
   // A site worked: it's empty for a day or two, and what it gave up goes into the trunk,
@@ -1045,9 +1151,10 @@ class Game {
     this.openTrunk(pieces[0]);
   }
 
-  // A story site worked: the ruins give up Father's coil (and later, after dark, the
-  // cellar's clue); the Harrow office its ledger. A miss can be tried again. The chapter
-  // moves on at the next story check (main._chapters).
+  // A story site worked (chapters.js): what its step `gives` goes into the trunk one piece
+  // at a time (Father's coil, Delaney's crates, which join the blend on hand), it `sets` a
+  // flag or `finds` the chapter's clue, and at Warren it springs the trap. A miss can be
+  // tried again. The chapter moves on at the next story check (main._chapters).
   _storySalvaged(site, sc) {
     const d = this.dredge.data, { step } = current(d);
     if (sc <= 0.01 || !step || step.site !== site.story) {
@@ -1056,17 +1163,19 @@ class Game {
       return;
     }
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
-    if (step.id === 'ruins') {
-      d.flags.ruinsSearched = true;
+    if (step.sets) d.flags[step.sets] = true;
+    if (step.finds) d.clues[step.finds] = true;
+    if (step.ambush) d.flags.ambush = true;
+    if (step.gives) {
+      const kind = step.gives[0];
+      if (KINDS[kind].brewed) blend(d.market.blend, kind, onHand(this.trunk, d.stash)[kind] || 0, step.gives.length, CONFIG.dredge.story.consignment.q, false);
       this.dredge.save();
-      this.hud.toast('Found in the ruins: Father’s copper coil', 'gold', 3000);
+      this.hud.toast(step.got || `Found: ${wantsText({ [kind]: step.gives.length })}`, 'gold', 3000);
       this.audio.pickup?.();
-      this._pending = [];
-      this.openTrunk('coil');
+      this._pending = step.gives.slice(1);
+      this.openTrunk(kind);
       return;
     }
-    const clue = { cellar: 'pledge', office: 'ledger' }[step.id];
-    if (clue) d.clues[clue] = true;
     this.dredge.save();
     this.audio.fanfare?.('rare');
     this.hud.toast('Found something. A clue for the notebook.', 'gold', 3000);
@@ -1103,6 +1212,7 @@ class Game {
   // Where the truck is: a town, or the valley between. Arriving somewhere new shows its name.
   _placeName(p = this.player.position) {
     if (!this.world.inCounty(p)) return 'Baltimore';
+    if (this.world.regionOf(p.x) === 'loch') return 'Loch Raven';
     const t = CONFIG.dredge.towns.find((x) => x.area && Math.hypot(p.x - x.x, p.z - x.z) < x.area);
     return t ? t.town : 'Green Spring Valley';
   }
@@ -1112,8 +1222,9 @@ class Game {
     if (place !== this.place) {
       if (this.place && !this.police.tier) this.hud.toast(place, 'gold', 2200);   // not over a chase's news
       this.place = place;
-      // The first valley town reached (the Jockey's beat).
+      // The first valley town reached (the Jockey's beat); Loch Raven (chapter 5's first step).
       if (place !== 'Baltimore' && place !== 'Green Spring Valley') this.dredge.data.flags.valley = true;
+      if (place === 'Loch Raven') this.dredge.data.flags.loch = true;
     }
   }
 
@@ -1357,25 +1468,49 @@ class Game {
     }
   }
 
-  // The ending: buy back the brewery deed at Lexington Market, once King of York Road.
+  // One of the two endings: buy back the brewery deed at Lexington Market, once the story's
+  // last chapter is done (free for a save that bought it before the endings came).
   _deed(town) {
     const D = CONFIG.dredge.deed, d = this.dredge.data;
-    if (town.id !== D.town || (d.rank || 0) < D.rank || d.flags.deed) return null;
+    if (town.id !== D.town || !choiceOpen(d)) return null;
+    const cost = d.flags.deed ? 0 : D.cost;
     return {
-      cost: D.cost,
+      cost,
       onBuy: async () => {
-        if (d.cash < D.cost) return;
-        if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(D.cost)} for the Braun & Sons brewery deed?`, 'BUY IT BACK'))) return;
-        d.cash -= D.cost;
-        d.flags.deed = true;
-        this.audio.fanfare?.('deed');
-        d.ledger.unshift({ t: Date.now(), text: 'The Braun & Sons deed', amount: -D.cost });
-        this.dredge.save();
+        if (d.cash < cost) return;
+        if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(cost)} for the Braun & Sons deed and go legit? The letters stay in Father’s strongbox. This ends the story; the roads stay open after it.`, 'BUY IT BACK'))) return;
+        d.cash -= cost;
         this.hud.setCash(this.dredge.cash, true);
-        this.hud.cashPop(`−${money(D.cost)}`);
-        this._marketRender?.();
+        if (cost) this.hud.cashPop(`−${money(cost)}`);
+        this._end('deed', cost);
       },
     };
+  }
+
+  // An ending (chapters.js ENDINGS): saved, its cards played, then the ending screen. The
+  // roads stay open after it (KEEP DRIVING), or it's back to the title screen.
+  async _end(id, cost = 0) {
+    const d = this.dredge.data, E = ENDINGS[id];
+    if (d.ending) return;
+    d.ending = id;
+    if (id === 'deed') d.flags.deed = true;
+    d.ledger.unshift({ t: Date.now(), text: E.ledger, amount: -cost });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.dredge.save();
+    this.salvage.story = openSites(d);
+    this.salvage.refresh(dayOf(this.dredge.market));
+    this.audio.fanfare?.('deed');
+    this.ui.closeAll();
+    this._marketRender = null;
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    if (OPTIONS.story) await playDialog(this.ui, E.lines, { reducedMotion: !!this.settings.reducedMotion });
+    this._updateObjective();
+    this._updateIntroBest();
+    showEnding(this.ui, {
+      ending: E, career: this.dredge, days: dayOf(this.dredge.market) + 1,
+      onKeep: () => { this.ui.close('ending'); if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); },
+      onTitle: () => this.quitToTitle(),
+    });
   }
 
   // ---------- Orders ----------
@@ -1384,9 +1519,12 @@ class Game {
     const d = this.dredge.data, day = dayOf(this.dredge.market), h = this.world.home;
     return {
       active: () => d.orders,
-      full: () => d.orders.length >= CONFIG.dredge.contracts.book,
-      offers: () => offersFor(day, this.contactList, { brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags }).filter((o) => !d.taken[o.id]),
-      hoursLeft: (o) => o.due - this.dredge.market.clock,
+      full: () => d.orders.filter((o) => !o.story).length >= CONFIG.dredge.contracts.book,
+      offers: () => offersFor(day, this.contactList, {
+        brewing: (d.still || 0) > 0 || d.stats.brews > 0, rank: d.rank || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags,
+        focus: current(d).step?.who, exclude: d.flags.betrayed ? ['jockey'] : [],
+      }).filter((o) => !d.taken[o.id]),
+      hoursLeft: (o) => (o.due == null ? null : o.due - this.dredge.market.clock),
       trust: (who) => trustLevel(d.trust[who]),
       blends: () => this.dredge.market.blend,
       onAccept: (o) => this.takeContract(o),
@@ -1396,7 +1534,7 @@ class Game {
 
   takeContract(offer) {
     const d = this.dredge.data, clock = this.dredge.market.clock;
-    if (d.orders.length >= CONFIG.dredge.contracts.book || d.orders.some((o) => o.id === offer.id)) return false;
+    if (d.orders.filter((o) => !o.story).length >= CONFIG.dredge.contracts.book || d.orders.some((o) => o.id === offer.id)) return false;
     // Shine is handed over after dark, by the next dawn; goods within their hours.
     d.orders.push({ ...offer, due: offer.night ? nextDawn(clock) : clock + offer.hours });
     // Taken offers don't come back; only today's and yesterday's are worth remembering.
@@ -1410,9 +1548,10 @@ class Game {
   }
 
   // Dropping an order costs a little standing and a little trust; missing its deadline more.
-  dropContract(order = this.dredge.data.orders[0], late = false) {
+  // (A story order can't be dropped: it's the chapter's.)
+  dropContract(order = this.dredge.data.orders.find((o) => !o.story), late = false) {
     const d = this.dredge.data, C = CONFIG.dredge.contracts;
-    if (!order || !d.orders.includes(order)) return;
+    if (!order || order.story || !d.orders.includes(order)) return;
     d.orders.splice(d.orders.indexOf(order), 1);
     d.rep = Math.max(0, (d.rep || 0) - (late ? C.failRep : Math.round(C.failRep / 2)));
     this._trust(order.who, late ? -2 : -1);
@@ -1456,22 +1595,30 @@ class Game {
   _checkContract() {
     const d = this.dredge.data;
     if (!d.orders.length) return;
-    for (const o of [...d.orders]) if (this.dredge.market.clock > o.due) this.dropContract(o, true);
+    for (const o of [...d.orders]) if (o.due != null && this.dredge.market.clock > o.due) this.dropContract(o, true);
     const p = this.player.position, R = CONFIG.dredge.contracts.radius;
     const here = d.orders.filter((o) => Math.hypot(p.x - o.x, p.z - o.z) <= R);
-    if (!here.length) { this._jobLeft = true; return; }
+    if (!here.length) { this._jobLeft = true; this._jobWhy = ''; return; }
     if (!this._jobLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._jobLeft = false;
     const done = [];
-    let why = '';
+    let why = '', wait = false;
     for (const o of here) {
       const pr = progress(o, this.trunk, this.dredge.market.blend);
-      if (o.night && !this._night()) why = `${o.name}: “Not in daylight, Otto. Come back after dark.”`;
+      if (o.window && !inWindow(this.env.hour, o.window)) { why = `${o.name}: “The freight’s not in yet. It stands here ${hoursText(o.window)}.”`; wait = true; }
+      else if (o.night && !this._night()) { why = `${o.name}: “Not in daylight, Otto. Come back after dark.”`; wait = true; }
       else if (!pr.ready) why = `${o.name} is waiting on ${wantsText(o.wants)}.`;
       else if (!pr.gradeOk) why = `${o.name} wants grade ${o.grade} or better. The ${KINDS[Object.keys(o.wants)[0]].name} you’ve got is grade ${pr.grade}.`;
       else done.push(this._deliver(o, pr));
     }
-    if (!done.length) { if (why) this.hud.toast(why, '', 3500); return; }
+    // Too early (daylight, or the freight not in): said once, and waiting at the door hands
+    // it over as soon as the hour comes.
+    if (!done.length) {
+      if (why && why !== this._jobWhy) this.hud.toast(why, '', 3500);
+      this._jobWhy = why;
+      if (wait) this._jobLeft = true;
+      return;
+    }
     this._updateJobMarker();
     this._updateTrunkPill();
     this.hud.setCash(this.dredge.cash, true);
@@ -1493,11 +1640,13 @@ class Game {
     d.stats.earned += paid;
     d.stats.contracts++;
     d.delivered[o.who] = (d.delivered[o.who] || 0) + 1;
+    if (o.story) d.flags[`order:${o.story}`] = true;
     this._addRep(o.rep);
     d.ledger.unshift({ t: Date.now(), text: `Order for ${o.name}: ${wantsText(o.wants)}${o.grade ? ` (grade ${pr.grade})` : ''}`, amount: paid });
     d.ledger.length = Math.min(d.ledger.length, 40);
     d.orders.splice(d.orders.indexOf(o), 1);
-    const t = this._trust(o.who, pr.tainted ? -3 : 1 + (pr.grade === 'A' ? 1 : 0));
+    // Trust is the contacts' (the freight's guard is a story's, not a contact).
+    const t = CAST[o.who]?.asks ? this._trust(o.who, pr.tainted ? -3 : 1 + (pr.grade === 'A' ? 1 : 0)) : { before: 0, after: 0 };
     if (pr.tainted) this._blinded(Object.keys(o.wants)[0], { name: o.place || o.name });
     // Trusted enough, they open up (once).
     const scene = !pr.tainted && t.after >= CONFIG.dredge.contracts.sceneAt && !d.scenes[o.who] && !!TRUSTED[o.who];
@@ -1615,12 +1764,14 @@ class Game {
     }
     const c = this._focusOrder();
     if (c) {
-      const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, left = Math.max(0, Math.ceil(c.due - this.dredge.market.clock));
+      const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z;
+      const left = c.due == null ? (c.window ? hoursText(c.window) : 'tonight') : `${Math.max(0, Math.ceil(c.due - this.dredge.market.clock))} h`;
       const bearing = Math.atan2(dx, -dz) - this.chase.heading;
       const pr = progress(c, this.trunk, this.dredge.market.blend), ready = pr.ready && pr.gradeOk, near = Math.hypot(dx, dz) < 40;
-      const at = c.place ? ` at ${c.place}` : '', dark = c.night && !this._night() ? ' · after dark' : '';
-      this.hud.setObjective(ready && near && !dark ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at}${dark} · ${left} h`
-        : `Order: ${wantsText(c.wants)}${c.grade ? ` (grade ${c.grade}+)` : ''} for ${c.name} · ${left} h`,
+      const at = c.place ? ` at ${c.place}` : '';
+      const dark = c.window && !inWindow(this.env.hour, c.window) ? ' · when the freight is in' : c.night && !this._night() ? ' · after dark' : '';
+      this.hud.setObjective(ready && near && !dark ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at}${dark} · ${left}`
+        : `Order: ${wantsText(c.wants)}${c.grade ? ` (grade ${c.grade}+)` : ''} for ${c.name} · ${left}`,
         `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
       return;
     }
@@ -1638,6 +1789,11 @@ class Game {
     if (!town || !this.trunk.count) {
       if (goal) { this.hud.setObjective(stepText, ...arrow(goal.x, goal.z)); return; }
       if (step) { this.hud.setObjective(stepText, null, 'roam'); return; }
+      if (choiceOpen(this.dredge.data)) {
+        const g = this._choiceGoal();
+        this.hud.setObjective('The choice: buy back the deed at Lexington Market, or take the letters to the Sun', ...arrow(g.x, g.z));
+        return;
+      }
       const ev = eventFor(dayOf(this.dredge.market));
       this.hud.setObjective(ev ? `Find salvage · ${eventText(ev).replace(' today', '')}` : 'Find salvage: SALVAGE signs mark the sites', null, 'roam');
       return;
@@ -1645,20 +1801,28 @@ class Game {
     this.hud.setObjective(`Deliver to ${name}`, ...arrow(town.x, town.z));
   }
 
-  // Where a chapter step leads, if anywhere: its story site, or the barn.
+  // Where a chapter step leads, if anywhere: its story site, the barn, or Loch Raven's
+  // Warren landing.
   _stepGoal(step) {
     if (step.site) return this.salvage.sites.find((x) => x.story === step.site) || null;
     if (step.at === 'barn') return { x: this.world.home.stopX, z: this.world.home.stopZ };
+    if (step.at === 'loch') return { x: LOCH_NODES.R2[0], z: LOCH_NODES.R2[1] };
     return null;
+  }
+
+  // The ending's choice: whichever is nearer, Lexington Market (the deed) or the Sun.
+  _choiceGoal(p = this.player.position) {
+    const market = CONFIG.dredge.towns.find((t) => t.id === CONFIG.dredge.deed.town), sun = this.salvage.sites.find((x) => x.story === 'sun');
+    return !sun || Math.hypot(market.x - p.x, market.z - p.z) < Math.hypot(sun.x - p.x, sun.z - p.z) ? market : sun;
   }
 
   // The radar's gold route: to an order ready to hand over, the chapter step's place, or with
   // loot aboard the nearest market.
   _updateRoute(dt) {
     const c = this._focusOrder(), pr = c && progress(c, this.trunk, this.dredge.market.blend);
-    const { step } = current(this.dredge.data), goal = step && this._stepGoal(step);
+    const { step } = current(this.dredge.data), goal = step ? this._stepGoal(step) : choiceOpen(this.dredge.data) ? this._choiceGoal() : null;
     const cargo = this.trunk.count ? this._destination().place : null;
-    const place = c && pr.ready && pr.gradeOk ? c : (goal && step.at) ? goal : cargo || goal;
+    const place = c && pr.ready && pr.gradeOk ? c : (goal && step?.at) ? goal : cargo || goal;
     if (place) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
   }
@@ -1746,11 +1910,12 @@ class Game {
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const rank = this.dredge.data.rank || 0;
     return [...CONFIG.dredge.towns.map((t) => ({ kind: townOpen(t, rank) ? 'market' : 'market-closed', x: t.x, z: t.z })), { kind: 'barn', x: h.stopX, z: h.stopZ }, ...drops,
-      ...this.loot.near(this.player.position, tip ? Infinity : this.perks.mapRange), ...this.police.near(this.player.position)];
+      ...this.loot.near(this.player.position, tip ? Infinity : this.perks.mapRange), ...this.police.near(this.player.position, this.perks.agentRange, { look: !!this.dredge.data.tools.policeband })];
   }
 
   // Draw one frame of the 3D view.
   renderFrame() {
+    this.world.updateFar(this.camera.position);
     this.world.updateShadow(this.camera);
     this.world.updateLamps(this.camera);
     this.world.sky.follow(this.camera);

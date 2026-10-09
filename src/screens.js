@@ -5,7 +5,7 @@ import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, grad
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
-import { CHAPTERS } from './chapters.js';
+import { CHAPTERS, choiceOpen } from './chapters.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -26,19 +26,28 @@ function face(who) {
 const stars = (n) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
 // "2 corn shines (grade B+) · after dark"
 const orderText = (o) => `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}`;
+// A window of game hours as a clock reads it: "23:00–01:30".
+const clock = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+// When an order in the book is due: hours left, or for a story order (no deadline) when it
+// can be handed over.
+const dueText = (o, left) => (o.due == null ? (o.window ? `${clock(o.window[0])}–${clock(o.window[1])}` : o.night ? 'any night' : 'any time') : `${o.night ? 'after dark, ' : ''}due in ${left} h`);
 
 function contractRows(body, jobs, trunk, render) {
   if (!jobs) return;
   const book = jobs.active(), full = jobs.full();
-  body.append(el('h3', { class: 'market-head' }, `ORDERS · ${book.length}/${CONFIG.dredge.contracts.book} IN THE BOOK`));
+  // Story orders (chapters.js) are the chapter's: they don't fill the book or get dropped.
+  body.append(el('h3', { class: 'market-head' }, `ORDERS · ${book.filter((o) => !o.story).length}/${CONFIG.dredge.contracts.book} IN THE BOOK`));
   for (const o of book) {
-    const pr = progress(o, trunk, jobs.blends()), left = Math.max(0, Math.ceil(jobs.hoursLeft(o)));
-    const drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-drop-${o.id}` }, 'DROP IT');
-    drop.addEventListener('click', () => { jobs.onAbandon(o); render(); });
+    const pr = progress(o, trunk, jobs.blends()), left = Math.max(0, Math.ceil(jobs.hoursLeft(o) ?? 0));
+    let drop = el('span', { class: 'event-badge' }, 'STORY');
+    if (!o.story) {
+      drop = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `job-drop-${o.id}` }, 'DROP IT');
+      drop.addEventListener('click', () => { jobs.onAbandon(o); render(); });
+    }
     const status = pr.ready && pr.gradeOk ? ' · ready to deliver' : pr.ready ? ` · the blend is grade ${pr.grade}` : '';
     body.append(el('div', { class: 'upgrade job active' },
       el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
-        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${o.night ? 'after dark, ' : ''}due in ${left} h · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`)),
+        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${dueText(o, left)} · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`)),
       drop));
   }
   const offers = jobs.offers();
@@ -82,14 +91,14 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
-    // The ending, at Lexington Market once Otto is King of York Road.
-    if (deed && !career.data.flags.deed) {
+    // One of the endings, at Lexington Market once the story's last chapter is done.
+    if (deed) {
       body.append(el('h3', { class: 'market-head' }, 'THE DEED'));
-      const buy = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'deed' }, `BUY ${money(deed.cost)}`);
+      const buy = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'deed' }, deed.cost ? `BUY ${money(deed.cost)}` : 'SIGN IT');
       buy.disabled = career.cash < deed.cost;
       buy.addEventListener('click', () => deed.onBuy());
       body.append(el('div', { class: 'upgrade deed' }, el('div', {}, el('b', {}, 'Braun & Sons, Highlandtown'),
-        el('small', {}, 'The bank will sell the brewery back. This is what it was all for.')), buy));
+        el('small', {}, 'The bank will sell the brewery back: go legit, and wait for Repeal. Or take the letters to the Sun instead.')), buy));
     }
     contractRows(body, jobs, trunk, render);
     // Upgrades for the truck, paid from the same cash.
@@ -525,9 +534,9 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   body.textContent = '';
   const level = (who) => Math.max(0, Math.min(5, Math.floor((d.trust[who] || 0) / C.trustPer)));
   const note = (...kids) => el('div', { class: 'note' }, ...kids);
-  // The chapter in hand, step by step, and every clue found so far.
+  // The chapter in hand, step by step (then the choice, then the end), and every clue found.
   const ch = CHAPTERS[d.chapter || 0];
-  body.append(el('h3', {}, ch ? `CHAPTER ${(d.chapter || 0) + 1}: ${ch.title.toUpperCase()}` : 'THE STORY SO FAR'));
+  body.append(el('h3', {}, ch ? `CHAPTER ${(d.chapter || 0) + 1}: ${ch.title.toUpperCase()}` : choiceOpen(d) ? 'THE CHOICE' : 'THE END'));
   if (ch) {
     let next = true;
     for (const st of ch.steps) {
@@ -535,7 +544,10 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
       if (!done) next = false;
       body.append(note(el('span', { class: done ? 'done' : now ? 'now' : 'later' }, `${done ? '✓' : now ? '▸' : '·'} ${now || done ? `${st.text}${st.night ? ', after dark' : ''}` : '…'}`)));
     }
-  } else body.append(note(el('span', {}, 'Chapter 3, The Western Line, is still to come.')));
+  } else if (choiceOpen(d)) {
+    body.append(note(el('span', { class: 'now' }, `▸ The deed: buy back Braun & Sons at Lexington Market (${money(CONFIG.dredge.deed.cost)}). Go legit, and wait for Repeal.`)));
+    body.append(note(el('span', { class: 'now' }, '▸ The paper: take the Jockey’s letters to the Baltimore Sun. Bring the Alliance down, and stay King of York Road.')));
+  } else body.append(note(el('span', {}, d.ending === 'deed' ? 'The deed: Braun & Sons is Otto’s again.' : 'The paper: the Alliance has fallen, and York Road is Otto’s.')));
   body.append(el('h3', {}, 'CLUES'));
   const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
   if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
@@ -543,16 +555,16 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   body.append(el('h3', {}, `ORDERS · ${d.orders.length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {
-    const left = Math.max(0, Math.ceil(o.due - clock));
+    const left = o.due == null ? 0 : Math.max(0, Math.ceil(o.due - clock));
     body.append(note(face(o.who), el('div', {}, el('b', {}, `${o.name}: ${orderText(o)}`),
-      el('small', {}, `${o.place} · pays ${money(o.pay)} · ${o.night ? 'after dark, ' : ''}due in ${left} h`))));
+      el('small', {}, `${o.place} · pays ${money(o.pay)} · ${dueText(o, left)}`))));
   }
   body.append(el('h3', {}, 'CONTACTS'));
   for (const c of contacts) {
     if (c.rank && (d.rank || 0) < c.rank && !d.trust[c.who]) continue;     // the Sheriff, before he deals
     const t = level(c.who), n = d.delivered[c.who] || 0;
     body.append(note(face(c.who), el('div', {}, el('b', {}, c.name),
-      el('small', {}, `${c.place} · ${n ? `${n} order${n === 1 ? '' : 's'} delivered` : 'no orders yet'}`),
+      el('small', {}, `${c.place} · ${d.flags.betrayed && c.who === 'jockey' ? 'gone: he sold you out' : n ? `${n} order${n === 1 ? '' : 's'} delivered` : 'no orders yet'}`),
       d.scenes[c.who] && TRUSTED[c.who] ? el('small', { class: 'says' }, `“${TRUSTED[c.who]}”`) : ''),
       el('span', { class: 'stars', 'aria-label': `trust ${t} of 5` }, stars(t))));
   }
@@ -566,6 +578,27 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
 }
 
 export { money };
+
+// ---------- An ending ----------
+// After an ending's cards (chapters.js ENDINGS, main._end): its title and epilogue, and the
+// run's numbers. KEEP DRIVING (the roads stay open) or back to the title screen.
+export function showEnding(ui, { ending, career, days, onKeep, onTitle }) {
+  const d = career.data, s = d.stats;
+  $('ending-title').textContent = ending.title.toUpperCase();
+  $('ending-sub').textContent = ending.sub;
+  $('ending-text').textContent = ending.epilogue;
+  const rows = [
+    ['Days on the road', days], ['Earned, all time', money(s.earned)], ['Orders delivered', s.contracts || 0],
+    ['Batches brewed', s.brews || 0], ['Busts', s.busts || 0], ['Got away', s.escapes || 0],
+    ['Clues found', `${CHAPTERS.filter((c) => d.clues[c.clue.id]).length}/${CHAPTERS.length}`], ['Time on the road', playTime(s.playSeconds)],
+  ];
+  const box = $('ending-stats');
+  box.textContent = '';
+  for (const [k, v] of rows) box.append(el('div', {}, el('span', {}, k), el('b', {}, String(v))));
+  $('ending-keep').onclick = () => onKeep();
+  $('ending-title-btn').onclick = () => onTitle();
+  ui.open('ending', { onBack: onKeep });
+}
 
 // ---------- Story dialogue ----------
 // Plays lines one card at a time (typed out unless motion is reduced). Resolves when
