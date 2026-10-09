@@ -89,8 +89,8 @@ export function placeStory(world, regular = []) {
       }
     }
   };
-  // The ruins: near (176, 44), not on the corner.
-  sidewalk('ruins', 'ruins', 176, 44, 18);
+  // The ruins: near (176, 44), not on the corner, and clear of the city's cellars.
+  sidewalk('ruins', 'ruins', 176, 44, 18, (x, z) => apart(x, z));
   // The office: beside the Harrow Stables barn, its stop in the yard.
   const harrow = world.barns.find((b) => b.name === 'Harrow Stables');
   if (harrow) {
@@ -197,15 +197,18 @@ export function payout(kind, sc, rng = Math.random) {
 }
 
 // The sites in the world: one instanced heap each (crates, a barrel, a plank), tinted by
-// kind, sunk low once worked; a collider at the heap. `state` is the save's
-// { [id]: day worked } (dredgecareer `data.sites`).
+// kind, sunk low once worked; a collider at the heap (a story site's only while it's open,
+// so a hidden one blocks nothing). `state` is the save's { [id]: day worked } (dredgecareer
+// `data.sites`).
 export class Salvage {
   constructor(scene, world, seed = 1) {
     const regular = placeSites(world, seed);
     this.sites = [...regular, ...placeStory(world, regular)];
+    this.world = world;
     this.state = {};
     this.story = {};        // the story sites open now: { [story]: { night, window } } (chapters.js openSites)
-    for (const s of this.sites) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
+    this._colliders = new Map();
+    for (const s of regular) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
     const parts = [
       new THREE.BoxGeometry(1.4, 1.1, 1.2).translate(-0.6, 0.55, 0.2),
       new THREE.BoxGeometry(1.0, 0.8, 1.0).rotateY(0.5).translate(0.7, 0.4, -0.4),
@@ -249,9 +252,11 @@ export class Salvage {
 
   worked(site, day) { this.state[site.id] = day; }
 
-  // The site whose stop point the truck is inside, or null.
+  // The site whose stop point the truck is inside, or null: an open story site first, if
+  // one's stop overlaps a regular site's.
   at(p) {
-    return this.sites.find((s) => (!s.story || this.story[s.story]) && Math.hypot(s.stopX - p.x, s.stopZ - p.z) < S.radius) || null;
+    const inside = (s) => Math.hypot(s.stopX - p.x, s.stopZ - p.z) < S.radius;
+    return this.sites.find((s) => s.story && this.story[s.story] && inside(s)) || this.sites.find((s) => !s.story && inside(s)) || null;
   }
 
   // The nearest site (to `p`) that can be worked now, within `range`.
@@ -265,11 +270,14 @@ export class Salvage {
     return best;
   }
 
-  // Heaps of worked sites sink low and darken until they refill; a story site shows only while open.
+  // Heaps of worked sites sink low and darken until they refill; a story site shows (and
+  // blocks the way) only while open.
   refresh(day) {
-    const o = new THREE.Object3D(), dim = new THREE.Color();
+    const o = new THREE.Object3D(), dim = new THREE.Color(), c = this.world.collision;
     this.sites.forEach((s, i) => {
       const empty = !s.story && day < this.refillDay(s), hidden = s.story && !this.story[s.story];
+      if (s.story && hidden && this._colliders.has(s.id)) { c.remove(this._colliders.get(s.id)); this._colliders.delete(s.id); }
+      if (s.story && !hidden && !this._colliders.has(s.id)) this._colliders.set(s.id, c.addCircle(s.x, s.z, 1.8, { tag: 'salvage' }));
       o.position.set(s.x, empty ? -0.6 : 0, s.z);
       o.rotation.set(0, (i * 2.399) % TAU, 0);
       o.scale.set(hidden ? 0 : 1, hidden ? 0 : empty ? 0.5 : 1, hidden ? 0 : 1);

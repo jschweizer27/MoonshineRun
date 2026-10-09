@@ -64,7 +64,7 @@ function contractRows(body, jobs, trunk, render) {
   }
 }
 
-export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, onSell, onBuy, onTrunk, onBack }) {
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), onSell, onBuy, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
@@ -115,14 +115,15 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
         body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, u.desc)), btn));
       }
     }
-    const all = quote(town.id, trunk, career.market);
+    const all = quote(town.id, trunk, career.market, null, keep()), every = quote(town.id, trunk, career.market);
     const sellAll = $('market-sell-all');
     sellAll.textContent = all.count ? `SELL EVERYTHING (${money(all.total)})` : 'SELL EVERYTHING';
     sellAll.dataset.total = all.total;
     sellAll.disabled = !all.count;
     const speakeasy = String(town.id).startsWith('drop:');
-    $('market-note').textContent = (all.count
-      ? 'Prices change day to day, and drop as you sell more of the same thing here.'
+    const kept = every.count - all.count;
+    $('market-note').textContent = (all.count || kept
+      ? `Prices change day to day, and drop as you sell more of the same thing here.${kept ? ` SELL EVERYTHING keeps back the ${kept} piece${kept === 1 ? '' : 's'} your orders${keep().coil ? ' and the still' : ''} need.` : ''}`
       : speakeasy ? 'Nothing aboard they want: a speakeasy only buys shine.' : 'Nothing in the trunk to sell. Drive the roads and pick up what you find.')
       + (unsold && all.count ? (speakeasy ? ' They only buy shine.' : ' Shine sells at the speakeasies, not the markets.') : '')
       + (ev && !speakeasy ? ` ${eventText(ev)}.` : '')
@@ -151,7 +152,7 @@ export function playTime(seconds) {
 // ---------- Otto's barn ----------
 // The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
 // the truck's wear). Callbacks do the work; this draws and re-draws.
-export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = null, onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onTrunk, onBack }) {
+export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = null, sleeps = () => [], onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onSleep, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk(), d = career.data, body = $('barn-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -210,6 +211,14 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
       el('div', {}, el('b', {}, `The truck: ${health}%`),
         el('small', {}, d.wear > 0.01 ? 'Knocks and crashes wear it; a worn truck is slower until it’s mended.' : 'In good shape.')),
       fix));
+    // The bunk: sleep through the waiting (main.sleep).
+    const naps = sleeps();
+    if (naps.length) body.append(el('h3', { class: 'market-head' }, 'THE BUNK'));
+    for (const n of naps) {
+      const nap = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `sleep-${n.id}` }, 'SLEEP');
+      nap.addEventListener('click', async () => { await onSleep(n.id); render(); });
+      body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, n.name), el('small', {}, n.text)), nap));
+    }
     $('barn-store-all').disabled = !trunk.count || used >= cap;
     $('barn-note').textContent = 'Store loot here to make room in the trunk, and take it when you need it.';
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
@@ -315,15 +324,23 @@ export function showStill(ui, { recipe, level, onDone }) {
     if (b.done) ended();
     return ok;
   };
-  const padDown = () => [...(navigator.getGamepads?.() || [])].some((p) => p && ((p.buttons[7]?.value || 0) > 0.2 || p.buttons[0]?.pressed));
+  // A gamepad: RT or A held stokes; an RT pull cuts and proofs here, and A through Input's
+  // 'confirm' (onAction), once a press, so the press that ends the batch can't also click
+  // DONE.
+  const pads = () => [...(navigator.getGamepads?.() || [])].filter(Boolean);
   const tick = (now) => {
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
     last = now;
-    const pad = padDown();
-    if (b.phase !== 'fire' && pad && !padWas) press();
-    padWas = pad;
-    if (!b.done) step(dt, held || pad);
+    const rt = pads().some((p) => (p.buttons[7]?.value || 0) > 0.2), a = pads().some((p) => p.buttons[0]?.pressed);
+    if (b.phase !== 'fire' && rt && !padWas) press();
+    padWas = rt;
+    if (!b.done) step(dt, held || rt || a);
     if (!b.done && raf) raf = requestAnimationFrame(tick);
+  };
+  const onAction = (act) => {
+    if (act !== 'confirm' || b.done) return false;
+    if (b.phase !== 'fire') press();
+    return true;
   };
   const keyDown = (e) => {
     if (b.done) return;
@@ -353,7 +370,7 @@ export function showStill(ui, { recipe, level, onDone }) {
   pour.classList.add('hidden');
   done.onclick = () => finish(false);
   pour.onclick = () => finish(true);
-  ui.open('still', { onBack: () => finish(false) });
+  ui.open('still', { onBack: () => finish(false), onAction });
   draw();
   raf = requestAnimationFrame(tick);
   // `manual()` stops the screen's own clock, for stepping it by hand (tests).
@@ -369,7 +386,7 @@ export function showSalvage(ui, { site, onDone }) {
   const kind = CONFIG.dredge.salvage.kinds[site.kind], P = CONFIG.dredge.salvage;
   const g = kind.game === 'pry' ? newPry() : newSearch();
   const ring = $('salvage-ring'), grid = $('salvage-grid'), pressBtn = $('salvage-press'), done = $('salvage-done');
-  let raf = 0, last = 0, finished = false, padWas = false;
+  let raf = 0, last = 0, finished = false;
   const total = g.game === 'pry' ? P.pry.seconds : P.search.glint + P.search.seconds;
   const draw = () => {
     $('salvage-progress').firstElementChild.style.width = `${Math.max(0, 1 - g.t / total) * 100}%`;
@@ -426,12 +443,14 @@ export function showSalvage(ui, { site, onDone }) {
   const tick = (now) => {
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
     last = now;
-    // A gamepad's A presses (on the way down).
-    const pad = [...(navigator.getGamepads?.() || [])].some((p) => p && p.buttons[0]?.pressed);
-    if (pad && !padWas) press();
-    padWas = pad;
     if (!g.done) step(dt);
     if (!g.done && raf) raf = requestAnimationFrame(tick);
+  };
+  // A gamepad's A (Input's 'confirm') pries, once a press; done, it takes what's there.
+  const onAction = (a) => {
+    if (a !== 'confirm' || g.game !== 'pry' || g.done) return false;
+    press();
+    return true;
   };
   const PRESS = new Set(['Space', 'Enter', 'KeyE', 'ArrowUp', 'KeyW']);
   const keyDown = (e) => {
@@ -461,7 +480,7 @@ export function showSalvage(ui, { site, onDone }) {
   pressBtn.onclick = () => press();
   done.classList.add('hidden');
   done.onclick = finish;
-  ui.open('salvage', { onBack: () => finish() });
+  ui.open('salvage', { onBack: () => finish(), onAction });
   draw();
   raf = requestAnimationFrame(tick);
   return { game: g, step, press, pick, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
@@ -552,7 +571,7 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
   if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
   for (const c of found) body.append(note(el('div', {}, el('b', {}, c.title), el('small', { class: 'says' }, c.text))));
-  body.append(el('h3', {}, `ORDERS · ${d.orders.length}/${C.book}`));
+  body.append(el('h3', {}, `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {
     const left = o.due == null ? 0 : Math.max(0, Math.ceil(o.due - clock));

@@ -15,6 +15,9 @@ export class HUD {
       cargo: $('cargo'), speed: $('speed'), toast: $('toast'), cashPop: $('cash-pop'), mute: $('btn-mute'),
     };
     this._toastTimer = null;
+    this._toastNow = null;
+    this._queue = [];
+    this.log = [];
     this._last = {};
     this._cashShown = 0;
     this._cashAnim = null;
@@ -58,6 +61,7 @@ export class HUD {
     tick();
   }
 
+  // It goes again after its animation (with reduced motion there's no animation to end it).
   cashPop(text) {
     if (!juice('ui', 'floatText')) return;
     const p = this.el.cashPop;
@@ -65,6 +69,8 @@ export class HUD {
     p.classList.remove('show');
     void p.offsetWidth;          // restart the animation
     p.classList.add('show');
+    clearTimeout(this._popTimer);
+    this._popTimer = setTimeout(() => p.classList.remove('show'), 1700);
   }
 
   // The trunk pill: how full the trunk is.
@@ -97,11 +103,29 @@ export class HUD {
     this._set('kind', kind, () => { this.el.objective.dataset.kind = kind; });
   }
 
+  // A toast shows at once. One it cuts short that mattered (gold or red news) waits and
+  // comes back after it, so nothing important is lost under the next; the same text is never
+  // queued twice, and the queue keeps the latest few. `log` is the last toasts (tests).
   toast(text, tone = '', ms = 2200) {
-    const t = this.el.toast;
-    t.textContent = text;
-    t.className = `show ${tone}`;
+    const cur = this._toastNow, left = cur ? cur.until - performance.now() : 0;
+    if (cur && cur.text !== text && (cur.tone === 'gold' || cur.tone === 'red') && left > 600) this._queue.unshift({ text: cur.text, tone: cur.tone, ms: Math.max(1500, left) });
+    this._queue = this._queue.filter((q, i, all) => q.text !== text && all.findIndex((r) => r.text === q.text) === i).slice(0, 4);
+    this._showToast({ text, tone, ms });
+  }
+
+  _showToast(t) {
+    const el = this.el.toast;
+    el.textContent = t.text;
+    el.className = `show ${t.tone}`;
+    this._toastNow = { ...t, until: performance.now() + t.ms };
+    this.log.push(t.text);
+    if (this.log.length > 30) this.log.shift();
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => { t.className = ''; }, ms);
+    this._toastTimer = setTimeout(() => {
+      el.className = '';
+      this._toastNow = null;
+      const next = this._queue.shift();
+      if (next) this._toastTimer = setTimeout(() => this._showToast(next), 180);
+    }, t.ms);
   }
 }

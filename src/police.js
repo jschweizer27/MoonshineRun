@@ -256,7 +256,8 @@ export class Police {
   }
 
   // ---------- the step ----------
-  // ctx: { contraband (shine aboard), night, lightsOff, route (the radar's nodes) }.
+  // ctx: { contraband (shine aboard), night, lightsOff, route (the radar's nodes),
+  // checkpoint (false: the York Road checkpoint isn't up yet) }.
   // Returns { events, seen, nearest }.
   update(dt, player, camera, time, ctx = {}) {
     const events = [];
@@ -366,11 +367,11 @@ export class Police {
     return { events, seen, nearest, touching };
   }
 
-  // The York Road checkpoint, at night: stop in it to be searched; drive through with shine
-  // aboard and you've run it.
+  // The York Road checkpoint, at night once the story has it up (ctx.checkpoint): stop in it
+  // to be searched; drive through with shine aboard and you've run it.
   _checkpoint(dt, player, ctx, events) {
     const C = this.checkpoint, p = player.position;
-    C.on = !!ctx.night;
+    C.on = !!ctx.night && ctx.checkpoint !== false;
     const d = Math.hypot(C.x - p.x, C.z - p.z), inside = C.on && d <= C.radius;
     if (inside && !C.handled && Math.abs(player.speed) <= C.stopSpeed) { C.handled = true; events.push({ type: 'search' }); }
     if (!inside && this._inside && !C.handled && ctx.contraband) { C.handled = true; this._raise(2, events, p); events.push({ type: 'ran' }); }

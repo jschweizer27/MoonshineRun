@@ -32,6 +32,15 @@
         <button id="btn-fullscreen" class="icon-btn" aria-label="Fullscreen" title="Fullscreen">
           <svg viewBox="0 0 24 24"><path d="M4 9V4h5 M15 4h5v5 M20 15v5h-5 M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
+        <button id="btn-lights" class="icon-btn touch-only" aria-label="Headlamps" title="Headlamps">
+          <svg viewBox="0 0 24 24"><path d="M9 6a6 6 0 000 12z" fill="currentColor"/><path d="M12 8h9 M12 12h10 M12 16h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <button id="btn-trunk" class="icon-btn touch-only" aria-label="Trunk" title="Trunk">
+          <svg viewBox="0 0 24 24"><path d="M3 8h18v11H3z M3 8l3-4h12l3 4 M9 12h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="btn-notebook" class="icon-btn touch-only" aria-label="Notebook" title="Notebook">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z M9 3v18 M12 8h4 M12 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
         <button id="btn-pause" class="icon-btn" aria-label="Pause" title="Pause">
           <svg viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor"/></svg>
         </button>
@@ -47,6 +56,7 @@
       <button id="guide-skip" class="text-btn" type="button">Skip tips</button>
     </div>
     <div id="cash-pop" aria-hidden="true"></div>
+    <div id="rotate-hint" aria-hidden="true">Turn your phone sideways for a better view</div>
     <div class="hud-bl">
       <div id="heat" class="pill hidden" aria-live="polite"><b>☆☆☆</b> <span>HEAT</span><i aria-hidden="true"></i></div>
       <div id="lights" class="pill hidden">LIGHTS OFF</div>
@@ -166,14 +176,21 @@
           <tr><td>B</td><td>Horn</td></tr>
           <tr><td>Y</td><td>Look back</td></tr>
           <tr><td>View / Back</td><td>Map</td></tr>
-          <tr><td>X</td><td>Open the trunk</td></tr>
+          <tr><td>X</td><td>Open the trunk (in it: leave a piece)</td></tr>
           <tr><td>LB / RB</td><td>Turn a piece</td></tr>
+          <tr><td>D-pad down</td><td>Headlamps on / off</td></tr>
+          <tr><td>D-pad left / up / right</td><td>Abilities</td></tr>
+          <tr><td>Left stick click</td><td>Notebook</td></tr>
+          <tr><td>A (salvage, still)</td><td>Pry, cut, proof</td></tr>
           <tr><td>Start</td><td>Pause</td></tr>
         </table></div>
         <div><h3>Touch</h3><table>
           <tr><td>GAS / BRAKE</td><td>Right thumb</td></tr>
           <tr><td>Drag left side</td><td>Steer</td></tr>
           <tr><td>DRIFT</td><td>Handbrake</td></tr>
+          <tr><td>Lamp, box, book (top right)</td><td>Headlamps, trunk, notebook</td></tr>
+          <tr><td>Trunk</td><td>Tap to aim, tap again to put down; TURN IT, LEAVE IT, DONE</td></tr>
+          <tr><td>Chips by the speed</td><td>Abilities</td></tr>
           <tr><td>&#10074;&#10074; top right</td><td>Pause</td></tr>
         </table></div>
       </div>
@@ -202,8 +219,13 @@
       <div id="trunk-grid" tabindex="0" data-autofocus aria-label="Trunk grid"></div>
       <p id="trunk-msg" class="hint" role="status" aria-live="polite"></p>
       <p id="trunk-fill" class="hint"></p>
-      <p class="hint small">Arrows move · R / Q turn · Enter put down, lift or swap · X leave it · Esc close<br>
-        Gamepad: d-pad move · LB / RB turn · A put down · X leave it · B close</p>
+      <div class="btn-row">
+        <button id="trunk-rotate" class="btn secondary">TURN IT</button>
+        <button id="trunk-leave" class="btn secondary">LEAVE IT</button>
+        <button id="trunk-done" class="btn">DONE</button>
+      </div>
+      <p class="hint small" id="trunk-keys"><span class="for-keys">Arrows move · R / Q turn · Enter put down, lift or swap · X leave it · Esc close<br>
+        Gamepad: d-pad move · LB / RB turn · A put down · X leave it · B close</span><span class="for-touch">Tap a spot to aim, and tap it again to put it down.</span></p>
     </div>
   </div>
 

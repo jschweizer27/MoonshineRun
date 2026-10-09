@@ -236,6 +236,14 @@ export const BEATS = {
       ['otto', 'Everyone has a price. Yours is at least written down.'],
     ],
   },
+  // The York Road checkpoint, the first night it stands (chapter 3 on: main.js sets the flag).
+  checkpoint: {
+    when: (d) => !!d.flags?.checkpoint,
+    lines: [
+      ['narrator', 'Word on York Road tonight: the Prohibition Bureau has a checkpoint at the gap in the city wall. After dark they search every truck that comes through.'],
+      ['otto', 'Stop there with shine aboard and they’ll find it. Run it, and every car in the county comes after me. The back roads, then, or somewhere to hide it.'],
+    ],
+  },
   // The Jockey's betrayal and the deed are chapter 5's and the endings' now (chapters.js).
 };
 

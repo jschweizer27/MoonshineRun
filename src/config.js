@@ -334,20 +334,22 @@ export const CONFIG = {
     // roadblock on your route, 3 every car. Out of every agent's sight for `evadeTime[tier]`
     // seconds drops a tier. Pinned (an agent within `pinRadius` while you're under
     // `pinSpeed`) for `bustTime` seconds is a bust: the shine is taken, a `fine` share of the
-    // cash (at least `fineMin`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
+    // cash (at least `fineMin`, at most `fineMax`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
     // `accel` (x `boost` at heat 3), spawn `spawn` metres off (out of view) and go beyond
-    // `despawn`. The York Road `checkpoint` stands at the city gap at night: stop there and
-    // they search the trunk (the false bottom hides `hidden` crates); run it with shine
-    // aboard and it's heat 2. PLACEHOLDERS: tune after playtesting.
+    // `despawn`. The York Road `checkpoint` stands at the city gap at night (its `hours`,
+    // which are the game's night: the salvage sites', the orders' and the speakeasies' too),
+    // from the CHAPTERS index `chapter` on: stop there and they search the trunk (the false
+    // bottom hides `hidden` crates); run it with shine aboard and it's heat 2.
+    // PLACEHOLDERS: tune after playtesting.
     police: {
       pool: 4, patrols: { day: { city: 1, county: 0 }, night: { city: 2, county: 2 } },
       cone: 0.75, sight: 70, nightSight: 0.8, darkSight: 0.4, closeSight: 12,
       buildRate: 0.12, evadeTime: [0, 6, 8, 10], max: 3,
       pinRadius: 7.5, pinSpeed: 4, bustTime: 2.2, bustRecover: 0.8,
-      fine: 0.25, fineMin: 50,
+      fine: 0.25, fineMin: 50, fineMax: 750,
       maxSpeed: 33, accel: 15, boost: 1.15, spawn: [160, 360], despawn: 420,
       roadblockEvery: 18, mapRange: 160,
-      checkpoint: { x: 0, z: -262, radius: 14, hours: [20, 6], stopSpeed: 3 },
+      checkpoint: { x: 0, z: -262, radius: 14, hours: [19.5, 6], stopSpeed: 3, chapter: 2 },
     },
     // Orders (src/contracts.js): each in-game day posts `perDay` of them, a `farmShare` from
     // the farms (who want `farmWants`, delivered any time within `hours`) and the rest from
@@ -385,7 +387,7 @@ export const CONFIG = {
     // `refillDays` game days; a `nightShare` of the sites can only be worked at night
     // (`night` hours). PLACEHOLDERS: tune after playtesting.
     salvage: {
-      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [20, 6],
+      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [19.5, 6],
       kinds: {
         wreck: { name: 'Wrecked truck', game: 'pry', color: '#7a5236', yields: { crate: 3, 'small-crate': 3, 'long-crate': 2, keg: 1, 'bottle-case': 2, jugs: 2 } },
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },

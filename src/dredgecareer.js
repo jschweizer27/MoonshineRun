@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { loadJSON, saveJSON, removeKey } from './save.js';
 import { Trunk, KINDS } from './trunk.js';
+import { CHAPTERS, ENDINGS } from './chapters.js';
 
 // Otto's saved progress: cash, what's in the trunk, upgrade levels, the markets' memory
 // (gluts and the in-game clock), stats and a ledger. There are three save slots; slot 1
@@ -17,7 +18,7 @@ const DEFAULT = {
   cash: 0,
   trunk: null,               // Trunk.toJSON()
   upgrades: { trunk: 0, engine: 0, handling: 0, magnet: 0, spotter: 0, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 },
-  market: { sold: {}, clock: 0, blend: {} },
+  market: { sold: {}, clock: 21.5, blend: {} },   // clock: game hours from midnight of day 0 (a new game starts at 21:30)
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
@@ -37,6 +38,7 @@ const DEFAULT = {
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
   stats: { earned: 0, sold: 0, playSeconds: 0, distance: 0, rares: 0, brews: 0, contracts: 0 },
+  stepTimes: {},             // chapter step id -> stats.playSeconds when it was done (the ledger's minutes per chapter)
   story: {},                 // beat id -> true once its cards have played (story.js)
   flags: {},                 // milestones the story reads: valley (reached a valley town), ...
   ledger: [],                // newest first, capped
@@ -58,7 +60,7 @@ export class DredgeCareer {
 
   // A slot at a glance, for the saved-games screen, without switching to it.
   static summary(slot) {
-    const d = loadJSON(keyFor(slot), DEFAULT), st = { ...DEFAULT.stats, ...(d.stats || {}) };
+    const d = loadJSON(keyFor(slot), structuredClone(DEFAULT)), st = { ...DEFAULT.stats, ...(d.stats || {}) };
     return { slot, started: played(d), cash: d.cash || 0, sold: st.sold, earned: st.earned, playSeconds: st.playSeconds };
   }
 
@@ -77,8 +79,11 @@ export class DredgeCareer {
 
   get started() { return played(this.data); }
 
+  // A fresh copy of the defaults under whatever was saved (nothing shared between slots or
+  // with DEFAULT), with anything a save from an older version (or a damaged one) has wrong
+  // put right.
   load() {
-    const d = loadJSON(keyFor(this.slot), DEFAULT);
+    const d = loadJSON(keyFor(this.slot), structuredClone(DEFAULT));
     d.market = { ...DEFAULT.market, ...(d.market || {}) };
     d.market.sold = { ...(d.market.sold || {}) };
     d.market.blend = { ...(d.market.blend || {}) };
@@ -88,14 +93,18 @@ export class DredgeCareer {
     d.story = { ...(d.story || {}) };
     d.stash = { ...(d.stash || {}) };
     d.taken = { ...(d.taken || {}) };
-    // The order book (saves from before it had one contract at a time).
+    // The order book (saves from before it had one contract at a time). Orders from before
+    // the contacts (no `who`) are dropped: nobody is waiting on them.
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools']) d[k] = { ...(d[k] || {}) };
-    d.chapter = Number(d.chapter) || 0;
+    d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes']) d[k] = { ...(d[k] || {}) };
+    d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
+    d.rank = Math.max(0, Math.min(CONFIG.dredge.ranks.length - 1, Math.floor(Number(d.rank) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
-    d.ending = d.ending || null;
+    d.ending = ENDINGS[d.ending] ? d.ending : null;
+    if (!Number.isFinite(d.market.clock)) d.market.clock = DEFAULT.market.clock;
     // Bribery waits on chapter 4 now; a save whose Sheriff already took envelopes keeps it.
     if (d.flags.bribery == null && (d.trust.sheriff || 0) >= CONFIG.dredge.contracts.trustPer * 3) d.flags.bribery = true;
     this.data = d;
