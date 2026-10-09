@@ -233,7 +233,7 @@ test('chapter 4, Stone and Iron: Delaney’s crates past the York Road checkpoin
     g._bust('The Bureau boxed you in.');
     out.noBribe = d.ledger[0].text;
     clear();
-    d.trust.sheriff = 4; step(); clear(); step();
+    d.trust.sheriff = 6; step(); clear(); step();      // ★★★
     out.bribery = !!d.flags.bribery;
     d.cash = 1000;
     g.player.place(0, -600, 0);
@@ -348,7 +348,7 @@ for (const ending of ['deed', 'paper']) {
     const sun = await page.evaluate(() => { const g = window.shine.game; return g.salvage.sites.find((s) => s.story === 'sun'); });
     if (ending === 'deed') {
       await page.evaluate(() => { window.shine.step(0.6); window.shine.teleport(-44, 88, 0); window.shine.step(0.2); window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
-      await expect(page.locator('#market [data-id="deed"]')).toHaveText('BUY $20,000');
+      await expect(page.locator('#market [data-id="deed"]')).toHaveText('BUY $12,000');
       await page.click('#market [data-id="deed"]');
     } else {
       await page.evaluate((s) => { window.shine.step(0.6); window.shine.teleport(s.stopX + 40, s.stopZ, 0); window.shine.step(0.2); window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.3); }, sun);
@@ -362,7 +362,7 @@ for (const ending of ['deed', 'paper']) {
     await expect(page.locator('#ending-title')).toHaveText(ending === 'deed' ? 'THE DEED' : 'THE PAPER');
     await expect(page.locator('#ending-stats')).toContainText('Clues found5/5');
     const after = await page.evaluate(() => { const d = window.shine.game.dredge.data; return { ending: d.ending, cash: d.cash, deed: !!d.flags.deed }; });
-    expect(after).toEqual(ending === 'deed' ? { ending: 'deed', cash: 5000, deed: true } : { ending: 'paper', cash: 25000, deed: false });
+    expect(after).toEqual(ending === 'deed' ? { ending: 'deed', cash: 13000, deed: true } : { ending: 'paper', cash: 25000, deed: false });
     if (ending === 'deed') {
       // Keep driving: the roads stay open, and the Sun has nothing more to say.
       await page.click('#ending-keep');

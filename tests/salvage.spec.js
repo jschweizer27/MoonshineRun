@@ -79,7 +79,7 @@ test('working a site: stop by it, play it, pack what it gives up; then it is pic
     const g = window.shine.game;
     g.renderer.setAnimationLoop(null);
     g.renderFrame();
-    const s = g.salvage.sites.find((x) => x.kind === 'farmhouse');
+    const s = g.salvage.sites.find((x) => x.kind === 'farmhouse' && !x.night);   // (a night site's clean job can add a rare find)
     window.__site = s;
     window.shine.teleport(s.stopX, s.stopZ + 30, 0); window.shine.step(0.2);
     window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.2);

@@ -696,6 +696,7 @@ class Game {
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
     else if (done && choiceOpen(d)) this.hud.toast('The choice is yours: the deed, or the paper', 'gold', 4000);
     this._updateObjective();
+    this._updateGuide();
     // The trap at Warren springs once its cards are read (or at once without them).
     const trap = events.some((e) => e.type === 'step' && e.step.ambush);
     if (!OPTIONS.story || !lines.length) { if (trap) this._ambush(); return false; }

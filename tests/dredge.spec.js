@@ -545,7 +545,7 @@ test('Otto drives the bevelled truck model: one body, four wheels, headlight bea
   expect(r.calls).toBeLessThan(60);
 });
 
-test('upgrades bought at the market change the truck, the trunk, the magnet and the radar, and survive a reload', async ({ page }) => {
+test('upgrades bought at the market change the truck, the trunk, the padding and the radar, and survive a reload', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   const before = await page.evaluate(() => {
@@ -556,9 +556,9 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     g.trunk.place('small-crate', 4, 2);                           // a piece in the far corner stays put
     g.openMarket();
     return {
-      broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.perks.pickupRadius, range: g.perks.mapRange,
+      broke, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, padding: g.perks.padding, range: g.perks.siteRange,
       size: [g.trunk.cols, g.trunk.rows], look: g.player.look, calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
-      buttons: ['trunk', 'engine', 'handling', 'magnet', 'spotter'].map((id) => document.querySelector(`#market-body [data-id="up-${id}"]`).textContent),
+      buttons: ['trunk', 'engine', 'handling', 'padding', 'spotter'].map((id) => document.querySelector(`#market-body [data-id="up-${id}"]`).textContent),
       later: ['tyres', 'lamps', 'plating'].map((id) => document.querySelector(`#market-body [data-id="up-${id}"]`).textContent),
     };
   });
@@ -568,13 +568,13 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
   expect(before.buttons).toEqual(['BUY $300', 'BUY $350', 'BUY $300', 'BUY $250', 'BUY $200']);
   expect(before.later).toEqual(['AT SCAVENGER', 'AT SCAVENGER', 'AT RUNNER']);    // the rank-gated ones
   // Buy one of each from the market screen, by keyboard focus and click.
-  for (const id of ['trunk', 'engine', 'handling', 'magnet', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
+  for (const id of ['trunk', 'engine', 'handling', 'padding', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
   const after = await page.evaluate(() => {
     const g = window.shine.game;
     g.renderFrame();
     const info = window.shine.renderInfo();
     return {
-      cash: g.dredge.cash, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, radius: g.perks.pickupRadius, range: g.perks.mapRange,
+      cash: g.dredge.cash, maxSpeed: g.player.t.maxSpeed, grip: g.player.t.grip, padding: g.perks.padding, range: g.perks.siteRange,
       size: [g.trunk.cols, g.trunk.rows], corner: g.trunk.pieceAt(4, 2)?.kind, look: g.player.look,
       reinforced: g.player.model.looks.reinforced.visible, stock: g.player.model.looks.stock.visible,
       calls: info.calls, programs: g.renderer.info.programs.length, geometries: g.renderer.info.memory.geometries,
@@ -584,8 +584,8 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
   expect(after.cash).toBe(3000 - 300 - 350 - 300 - 250 - 200);
   expect(after.maxSpeed).toBe(before.maxSpeed + 3);
   expect(after.grip).toBe(before.grip + 2.5);
-  expect(after.radius).toBeCloseTo(before.radius + 1.2, 5);
-  expect(after.range).toBe(before.range + 60);
+  expect(after.padding).toBeCloseTo(before.padding - 0.16, 5);   // a crash breaks less
+  expect(after.range).toBe(before.range + 120);                  // salvage sites further off on the radar
   expect(after.size).toEqual([6, 3]);
   expect(after.corner).toBe('small-crate');                    // the trunk grew around it
   expect(after.label).toBe('BUY $800');
@@ -594,18 +594,13 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
   expect(after.geometries).toBe(before.geometries);
   expect(after.calls).toBe(before.calls);
 
-  // The magnet: a piece 4.2 m to the side is out of reach at level 0 (3.4 m) and in reach now.
-  const grabbed = await page.evaluate(() => {
-    const g = window.shine.game, L = g.loot;
+  // Padding: a crash that would break shine with this chance breaks it 16% less often.
+  const padded = await page.evaluate(() => {
+    const g = window.shine.game;
     g.ui.close('market'); g.resume();
-    g.trunk.clear();
-    for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
-    g.player.place(0, 100, 0);
-    L.kind[0] = 0; L.active[0] = 1; L.x[0] = 4.2; L.z[0] = 100;
-    window.shine.step(0.05);
-    return L.active[0] === 0;
+    return g.perks.padding;
   });
-  expect(grabbed).toBe(true);
+  expect(padded).toBeCloseTo(0.84, 5);
 
   // A reload keeps the levels and the bigger trunk.
   await page.reload();
@@ -615,7 +610,7 @@ test('upgrades bought at the market change the truck, the trunk, the magnet and 
     const g = window.shine.game;
     return { levels: { ...g.dredge.data.upgrades }, size: [g.trunk.cols, g.trunk.rows], maxSpeed: g.player.t.maxSpeed, look: g.player.look };
   });
-  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, magnet: 1, spotter: 1, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 });
+  expect(reloaded.levels).toEqual({ trunk: 1, engine: 1, handling: 1, padding: 1, spotter: 1, tyres: 0, lamps: 0, plating: 0, falsebottom: 0 });
   expect(reloaded.size).toEqual([6, 3]);
   expect(reloaded.maxSpeed).toBe(after.maxSpeed);
   expect(reloaded.look).toBe('reinforced');
@@ -738,7 +733,7 @@ test('a third town: Glyndon out west has its own depot and prices, and only the 
 
 test('the game explains itself: the intro and How to Play tell the loot run, not the old bootlegging one', async ({ page }) => {
   await openGame(page);
-  await expect(page.locator('#intro .story')).toContainText('pack what you find');
+  await expect(page.locator('#intro .story')).toContainText('Salvage it');
   await expect(page.locator('#start-btn')).toHaveText('START DRIVING');
   await page.click('#intro-help');
   await expect(page.locator('#help ol.rules')).toBeVisible();

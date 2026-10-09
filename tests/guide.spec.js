@@ -9,10 +9,14 @@ const guide = (page) => page.evaluate(() => ({
 test('the first run: tips walk through finding salvage, packing and the sale, then end for good', async ({ page }) => {
   const problems = await openGame(page, '&hints');
   await page.click('#start-btn');
-  // Find salvage.
+  // The story's first step points at the ruins: the tip says how to work a site.
   await page.evaluate(() => { const L = window.shine.game.loot; L.active.fill(0); L.timer.fill(1e9); L.rareIn = 1e9; window.shine.step(0.6); });
   let g = await guide(page);
   expect(g.shown).toBe(true);
+  expect(g.text).toContain('stop beside its sign');
+  // Past the steps that point somewhere (the coil found, the still running): find salvage.
+  await page.evaluate(() => { const d = window.shine.game.dredge.data; d.flags.ruinsSearched = true; d.still = 1; d.stats.brews = 1; window.shine.step(0.6); });
+  g = await guide(page);
   expect(g.text).toContain('Find salvage');
 
   // A crate aboard (a piece spilled on the road): the trunk opens with a packing tip.

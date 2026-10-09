@@ -1,8 +1,8 @@
 # SHINE — project guide for Claude
 
-SHINE is a 1920s Baltimore driving game (Otto Braun, Baltimore/Green Spring Valley): free
-roam, loot along the roads, a Tetris-style trunk to pack, three market towns to sell in and
-upgrades to buy, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
+SHINE is a 1920s Baltimore bootlegging game (Otto Braun, Baltimore/Green Spring Valley): free
+roam, salvage sites to work, a Tetris-style trunk to pack, four market towns, a still, night
+runs past the Bureau and a story in five chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
@@ -80,7 +80,9 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   on the save, a clue each and a tool for the first four; `current`, `openSites`, `advance`,
   `choiceOpen`, `ENDINGS`). Step fields (documented at the top of chapters.js): `site` (a
   story site, `night` or a `window` of hours) with `gives` / `sets` / `finds` / `ambush`;
-  `at` ('barn', 'loch'); `who` (that contact's offer comes daily: `offersFor` `focus`);
+  `at` ('barn', 'loch'); `who` (that contact always has an offer on the board, a fresh one
+  after each delivery to them: `offersFor` `focus` / `focusN`); `lost` (what the step needs
+  that can be lost, and the site that gives it back: Father's coil, `lostNow`, `main._lost`);
   `order` (a story order in the book: `main._storyOrders` / `_storyOrder`, id `story:<step>`,
   `due` null, can't be dropped, doesn't fill the book; delivered it sets
   `flags['order:<step>']`); `learn`; `flag`. `main._chapters` (on the story timer) opens the
@@ -94,7 +96,19 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   the Sun story site; `main._end` sets `data.ending`, plays `ENDINGS[id]` and opens the
   `#ending` screen (`showEnding`). Tools: farm tyres (`perks.field` 1), the false bottom
   (`perks.hidden`), the police band (`perks.agentRange`, `police.near(..., { look })`, the
-  radar's wedges). Save: `chapter`, `steps`, `opened`, `clues`, `tools`, `ending`.
+  radar's wedges). Save: `chapter`, `steps`, `opened`, `clues`, `tools`, `ending`,
+  `stepTimes`.
+- One clock: the save's `market.clock` (game hours from midnight of day 0; a new game starts
+  at 21.5) is the time; `env.hour` is set from it on every load (`main._syncHour`) and both
+  advance together, so deadlines, dawn, refills, the freight and the sky agree. The night's
+  rules (salvage night sites, shine orders, the speakeasies, the checkpoint from chapter 3)
+  are `CONFIG.dredge.police.checkpoint.hours`, 19:30-06:00, when the screen goes dark.
+  Sleeping at the barn (`main._sleeps` / `sleep`) moves both. Toasts queue (`hud.toast`: gold
+  or red news cut short comes back after; `hud.log` lists the last ones for tests). Story
+  sites have colliders only while open (`salvage.refresh`). SELL EVERYTHING keeps back what
+  the orders and the story need (`main._keepBack`, `market.sell(..., keep)`). The county
+  stores (towns with `supplies`) sell `CONFIG.dredge.supplies` (`main.buySupply`). A clean
+  job at a night site can give a rare find (`salvage.rareFind`, `CONFIG.dredge.salvage.rare`).
 - Loch Raven and the railway (v4): `src/loch.js` is chapter 5's region east of the county
   (`LOCH`): roads through two gaps in the east wall (nodes tagged 'county' with
   `region: 'loch'`, which salvage sites and road events leave out), the lake (shore
@@ -164,12 +178,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   views with draw-call counts), `npm run reel -- <label>` and `node scripts/playtest.mjs
   <label>` write screenshots / contact sheets to `artifacts/shots/` (they stop the game
   loop and step it themselves). Headless timings are a software GPU: compare them, don't
-  read them as fps. `node scripts/economy.mjs [minutes] [level] [seed] [rare]` measures the
-  economy (a road-following autopilot with the clock on: $ per game minute, pickups, each
-  sale; `rare` also fetches rare finds); set prices and upgrade costs in `CONFIG.dredge`
-  against it. One seed is one loot layout and runs vary a lot: compare several seeds.
-  `node scripts/progress.mjs [loot $/min]` projects the long game from the tuning (jobs,
-  brews and rare finds on top of that income): the hour each rank and the deed come.
+  read them as fps. `node scripts/economy.mjs [minutes] [score] [level] [seed]` measures
+  salvage (a road-following bot with the clock on works the nearest open site at a set
+  mini-game score and sells: $ per real minute, sites an hour, the still's makings found);
+  compare several seeds. `node scripts/progress.mjs` models the story's pacing (the real
+  `advance` and `offersFor`, the night and freight hours, brewing, supplies, salvage at the
+  bot's rates) for a rusher, a steady and a casual player: minutes per chapter, hours to the
+  ending's choice, cash then. Targets: chapter 1 in 45-60 min, 5-7 h in all. The save keeps
+  `stepTimes` (play seconds each step was done), shown per chapter in the ledger.
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
   parts need no new material. Its headlight beams are additive cones
