@@ -16,6 +16,8 @@ import { CONFIG } from './config.js';
 //  - `order`: a story order the step puts in the order book while it's current (main.js
 //    `_storyOrders`): for `who`, at `at` ('load' at the freight, or a contact), wanting
 //    `wants`, after dark (`night`) or in a `window`; delivered, it sets flags['order:<step>'].
+//    A `passenger` (`who`, picked up at the door of the contact `from`) rides along to it;
+//    a `fragile` load breaks a crate on any hard knock.
 //  - `learn`: a recipe the step teaches (CONFIG.dredge.brew recipes with `learn`); `flag`: a
 //    save flag it sets once done.
 //  - `lost`: what the step needs that the player can lose (sell, leave behind) before it's
@@ -89,10 +91,15 @@ export const CHAPTERS = [
       { id: 'mags-trust', text: 'Earn Mags O’Rourke’s trust (★★)', who: 'orourke', done: (d) => trustLevel(d.trust.orourke) >= 2,
         lines: [
           ['orourke', 'You’re asking after that kerosene. It went up the Western Line, Otto: forty drums of it, the night your brewery burned.'],
-          ['orourke', 'The midnight freight stands at Glyndon from eleven till half past one. Walt Purdy rides the guard’s van, and he owes me. Load two crates of corn for my cousins in Hagerstown, and he’ll let you read his waybills.'],
+          ['orourke', 'The midnight freight stands at Glyndon from eleven till half past one. Walt Purdy rides the guard’s van, and he owes me. Only tonight he’s asleep in my back room, and he’s missed his train.'],
+          ['orourke', 'Get him to Glyndon before she pulls out, then load two crates of corn for my cousins in Hagerstown, and he’ll let you read his waybills. Mind how you drive: Walt’s got a weak stomach.'],
         ] },
+      { id: 'purdy', text: 'Carry Walt Purdy from the Fells Point docks to the Glyndon siding while the freight stands (23:00–01:30)',
+        order: { who: 'guard', at: 'load', place: 'the Glyndon siding', wants: {}, window: S.freight.window, pay: S.passenger.pay, passenger: { who: S.passenger.who, from: S.passenger.from } },
+        done: (d) => !!d.flags['order:purdy'],
+        lines: [['guard', 'In time, and my dinner still where I left it. Mags was right about you. Now, those two crates for Hagerstown.']] },
       { id: 'freight', text: 'Load 2 crates of Corn Shine onto the midnight freight at Glyndon (23:00–01:30)',
-        order: { who: 'guard', at: 'load', place: 'the Glyndon siding', wants: { [S.freight.kind]: S.freight.count }, window: S.freight.window, pay: S.freight.pay, rep: S.freight.rep },
+        order: { who: 'guard', at: 'load', place: 'the Glyndon siding', wants: { [S.freight.kind]: S.freight.count }, window: S.freight.window, pay: S.freight.pay },
         done: (d) => !!d.flags['order:freight'],
         lines: [['guard', 'Two crates for Hagerstown, and nobody the wiser. Mags said you’d want the waybills: they’re in my van. Be quick about it. We pull out at half past one.']] },
       { id: 'waybills', text: 'Search the guard’s van before the freight pulls out (23:00–01:30)', site: 'van', window: S.freight.window, finds: 'manifest', done: (d) => !!d.clues.manifest },
@@ -117,8 +124,8 @@ export const CHAPTERS = [
           ['delaney', 'Two crates of my own corn, for Gus Kessler in Highlandtown. The Bureau stops every truck at the York Road gap after dark, so let’s see that false floor earn its keep.'],
           ['delaney', 'Get them through, and Gus will tell you what I know about Sheriff Hale and your fire.'],
         ] },
-      { id: 'run', text: 'Get Delaney’s crates to Gus Kessler, past the York Road checkpoint',
-        order: { who: 'kessler', at: 'kessler', wants: { [S.run.kind]: S.run.count }, night: true, pay: S.run.pay, rep: S.run.rep },
+      { id: 'run', text: 'Get Delaney’s crates to Gus Kessler, past the York Road checkpoint (fragile: no hard knocks)',
+        order: { who: 'kessler', at: 'kessler', wants: { [S.run.kind]: S.run.count }, night: true, pay: S.run.pay, fragile: true },
         done: (d) => !!d.flags['order:run'],
         lines: [['kessler', 'Through the Bureau’s own checkpoint! Moss Delaney sends word, Otto: the Sheriff wrote a report on your fire, and somebody paid him to bury it.']] },
       { id: 'hale-trust', text: 'Earn Sheriff Hale’s trust (★★★)', who: 'sheriff', flag: 'bribery', done: (d) => trustLevel(d.trust.sheriff) >= 3,
@@ -140,11 +147,18 @@ export const CHAPTERS = [
     id: 'warren', title: 'Drowned Warren', place: 'Loch Raven',
     open: [
       ['narrator', 'Chapter 5: Drowned Warren. East of Cockeysville, Baltimore has dammed the Gunpowder for its water, and the mill town of Warren went under Loch Raven.'],
-      ['jockey', 'Otto! I hear you’ve been reading Harrow’s mail. It was old Harrow, not me. The proof’s at Warren: the estate kept its papers in the mill office, and the water’s low this autumn.'],
-      ['jockey', 'Go at night, and go alone. Nobody watches a drowned town.'],
-      ['otto', 'Kind of you to tell me, Jockey.'],
+      ['kessler', 'Otto. Before you go chasing the rest of it: the copper kettle from Braun & Sons. My boys pulled it out of the ashes the week after, and it’s been in my cellar ever since.'],
+      ['kessler', 'A still makes shine. A kettle makes lager. Brew your father’s Highlandtown Lager one more time, down in my cellar. Bring malt and a cask.'],
     ],
     steps: [
+      { id: 'brewery', text: 'Brew Highlandtown Lager in Gus’s cellar (3 sacks of malt, a barrel)', site: 'brewery', learn: 'lager', done: (d) => (d.best.lager || 0) > 0,
+        lines: [
+          ['kessler', 'That’s it. That’s the taste of Highlandtown. Your father would have stood you a glass of it.'],
+          ['narrator', 'Learned: Highlandtown Lager, brewed only in Gus’s cellar. The speakeasies will ask for it now. Then a boy at the cellar door, with a note.'],
+          ['jockey', 'Otto! I hear you’ve been reading Harrow’s mail. It was old Harrow, not me. The proof’s at Warren: the estate kept its papers in the mill office, and the water’s low this autumn.'],
+          ['jockey', 'Go at night, and go alone. Nobody watches a drowned town.'],
+          ['otto', 'Kind of you to tell me, Jockey.'],
+        ] },
       { id: 'loch', text: 'Drive out to Loch Raven, east of Cockeysville', at: 'loch', done: (d) => !!d.flags.loch,
         lines: [['narrator', 'Loch Raven. Rooftops stand out of the water where Warren used to be, and a church steeple, and by the landing the old mill, half under.']] },
       { id: 'mill', text: 'Search the drowned mill at Warren', site: 'mill', night: true, finds: 'letters', ambush: true, done: (d) => !!d.clues.letters,
@@ -211,12 +225,13 @@ export function lostNow(d, have) {
 
 // The story sites open now: { [site]: { night, window } } for the current step, if it has
 // one (or the site that gives back what it needs, if that's lost); the Sun while the
-// ending's choice is open.
+// ending's choice is open; and Gus's cellar (the brewery) for good once Lager is learned.
 export function openSites(d, have = null) {
-  if (choiceOpen(d)) return { sun: { night: false, window: null } };
+  const out = d.flags?.['learned:lager'] ? { brewery: { night: false, window: null } } : {};
+  if (choiceOpen(d)) return { ...out, sun: { night: false, window: null } };
   const { step } = current(d), lost = lostNow(d, have);
-  if (lost) return { [lost.site]: { night: false, window: null } };
-  return step?.site ? { [step.site]: { night: !!step.night, window: step.window || null } } : {};
+  if (lost) return { ...out, [lost.site]: { night: false, window: null } };
+  return step?.site ? { ...out, [step.site]: { night: !!step.night, window: step.window || null } } : out;
 }
 
 // Move the story on as far as the save allows. Returns what happened, in order:

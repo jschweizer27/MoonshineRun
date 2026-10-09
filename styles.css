@@ -193,6 +193,20 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 #still-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #still-progress i { display: block; height: 100%; width: 0; background: var(--gold); }
 #still-stoke { touch-action: none; user-select: none; -webkit-user-select: none; }
+/* The brewery (Gus's cellar): the still's gauge, with the hop marks for the boil. */
+#brewery-gauge { position: relative; height: 44px; margin: 14px 0 8px; border: 1px solid var(--gold); border-radius: 3px; background: linear-gradient(to right, #1b2a33, #3a2a1a); overflow: hidden; }
+#brewery-band { position: absolute; top: 0; bottom: 0; background: rgba(242, 197, 92, 0.35); border-left: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+#brewery-needle { position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #e8735a; box-shadow: 0 0 8px #e8735a; }
+#brewery-needle.in { background: #f2e3b0; box-shadow: 0 0 10px #f2c55c; }
+#brewery-gauge .brewery-mark { position: absolute; top: 0; bottom: 0; width: 6px; margin-left: -3px; background: rgba(143, 208, 106, 0.8); display: none; }
+#brewery-gauge .brewery-mark.hit { background: rgba(242, 227, 176, 0.9); }
+#brewery-steps { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; list-style: none; padding: 0; margin: 6px 0 10px; font-size: 12px; letter-spacing: 0.12em; }
+#brewery-steps li { padding: 3px 8px; border: 1px solid rgba(242, 197, 92, 0.35); border-radius: 3px; opacity: 0.5; }
+#brewery-steps li.on { opacity: 1; border-color: var(--gold); color: var(--gold); }
+#brewery-steps li.past { opacity: 0.8; }
+#brewery-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+#brewery-progress i { display: block; height: 100%; width: 0; background: var(--gold); }
+#brewery-act { touch-action: none; user-select: none; -webkit-user-select: none; }
 /* The abilities: small chips above the speedometer, tappable. */
 #abilities { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 8px; pointer-events: auto; }
 .ability { font: inherit; font-size: calc(12px * var(--ts)); letter-spacing: 1px; padding: 4px 8px; color: var(--muted); background: rgba(13, 11, 8, 0.6); border: 1px solid rgba(216, 178, 90, 0.35); border-radius: 2px; cursor: pointer; }
@@ -207,7 +221,7 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 #salvage-grid button:disabled { cursor: default; }
 #salvage-progress { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #salvage-progress i { display: block; height: 100%; width: 100%; background: var(--gold); }
-#pause, #settings, #help, #map, #confirm, #ledger, #notebook, #slots, #barn, #still, #salvage, #ending { background: rgba(3, 4, 7, 0.82); z-index: 25; }
+#pause, #settings, #help, #map, #confirm, #ledger, #notebook, #slots, #barn, #still, #salvage, #ending, #brewery { background: rgba(3, 4, 7, 0.82); z-index: 25; }
 #dialog { background: linear-gradient(to top, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.45)); z-index: 25; align-items: flex-end; }
 #dialog .overlay-card.dialog-card { max-width: 640px; text-align: left; margin: auto auto 6vh; }
 .dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-height: 44px; }

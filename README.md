@@ -37,7 +37,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Open the trunk | `T` | X | box button, top right |
 | Headlamps on/off | `L` | d-pad down | lamp button, top right |
 | Otto's notebook | `B` | left stick click | book button, top right |
-| Abilities (from rank 1 up) | `1` `2` `3` | D-pad ← ↑ → | chips above the speedometer |
+| Lead Foot / Sweet Talk (once earned) | `2` / `3` | D-pad ↑ / → | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
 | Look back | `C` | Y | — |
@@ -75,18 +75,25 @@ Enter, the D-pad and A/B, or touch.
 
    **Chapter 3, The Western Line:**
    - win Mags O'Rourke's trust;
+   - carry Walt Purdy, the freight's guard, from the Fells Point docks to the Glyndon siding
+     before the freight pulls out (he's aboard as a pill on the HUD; a hard knock costs Mags's
+     trust, and a bust puts him off to try again);
    - load two crates of Corn Shine onto the **midnight freight**, which stands at the Glyndon
      siding only from 23:00 to 01:30;
    - search the guard's van before it pulls out.
 
    **Chapter 4, Stone and Iron:**
    - collect Moss Delaney's crates at the Cockeysville quarry after dark;
-   - get them to Gus Kessler past the York Road checkpoint;
+   - get them to Gus Kessler past the York Road checkpoint (they're fragile: any hard knock
+     breaks one, and your own corn shine can make it up);
    - win Sheriff Hale's trust (from then on, he can make a bust in the county go away, for a
      price);
    - buy his buried report on the fire at the lockup.
 
-   **Chapter 5, Drowned Warren:** drive out east of Cockeysville to **Loch Raven**, where the
+   **Chapter 5, Drowned Warren:** brew **Highlandtown Lager** in Gus Kessler's cellar on
+   Father's copper kettle (three sacks of malt and a barrel; a brewery game of its own: hold the
+   mash on its rests, add the hops on their marks, tap it at the end of the lagering), then
+   drive out east of Cockeysville to **Loch Raven**, where the
    mill town of Warren went under the reservoir, and search the drowned mill after dark. Then
    get away.
 
@@ -125,7 +132,7 @@ Enter, the D-pad and A/B, or touch.
    nearest **⬢ market**. Stop inside its ring to sell: **Lexington Market** in the city, the
    **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
    in the valley. Out east, the quarry town of **Cockeysville** has a company store that pays
-   best for copper, kegs and barrels, but it only deals with a **Runner** (see ranks, below);
+   best for copper, kegs and barrels, but it only deals with Otto from chapter 3;
    until then its mark on the radar is barred. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
@@ -172,11 +179,11 @@ Enter, the D-pad and A/B, or touch.
    Quitting to the title with the Bureau on your tail counts as a bust. At night, turn
    the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
    **checkpoint** stands at the York Road gap at night from chapter 3. Stop and they search the trunk; run it
-   and they chase you. The **false bottom** upgrade (from Runner) hides a couple of crates.
+   and they chase you. The **false bottom** upgrade (from chapter 3) hides a couple of crates.
 10. **Orders**: the people at the speakeasies and the farms post orders each day, on the
    board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
    Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
-   own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
+   own words. From chapter 4, Sheriff Hale sends for things too, to the county lockup in
    Cockeysville.
    - **The book:** keep up to three orders at once (a chapter's own orders don't count).
      Whoever the chapter is waiting on always has an order on the board, and a fresh one
@@ -196,11 +203,12 @@ Enter, the D-pad and A/B, or touch.
      sheriff.
    - **Otto's notebook** (`B`, or the pause menu) keeps the order book, every contact and their
      trust, what they've told you, the recipes with your best batches, and the clues.
-11. Reputation (from jobs, good brews and rare finds) earns **ranks**: Junk Hauler, Scavenger,
-   Runner, Brewer, Bootlegger and King of York Road. Each unlocks something: the better
-   recipes, upgrade levels 4 and 5, new upgrades (farm tyres, spotlamps, steel plating) and
-   three **abilities**: the **Jockey's Tip** (every salvage site on the radar for a while),
-   **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
+11. **Trust and tools:** what Otto earns comes from the people who trust him. At three stars
+   Gus Kessler teaches **Barrel Rye**, Mags O'Rourke's dockers tune the engine for **Lead Foot**
+   (`2`, d-pad up, or its chip: a burst of speed) and Mr. Abernathy shows Otto **Sweet Talk**
+   (`3`, d-pad right: the next sale or job pays 20% more). **Highlandtown Lager** is brewed
+   only in Gus's cellar, from chapter 5. Upgrade levels 4 and 5 and the later upgrades open as
+   the story goes on.
 12. The story ends with **the deed or the paper** (above). The roads stay open after it.
 13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books, and how long each chapter

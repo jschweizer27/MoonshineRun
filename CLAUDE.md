@@ -64,12 +64,23 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   hand (`due` in game hours), `data.taken` the offers already taken, `data.rep` the standing it
   earns. `main._checkContract` delivers (stop at the contact) or loses it when late; its
   marker is one of `main.jobMarkers`, under the nearest-marker rule.
-- Ranks and abilities: `data.rep` (contracts, brews, rare finds; `main._addRep`) sets
-  `data.rank` against `CONFIG.dredge.ranks`; ranks gate recipes, upgrade levels (`ranks` on each
-  upgrade, `dredgecareer.lockedRank`) and the abilities (`CONFIG.dredge.abilities`,
-  `main.useAbility`, HUD chips in `#abilities`; actions `ability1-3`, the d-pad's left / up /
-  right while driving). The deed (`CONFIG.dredge.deed`, `main._deed` at Lexington Market) is
-  one of the two endings now, after the last chapter (below), not a rank's.
+- Trust and tools (no ranks or reputation since stage 7b): `CONFIG.dredge.gifts` is what a
+  contact gives once at `at` stars (`main._trustGifts`, from a handoff's news or the story
+  timer): a recipe (`flags['learned:<id>']`; every recipe but Corn Shine must be learned) or an
+  ability (`data.tools.leadfoot` / `sweet`; `CONFIG.dredge.abilities`, `main.useAbility`, HUD
+  chips in `#abilities` once earned; actions `ability2` / `ability3`). Gates are chapters now:
+  `chapters` on each upgrade level (`dredgecareer.lockedChapter`), a town's `chapter`
+  (`market.townOpen(town, chapter)`: Cockeysville from 2), a contact's `chapter` (the
+  Sheriff's lockup from 3). The deed (`CONFIG.dredge.deed`, `main._deed`) is one of the two
+  endings.
+- The brewery (chapter 5): `brew.js` `newLagerBatch` / `stepLagerBatch` / `pressLagerBatch`
+  / `lagerQuality` (mash, boil, lagering; `CONFIG.dredge.brew.lager`), `screens.js`
+  `showBrewery` (`#brewery`), the story site 'brewery' (kind game 'lager', `main.openBrewery`,
+  open for good once `learned:lager`). Lager (`brewery: true` recipe) isn't brewed at the still.
+- Story runs: a story order's `passenger` (`main._checkPassenger` / `_passengerOff` /
+  `_passengerKnock`, the `#passenger` pill; it points at `pickup` until `aboard`, then at
+  `drop`) and `fragile` (`main._breakage` breaks one of its kind on any knock over
+  `breakage.from`).
 - Traffic: `src/traffic.js`, a pool of `CONFIG.dredge.traffic.count` kinematic vehicles on
   the road graph near the camera (right-hand lane, turning at junctions, keeping a gap),
   drawn as one InstancedMesh with the loot's kind-selecting trick (three bodies). They join
