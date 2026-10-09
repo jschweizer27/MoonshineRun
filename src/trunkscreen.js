@@ -7,7 +7,9 @@ const $ = (id) => document.getElementById(id);
 // cursor; Enter / A / click puts it down, lifts the piece under the cursor, or swaps the two
 // when the one in hand overlaps exactly one piece. R, Q / E, the shoulder buttons or a
 // right-click turn it; X / Backspace leaves it on the road. Esc / B closes the trunk (a new
-// piece still in hand is left behind; a lifted one goes back where it was).
+// piece still in hand is left behind; a lifted one goes back where it was). On a touch
+// screen a tap aims and a second tap on the same cell puts it down (a mouse aims as it
+// moves, so one click does); TURN IT, LEAVE IT and DONE do the rest.
 export class TrunkScreen {
   constructor(ui, { onDiscard = () => {}, onChange = () => {}, onClose = () => {} } = {}) {
     this.ui = ui;
@@ -17,16 +19,23 @@ export class TrunkScreen {
     this.grid = $('trunk-grid');
     this.hand = null;          // { kind, rot, from: null | { x, y, rot } }
     this.cursor = { x: 0, y: 0 };
+    this._aim = null;          // the cell last pointed at: { x, y }
     this.grid.addEventListener('pointermove', (e) => {
       const c = e.target.closest('.cell');
-      if (c && this.trunk) { this._moveTo(+c.dataset.x, +c.dataset.y); }
+      if (c && this.trunk && e.pointerType !== 'touch') { this._aim = { x: +c.dataset.x, y: +c.dataset.y }; this._moveTo(this._aim.x, this._aim.y); }
     });
     this.grid.addEventListener('click', (e) => {
       const c = e.target.closest('.cell');
-      if (c) this._moveTo(+c.dataset.x, +c.dataset.y);
-      this.confirm();
+      if (!c) return;
+      const x = +c.dataset.x, y = +c.dataset.y, aimed = this._aim && this._aim.x === x && this._aim.y === y;
+      this._aim = { x, y };
+      this._moveTo(x, y);
+      if (aimed || !this.hand) this.confirm();
     });
     this.grid.addEventListener('contextmenu', (e) => { e.preventDefault(); this.rotate(); });
+    $('trunk-rotate').addEventListener('click', () => this.rotate());
+    $('trunk-leave').addEventListener('click', () => this.discard());
+    $('trunk-done').addEventListener('click', () => this.close());
   }
 
   get isOpen() { return this.ui.isOpen('trunk'); }
@@ -35,6 +44,7 @@ export class TrunkScreen {
   open(trunk, newKind = null) {
     this.trunk = trunk;
     this.hand = null;
+    this._aim = null;
     this.cursor = { x: 0, y: 0 };
     if (newKind) {
       const spot = trunk.findSpot(newKind);
@@ -201,6 +211,7 @@ export class TrunkScreen {
     $('trunk-hand').textContent = this.hand
       ? `In hand: ${KINDS[this.hand.kind].name} ($${KINDS[this.hand.kind].value})`
       : 'Hands free: pick up a piece to move it, or close the trunk.';
+    $('trunk-rotate').disabled = $('trunk-leave').disabled = !this.hand;
     $('trunk-fill').textContent = `${t.used} / ${t.size} spaces · ${t.count} piece${t.count === 1 ? '' : 's'} · worth about $${t.value}`;
   }
 }

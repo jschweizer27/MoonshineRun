@@ -34,9 +34,9 @@ on-screen pedals appear automatically on phones and tablets.
 | Throttle / brake & reverse | `W` `S` or `↑` `↓` | RT / LT | GAS / BRAKE |
 | Steer | `A` `D` or `←` `→` | Left stick | Drag on the left side |
 | Handbrake (slide) | `Space` | A | DRIFT |
-| Open the trunk | `T` | X | — |
-| Headlamps on/off | `L` | d-pad down | — |
-| Otto's notebook | `B` | pause menu | pause menu |
+| Open the trunk | `T` | X | box button, top right |
+| Headlamps on/off | `L` | d-pad down | lamp button, top right |
+| Otto's notebook | `B` | left stick click | book button, top right |
 | Abilities (from rank 1 up) | `1` `2` `3` | D-pad ← ↑ → | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
@@ -48,7 +48,9 @@ on-screen pedals appear automatically on phones and tablets.
 
 **In the trunk:** the arrows (or D-pad) move the piece, **R** / **Q** (or LB / RB) turn it,
 **Enter** (A) puts it down, lifts a piece or swaps the two, **X** leaves it on the road, and
-**Esc** (B) closes the trunk. You can also drag pieces with the mouse.
+**Esc** (B) closes the trunk. You can also drag pieces with the mouse. On a touch screen,
+tap a cell to aim and tap it again to put the piece down; **TURN IT**, **LEAVE IT** and
+**DONE** do the rest. On a phone the game is best held sideways.
 
 Every key can be changed in **Settings → Controls**. Menus work with the arrow keys and
 Enter, the D-pad and A/B, or touch.
@@ -97,7 +99,7 @@ Enter, the D-pad and A/B, or touch.
    in the book: no deadline, but it can't be dropped. The notebook keeps the steps and the clues.
 
    **The endings.** After chapter 5 the choice is yours, and it ends the story:
-   - **the deed:** buy back Braun & Sons at Lexington Market ($20,000) and go legit;
+   - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
    - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
 
    Either way the roads stay open afterwards.
@@ -111,7 +113,10 @@ Enter, the D-pad and A/B, or touch.
      before the lamp dies.
 
    The better you do, the more you get (up to three pieces) and the better they are. A
-   worked site is picked clean for a day or two. The best ones can only be worked at night.
+   worked site is picked clean for a day or two. The best ones can only be worked at night,
+   and a clean job at one of those can turn up a **rare find**: a gold pocket watch or a case
+   of bonds, which pays big in one town. If Father's coil is lost before it's fitted (sold, or
+   left on the road), the ruins open again: he always kept a spare.
    Lamp posts give way if you hit them; they're back up by dawn.
 3. Everything you find goes into the **trunk**, one piece at a time: turn it and fit it in;
    pieces can't overlap. Leave behind what won't fit, or press **T** any time to rearrange.
@@ -126,8 +131,10 @@ Enter, the D-pad and A/B, or touch.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
 5. Spend your cash at any market on **upgrades**: a bigger bed (the trunk grows and the
-   truck gets reinforced rails), a tuned engine, stiffer springs, a longer reach for loot,
-   and a spotter for the radar.
+   truck gets reinforced rails), a tuned engine, stiffer springs, **padding** (fewer
+   breakages in a crash) and a **spotter** (salvage sites further off on the radar; at the top
+   level, all of them). The county stores (Monkton, Glyndon, Cockeysville) also sell the
+   still's makings: sacks, jugs and small crates, straight into the trunk.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
    slow it down until it's repaired.
@@ -152,7 +159,8 @@ Enter, the D-pad and A/B, or touch.
    taints the blend, and selling tainted shine blinds someone and costs you your name. Each
    recipe runs differently: Applejack burns hot, and Rye has narrow hearts. Jars, bottles and
    shine break in a hard crash.
-   Shine sells only at the city's **speakeasies**; with crates aboard, the radar shows them.
+   Shine sells only at the city's **speakeasies**, after dark; with crates aboard, the radar
+   shows them. With nothing to do till dark, **sleep** at the barn till dusk.
 9. **Revenue agents** patrol the roads, more of them at night. Each watches the road ahead in a
    cone. If one sees shine aboard, you have **heat** (the ★ pill):
    - at one star, the agent follows you;
@@ -160,21 +168,25 @@ Enter, the D-pad and A/B, or touch.
    - at three, every car in the county is after you.
 
    Get out of their sight to lose them. Boxed in and stopped, you're **busted**: the shine is
-   taken, you pay a fine (a quarter of your cash), and you wake at the barn. At night, turn
+   taken, you pay a fine (a quarter of your cash, at most $750), and you wake at the barn.
+   Quitting to the title with the Bureau on your tail counts as a bust. At night, turn
    the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
-   **checkpoint** stands at the York Road gap at night. Stop and they search the trunk; run it
+   **checkpoint** stands at the York Road gap at night from chapter 3. Stop and they search the trunk; run it
    and they chase you. The **false bottom** upgrade (from Runner) hides a couple of crates.
 10. **Orders**: the people at the speakeasies and the farms post orders each day, on the
    board at any market, speakeasy or the barn: Gus Kessler at the Highlandtown Speakeasy,
    Ma Pruitt at Old Mill Barn, the Jockey at Harrow Stables and a dozen more, each in their
    own words. Once you're a Brewer, Sheriff Hale sends for things too, to the county lockup in
    Cockeysville.
-   - **The book:** keep up to three orders at once.
-   - **Farms** want goods, any time before the order is due.
+   - **The book:** keep up to three orders at once (a chapter's own orders don't count).
+     Whoever the chapter is waiting on always has an order on the board, and a fresh one
+     after each you deliver. SELL EVERYTHING keeps back what the orders in the book want.
+   - **Farms** want goods, any time before the order is due. Ma Pruitt wants the still's
+     makings; the Jockey, once you brew, wants shine for the estates' parties.
    - **Shine:** once you brew, the speakeasies want shine of a grade (C, B or A), handed over
      only **after dark** and by the next dawn. That's the night run past the Bureau.
    - **Delivering:** stop at their door (the banner tells you when you're there). They come
-     out, hand over the money and say their piece. Orders pay well over the market, and more
+     out, hand over the money and say their piece; one card lists everything handed over. Orders pay well over the market, and more
      the further they are from the barn.
    - **Trust:** each contact's trust (one to five stars) grows with every order kept. Grade A
      shine earns extra; dropping an order costs some, missing one more, and tainted shine most
@@ -191,7 +203,8 @@ Enter, the D-pad and A/B, or touch.
    **Lead Foot** (a burst of speed) and **Sweet Talk** (the next sale or job pays 20% more).
 12. The story ends with **the deed or the paper** (above). The roads stay open after it.
 13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
-   fields. **Otto's Ledger** (in the pause menu) keeps your books. Everything is saved: your
+   fields. **Otto's Ledger** (in the pause menu) keeps your books, and how long each chapter
+   took you. Everything is saved: your
    cash, upgrades and whatever is in the trunk. **Saved games** on the title screen holds
    three slots: continue one, start a new game in another, or erase one.
 
@@ -283,11 +296,12 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   `node scripts/playtest.mjs mylabel` (a scripted run from the title screen through every
   system: the markets, the barn and the still, a speakeasy, a contract, a rank and Lead
   Foot, Cockeysville, a road event and the traffic), all in `artifacts/shots/`.
-  `node scripts/economy.mjs 10` plays ten game minutes on autopilot and prints what the run
-  earns a minute, for tuning prices and upgrade costs (`node scripts/economy.mjs 10 0 3 rare`
-  uses city seed 3 and fetches rare finds; compare a few seeds). `node scripts/progress.mjs
-  200` projects, from that $/min and the tuning, the hour each rank comes and the cash for the deed, for a
-  busy player and an easy one.
+  `node scripts/economy.mjs 20 0.85` drives a salvage bot for twenty minutes (working each
+  site at a score of 0.85) and prints what salvage earns a real minute and the still's makings
+  it finds (`node scripts/economy.mjs 20 0.5 0 7`: a fair job, city seed 7; compare a few
+  seeds). `node scripts/progress.mjs` models the story's pacing from the tuning: each
+  chapter's minutes, the hours to the ending's choice and the cash then, for a rusher, a
+  steady player and a casual one.
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
   clock stands still), `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in

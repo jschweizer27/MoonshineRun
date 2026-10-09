@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun } from './helpers.js';
+import { openGame, startRun, KIT, past } from './helpers.js';
 
 const objective = (page) => page.evaluate(() => { window.shine.step(0.6); return document.getElementById('objective-text').textContent; });
 
@@ -151,32 +151,6 @@ test('the story in cards: the chapter opens, the clue is read out, and the noteb
   expect(problems).toEqual([]);
 });
 
-// A save that's done the chapters before `n` (0-based), and helpers for the page: step,
-// close whatever's open and drive on, stop at (x, z) coming in from 40 m off, pack what's
-// in hand.
-const PAST = `(g, n) => {
-  const { CHAPTERS } = window.__chapters;
-  const d = g.dredge.data;
-  CHAPTERS.slice(0, n).forEach((c) => { d.opened[c.id] = true; for (const st of c.steps) d.steps[st.id] = true; d.clues[c.clue.id] = true; if (c.tool) d.tools[c.tool.id] = true; });
-  d.chapter = n; d.still = 1; d.stats.brews = Math.max(1, d.stats.brews);
-  g.renderer.setAnimationLoop(null);
-  g._applyPerks();
-}`;
-const KIT = `(() => {
-  const g = window.shine.game;
-  const clear = () => { while (g.ui.anyOpen) g.ui.close(); g.resume(); };
-  const step = (s = 0.6) => window.shine.step(s);
-  const visit = (x, z) => { clear(); window.shine.teleport(x, z + 40, 0); window.shine.step(0.2); window.shine.teleport(x, z, 0); window.shine.step(0.3); };
-  const pack = () => { for (let k = 0; k < 6 && g.trunkScreen.isOpen; k++) { const s = g.trunkScreen, sp = s.hand && g.trunk.findSpot(s.hand.kind); if (sp) { s.cursor = { x: sp.x, y: sp.y }; s.hand.rot = sp.rot; s.confirm(); } s.close(); } };
-  const shine = (n) => { g.trunk.clear(); for (let k = 0; k < n; k++) { const s = g.trunk.findSpot('corn-shine'); g.trunk.place('corn-shine', s.x, s.y, s.rot); } g.dredge.data.market.blend['corn-shine'] = { q: 0.6, bad: false }; };
-  const objective = () => document.getElementById('objective-text').textContent;
-  const toast = () => document.getElementById('toast').textContent;
-  return { g, d: g.dredge.data, clear, step, visit, pack, shine, objective, toast };
-})()`;
-
-async function past(page, n) {
-  await page.evaluate(async ({ PAST, n }) => { window.__chapters = await import('/src/chapters.js'); eval(PAST)(window.shine.game, n); }, { PAST, n });
-}
 
 test('chapter 3, The Western Line: Mags’s trust (her offers come daily), the midnight freight loaded only while it stands at Glyndon, the guard’s van, and the false bottom', async ({ page }) => {
   const problems = await openGame(page);
@@ -259,7 +233,7 @@ test('chapter 4, Stone and Iron: Delaney’s crates past the York Road checkpoin
     g._bust('The Bureau boxed you in.');
     out.noBribe = d.ledger[0].text;
     clear();
-    d.trust.sheriff = 4; step(); clear(); step();
+    d.trust.sheriff = 6; step(); clear(); step();      // ★★★
     out.bribery = !!d.flags.bribery;
     d.cash = 1000;
     g.player.place(0, -600, 0);
@@ -374,7 +348,7 @@ for (const ending of ['deed', 'paper']) {
     const sun = await page.evaluate(() => { const g = window.shine.game; return g.salvage.sites.find((s) => s.story === 'sun'); });
     if (ending === 'deed') {
       await page.evaluate(() => { window.shine.step(0.6); window.shine.teleport(-44, 88, 0); window.shine.step(0.2); window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
-      await expect(page.locator('#market [data-id="deed"]')).toHaveText('BUY $20,000');
+      await expect(page.locator('#market [data-id="deed"]')).toHaveText('BUY $12,000');
       await page.click('#market [data-id="deed"]');
     } else {
       await page.evaluate((s) => { window.shine.step(0.6); window.shine.teleport(s.stopX + 40, s.stopZ, 0); window.shine.step(0.2); window.shine.teleport(s.stopX, s.stopZ, 0); window.shine.step(0.3); }, sun);
@@ -388,7 +362,7 @@ for (const ending of ['deed', 'paper']) {
     await expect(page.locator('#ending-title')).toHaveText(ending === 'deed' ? 'THE DEED' : 'THE PAPER');
     await expect(page.locator('#ending-stats')).toContainText('Clues found5/5');
     const after = await page.evaluate(() => { const d = window.shine.game.dredge.data; return { ending: d.ending, cash: d.cash, deed: !!d.flags.deed }; });
-    expect(after).toEqual(ending === 'deed' ? { ending: 'deed', cash: 5000, deed: true } : { ending: 'paper', cash: 25000, deed: false });
+    expect(after).toEqual(ending === 'deed' ? { ending: 'deed', cash: 13000, deed: true } : { ending: 'paper', cash: 25000, deed: false });
     if (ending === 'deed') {
       // Keep driving: the roads stay open, and the Sun has nothing more to say.
       await page.click('#ending-keep');

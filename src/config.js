@@ -148,10 +148,13 @@ export const CONFIG = {
     // and has no market events or market days (those are the same for every player).
     towns: [
       { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
-      { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95 },
-      { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90 },
-      { id: 'cockeysville', town: 'Cockeysville', name: 'Cockeysville Quarry Store', x: 400, z: -650, radius: 12, area: 90, rank: 2 },
+      { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95, supplies: true },
+      { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90, supplies: true },
+      { id: 'cockeysville', town: 'Cockeysville', name: 'Cockeysville Quarry Store', x: 400, z: -650, radius: 12, area: 90, rank: 2, supplies: true },
     ],
+    // The county stores (a town's `supplies`) sell the still's makings: these kinds, at their
+    // base value x `markup` (rounded to $), into the trunk.
+    supplies: { kinds: ['sack', 'jugs', 'small-crate'], markup: 1.3 },
     // What each town pays, as a multiple of each kind's base value.
     prices: {
       baltimore: {
@@ -210,12 +213,15 @@ export const CONFIG = {
       trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], ranks: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
       engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], ranks: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
       handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], ranks: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
-      magnet: { name: 'Long arm', desc: 'Grab loot from further off the road.', costs: [250, 600, 1200, 2200, 3600], ranks: [0, 0, 0, 2, 4], step: { pickupRadius: 1.2 } },
-      spotter: { name: 'Spotter', desc: 'The radar shows loot further away.', costs: [200, 500, 1000, 1900, 3000], ranks: [0, 0, 0, 2, 4], step: { mapRange: 60 } },
-      tyres: { name: 'Farm tyres', desc: 'Less bogging down in the fields, less sliding in the rain.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
+      // Padding: each level takes `padding` off the chance a crash breaks anything (breakage).
+      padding: { name: 'Padding', desc: 'Straw and sacking round the load: fewer jars, bottles and crates of shine break in a crash.', costs: [250, 600, 1200, 2200, 3600], ranks: [0, 0, 0, 2, 4], step: { padding: 0.16 } },
+      // Spotter: salvage sites on the radar out to `siteRange` (CONFIG.dredge.salvage.mapRange)
+      // more a level; at the top level, every site in the county.
+      spotter: { name: 'Spotter', desc: 'The radar shows salvage sites further off; at the top level, every site in the county.', costs: [200, 500, 1000, 1900, 3000], ranks: [0, 0, 0, 2, 4], step: { siteRange: 120 } },
+      tyres: { name: 'All-weather tyres', desc: 'Grip in the rain, and a little less bogging down in the fields.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
       lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], ranks: [1, 1, 2], step: { light: 0.25 } },
       plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], ranks: [2, 2, 3], step: { wear: 0.25 } },
-      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: a checkpoint search misses this many crates of shine.', costs: [900, 2000], ranks: [2, 3], step: { hidden: 2 } },
+      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: each level hides two more crates of shine from a checkpoint search.', costs: [900, 2000], ranks: [2, 3], step: { hidden: 2 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
@@ -263,7 +269,7 @@ export const CONFIG = {
     },
     // One of the two endings (chapters.js ENDINGS): once the story's last chapter is done, buy
     // back the Braun & Sons brewery deed at Lexington Market.
-    deed: { cost: 20000, town: 'baltimore' },
+    deed: { cost: 12000, town: 'baltimore' },
     // The story's own numbers (chapters.js). The midnight freight stands at the Glyndon siding
     // in its `window` (game hours, wrapping past midnight; railway.js), and chapter 3's load
     // onto it (`count` crates of `kind`) pays `pay` and `rep`. Chapter 4: Moss Delaney's
@@ -334,20 +340,22 @@ export const CONFIG = {
     // roadblock on your route, 3 every car. Out of every agent's sight for `evadeTime[tier]`
     // seconds drops a tier. Pinned (an agent within `pinRadius` while you're under
     // `pinSpeed`) for `bustTime` seconds is a bust: the shine is taken, a `fine` share of the
-    // cash (at least `fineMin`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
+    // cash (at least `fineMin`, at most `fineMax`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
     // `accel` (x `boost` at heat 3), spawn `spawn` metres off (out of view) and go beyond
-    // `despawn`. The York Road `checkpoint` stands at the city gap at night: stop there and
-    // they search the trunk (the false bottom hides `hidden` crates); run it with shine
-    // aboard and it's heat 2. PLACEHOLDERS: tune after playtesting.
+    // `despawn`. The York Road `checkpoint` stands at the city gap at night (its `hours`,
+    // which are the game's night: the salvage sites', the orders' and the speakeasies' too),
+    // from the CHAPTERS index `chapter` on: stop there and they search the trunk (the false
+    // bottom hides `hidden` crates); run it with shine aboard and it's heat 2.
+    // PLACEHOLDERS: tune after playtesting.
     police: {
       pool: 4, patrols: { day: { city: 1, county: 0 }, night: { city: 2, county: 2 } },
       cone: 0.75, sight: 70, nightSight: 0.8, darkSight: 0.4, closeSight: 12,
       buildRate: 0.12, evadeTime: [0, 6, 8, 10], max: 3,
       pinRadius: 7.5, pinSpeed: 4, bustTime: 2.2, bustRecover: 0.8,
-      fine: 0.25, fineMin: 50,
+      fine: 0.25, fineMin: 50, fineMax: 750,
       maxSpeed: 33, accel: 15, boost: 1.15, spawn: [160, 360], despawn: 420,
       roadblockEvery: 18, mapRange: 160,
-      checkpoint: { x: 0, z: -262, radius: 14, hours: [20, 6], stopSpeed: 3 },
+      checkpoint: { x: 0, z: -262, radius: 14, hours: [19.5, 6], stopSpeed: 3, chapter: 2 },
     },
     // Orders (src/contracts.js): each in-game day posts `perDay` of them, a `farmShare` from
     // the farms (who want `farmWants`, delivered any time within `hours`) and the rest from
@@ -384,8 +392,12 @@ export const CONFIG = {
     // pieces it gives up (1-3) and how good they are. A worked site refills after
     // `refillDays` game days; a `nightShare` of the sites can only be worked at night
     // (`night` hours). PLACEHOLDERS: tune after playtesting.
+    // `mapRange`: how far off the radar shows them (the Spotter upgrade adds to it). A score of
+    // at least `rare.score` at a night-only site turns up a rare find (the pocket watch or the
+    // bonds, CONFIG.dredge.loot.kinds `rare`) one time in `1 / rare.chance`, on top of the rest.
     salvage: {
-      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [20, 6],
+      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [19.5, 6], mapRange: 250,
+      rare: { score: 0.85, chance: 0.35 },
       kinds: {
         wreck: { name: 'Wrecked truck', game: 'pry', color: '#7a5236', yields: { crate: 3, 'small-crate': 3, 'long-crate': 2, keg: 1, 'bottle-case': 2, jugs: 2 } },
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
@@ -454,7 +466,8 @@ export const CONFIG = {
         { id: 'sewing-machine', name: 'Sewing machine', short: 'Sewing', tier: 'high', value: 105, weight: 0.03, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'strongbox', name: 'Strongbox', short: 'Box', tier: 'premium', value: 150, weight: 0.04, cells: [[0, 0]] },
         // Rare finds: never in the normal scatter (weight 0, `rare`); one turns up now and then
-        // (`rare` below) and pays big at one town (`paysAt`), little anywhere else.
+        // at a night site worked well (CONFIG.dredge.salvage.rare) and pays big at one town
+        // (`paysAt`), little anywhere else.
         { id: 'pocket-watch', name: 'Gold pocket watch', short: 'Watch', tier: 'premium', rare: true, paysAt: 'monkton', value: 200, weight: 0, cells: [[0, 0]] },
         { id: 'bonds', name: 'Case of bonds', short: 'Bonds', tier: 'premium', rare: true, paysAt: 'baltimore', value: 240, weight: 0, cells: [[0, 0], [0, 1]] },
         // Brewed at Otto's still (CONFIG.dredge.brew), never found on the roads (weight 0,

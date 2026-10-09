@@ -18,6 +18,9 @@ import { CONFIG } from './config.js';
 //    `wants`, after dark (`night`) or in a `window`; delivered, it sets flags['order:<step>'].
 //  - `learn`: a recipe the step teaches (CONFIG.dredge.brew recipes with `learn`); `flag`: a
 //    save flag it sets once done.
+//  - `lost`: what the step needs that the player can lose (sell, leave behind) before it's
+//    done: while `when(save, onHand)` holds, `site` opens again to give `gives` (`got` the
+//    toast), and the banner reads `text`. Father's coil, before it's fitted.
 const S = CONFIG.dredge.story;
 const crates = (n, kind) => Array.from({ length: n }, () => kind);
 
@@ -31,7 +34,9 @@ export const CHAPTERS = [
     steps: [
       { id: 'ruins', text: 'Search the ruins of Braun & Sons in Highlandtown', site: 'ruins', gives: ['coil'], got: 'Found in the ruins: Father’s copper coil', sets: 'ruinsSearched', done: (d) => !!d.flags.ruinsSearched,
         lines: [['otto', 'Father’s copper coil, black with soot but whole. The still at the barn can run again.']] },
-      { id: 'still', text: 'Fit the coil at the barn and run a batch', at: 'barn', done: (d) => (d.still || 0) >= 1 && (d.stats.brews || 0) >= 1 },
+      { id: 'still', text: 'Fit the coil at the barn and run a batch', at: 'barn', done: (d) => (d.still || 0) >= 1 && (d.stats.brews || 0) >= 1,
+        lost: { site: 'ruins', gives: ['coil'], got: 'Another coil in the ashes: Father always kept a spare', text: 'Father’s coil is gone. Search the ruins for the spare',
+          when: (d, have) => (d.still || 0) < 1 && !have.coil } },
       { id: 'gus', text: 'Deliver an order to Gus Kessler at the Highlandtown Speakeasy', who: 'kessler', done: (d) => (d.delivered.kessler || 0) >= 1 },
       { id: 'gus-trust', text: 'Earn Gus Kessler’s trust (★★)', who: 'kessler', done: (d) => trustLevel(d.trust.kessler) >= 2,
         lines: [
@@ -116,7 +121,7 @@ export const CHAPTERS = [
         order: { who: 'kessler', at: 'kessler', wants: { [S.run.kind]: S.run.count }, night: true, pay: S.run.pay, rep: S.run.rep },
         done: (d) => !!d.flags['order:run'],
         lines: [['kessler', 'Through the Bureau’s own checkpoint! Moss Delaney sends word, Otto: the Sheriff wrote a report on your fire, and somebody paid him to bury it.']] },
-      { id: 'hale-trust', text: 'Earn Sheriff Hale’s trust (★★)', who: 'sheriff', flag: 'bribery', done: (d) => trustLevel(d.trust.sheriff) >= CONFIG.dredge.contracts.bribeAt,
+      { id: 'hale-trust', text: 'Earn Sheriff Hale’s trust (★★★)', who: 'sheriff', flag: 'bribery', done: (d) => trustLevel(d.trust.sheriff) >= 3,
         lines: [
           ['sheriff', 'So Delaney’s been talking. Fine. My report on your fire is in a box at the lockup marked CLOSED, and a closed box can be opened, for a consideration. Come by after dark.'],
           ['sheriff', 'And Mr. Braun: if the Bureau ever catches you out in my county, you come to me. Bring an envelope.'],
@@ -197,11 +202,20 @@ export function current(d) {
 // Every chapter done and no ending chosen yet: the deed or the paper.
 export const choiceOpen = (d) => (d.chapter || 0) >= CHAPTERS.length && !d.ending;
 
-// The story sites open now: { [site]: { night, window } } for the current step, if it has
-// one; the Sun while the ending's choice is open.
-export function openSites(d) {
-  if (choiceOpen(d)) return { sun: { night: false, window: null } };
+// What the current step needs and the player has lost (its `lost`, see above), or null.
+// `have`: what's on hand, { kind: count } (the trunk and the stash, brew.js onHand).
+export function lostNow(d, have) {
   const { step } = current(d);
+  return step?.lost && have && step.lost.when(d, have) ? step.lost : null;
+}
+
+// The story sites open now: { [site]: { night, window } } for the current step, if it has
+// one (or the site that gives back what it needs, if that's lost); the Sun while the
+// ending's choice is open.
+export function openSites(d, have = null) {
+  if (choiceOpen(d)) return { sun: { night: false, window: null } };
+  const { step } = current(d), lost = lostNow(d, have);
+  if (lost) return { [lost.site]: { night: false, window: null } };
   return step?.site ? { [step.site]: { night: !!step.night, window: step.window || null } } : {};
 }
 
