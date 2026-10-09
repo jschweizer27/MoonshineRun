@@ -46,18 +46,19 @@ function roll(salt, day) {
 // of a recipe his rank allows, at a grade their trust in him asks for; farms want goods for
 // the house and the yard. Each comes with a line from its contact (`line`). `home` (the
 // barn) sets the distance pay; `trust` is { who: points }; `learned` the save's flags.
-export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {} } = {}) {
+// `focus`: the contact a chapter step waits on (chapters.js `who`): if none of the day's
+// offers is theirs, one more is (id `<day>-f`, whatever their rank). `exclude`: contacts
+// who post nothing (the Jockey, once he's sold Otto out); a slot that lands on one goes to
+// someone else. Without either, the offers are as they always were.
+export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {}, focus = null, exclude = [] } = {}) {
   // Recipes his rank allows, and (for one that must be taught) that he's learned.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
     return (r?.rank ?? 0) <= rank && (!r?.learn || learned[`learned:${k}`]);
   });
-  const out = [];
-  for (let i = 0; i < C.perDay; i++) {
+  const offer = (i, contact) => {
     const r = (s) => roll(`${s}:${i}`, day);
-    const farm = r('who') < C.farmShare;
-    const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.rank || 0) <= rank);
-    const contact = pool[Math.floor(r('contact') * pool.length)];
+    const farm = contact.kind === 'farm';
     const asks = CAST[contact.who]?.asks || [];
     const level = trustLevel(trust[contact.who]);
     const night = !farm && brewing && shine.length > 0;
@@ -80,11 +81,25 @@ export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, ho
     const km = home ? Math.hypot(contact.x - home.x, contact.z - home.z) / 1000 : 0;
     const pay = Math.round((worth * (night ? C.nightPay : C.payMult) * (1 + C.distPay * km) * (1 + C.trustPay * level)) / 5) * 5;
     const hours = Math.round(C.hours[0] + r('hours') * (C.hours[1] - C.hours[0]));
-    out.push({
+    return {
       id: `${day}-${i}`, contact: contact.id, name: contact.name, place: contact.place, who: contact.who, line: asks[Math.floor(r('line') * asks.length)] || '',
       kind: contact.kind, x: contact.x, z: contact.z, wants, grade, night, pay, rep: Math.round(pay / C.repPer), hours, km: Math.round(km * 10) / 10,
-    });
+    };
+  };
+  const out = [];
+  for (let i = 0; i < C.perDay; i++) {
+    const r = (s) => roll(`${s}:${i}`, day);
+    const farm = r('who') < C.farmShare;
+    const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.rank || 0) <= rank);
+    let contact = pool[Math.floor(r('contact') * pool.length)];
+    if (exclude.includes(contact.who)) {
+      const rest = pool.filter((c) => !exclude.includes(c.who));
+      contact = rest[Math.floor(r('instead') * rest.length)];
+    }
+    out.push(offer(i, contact));
   }
+  const wanted = focus && !exclude.includes(focus) && !out.some((o) => o.who === focus) && list.find((c) => c.who === focus);
+  if (wanted) out.push(offer('f', wanted));
   return out;
 }
 

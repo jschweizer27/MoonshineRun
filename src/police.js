@@ -122,7 +122,42 @@ export class Police {
     this.contact = false;
     this.checkpoint.handled = false;
     this._rbTimer = 4;
+    this.hold = 0;
     this._write(0);
+  }
+
+  // A story's ambush (chapters.js, chapter 5 at Warren): the heat straight to `tier`, every
+  // car it calls for brought in on the roads `range` metres off (out of view where it can
+  // be), a roadblock going up on the route, and the heat held `hold` seconds so it can't
+  // cool before they get there. Returns the events, for main._onPolice.
+  alert(p, tier, { hold = 10, range = [70, 150] } = {}) {
+    const events = [];
+    this.hold = hold;
+    // Cars too far off to be part of it (a patrol across the county) go home; the trap's
+    // cars all come in close.
+    for (const u of this.units) if (u.active && u.car.position.distanceTo(p) > range[1] * 1.5 && !this._visible(u.car.position.x, u.car.position.z)) this._deactivate(u);
+    this._raise(tier, events, p, this._roadPoints(p, range));
+    this._rbTimer = 0;
+    return events;
+  }
+
+  // Points along the roads `range` metres from `p`, at least 25 m apart, the ones out of
+  // view first: where an ambush comes from.
+  _roadPoints(p, [r0, r1]) {
+    const pts = [], N = this.roads.nodes;
+    for (const a of N) for (const id of a.links) {
+      const b = N[id];
+      if (id < a.id || a.tag === 'lane' || b.tag === 'lane') continue;
+      const len = Math.hypot(b.x - a.x, b.z - a.z);
+      for (let t = 0; t <= len; t += 10) {
+        const x = a.x + ((b.x - a.x) * t) / len, z = a.z + ((b.z - a.z) * t) / len, d = Math.hypot(x - p.x, z - p.z);
+        if (d >= r0 && d <= r1) pts.push({ x, z, hidden: this._visible(x, z) ? 0 : 1 });
+      }
+    }
+    pts.sort((q, w) => w.hidden - q.hidden);
+    const out = [];
+    for (const q of pts) if (out.every((o) => Math.hypot(o.x - q.x, o.z - q.z) > 25)) out.push(q);
+    return out;
   }
 
   // How far the nearest car after the truck is (Infinity if none): for the siren.
@@ -159,10 +194,15 @@ export class Police {
       if (ok(n) && d >= range[0] && d <= range[1]) best = n;
     }
     if (!best) return false;
-    u.car.place(best.x, best.z, Math.atan2(p.x - best.x, -(p.z - best.z)));
+    this._bringIn(u, best.x, best.z, p, mode);
+    return true;
+  }
+
+  // A car at (x, z), facing the truck at `p`.
+  _bringIn(u, x, z, p, mode) {
+    u.car.place(x, z, Math.atan2(p.x - x, -(p.z - z)));
     Object.assign(u, { active: true, mode, path: [], pathTimer: 0, goal: null, sees: false, stuck: 0, reverse: 0, age: 0 });
     u.lastKnown.copy(p);
-    return true;
   }
 
   _leave(u, p) {
@@ -189,7 +229,7 @@ export class Police {
   }
 
   // Heat changed: the right number of cars after the truck (patrols nearby join first).
-  _setPursuers(p) {
+  _setPursuers(p, spots = null) {
     const want = [0, 1, 2, P.pool][this.tier];
     const after = this.units.filter((u) => u.active && (u.mode === 'chase' || u.mode === 'search'));
     while (after.length < want) {
@@ -197,7 +237,9 @@ export class Police {
         .sort((a, b) => a.car.position.distanceTo(p) - b.car.position.distanceTo(p))[0];
       if (near) { near.mode = 'chase'; near.path = []; near.lastKnown.copy(p); after.push(near); continue; }
       const free = this.units.find((u) => !u.active);
-      if (!free || !this._spawn(free, p, 'chase')) break;
+      if (!free) break;
+      if (spots?.length) { const q = spots.shift(); this._bringIn(free, q.x, q.z, p, 'chase'); }
+      else if (!this._spawn(free, p, 'chase')) break;
       after.push(free);
     }
     if (after.length > want) {
@@ -206,11 +248,11 @@ export class Police {
     }
   }
 
-  _raise(to, events, p) {
+  _raise(to, events, p, spots = null) {
     const was = this.tier;
     this.heat = Math.max(this.heat, to);
     this.evade = 0;
-    if (this.tier !== was) { events.push({ type: 'tier', tier: this.tier, up: true }); this._setPursuers(p); }
+    if (this.tier !== was) { events.push({ type: 'tier', tier: this.tier, up: true }); this._setPursuers(p, spots); }
   }
 
   // ---------- the step ----------
@@ -257,16 +299,19 @@ export class Police {
           u.goal = n ? { x: n.x, z: n.z } : { x: p.x, z: p.z };
         }
         input = this._drive(u, u.goal.x, u.goal.z, dt, 0.45);
-      } else if (u.sees || d < 18) {
-        // In sight: aim a little ahead of the truck to cut it off, and up close get alongside.
+      } else if ((u.sees || d < 18) && !this.world.crossesWater(car.position, p)) {
+        // In sight: aim a little ahead of the truck to cut it off, and up close get alongside
+        // (across Loch Raven's water they keep to the roads).
         const lead = d < 16 ? 0.9 : Math.min(1.2, d / 40);
         input = this._steerTo(car, p.x + player.vx * lead, p.z + player.vz * lead, P.maxSpeed * boost);
+      } else if (u.sees) {
+        input = this._drive(u, p.x, p.z, dt, boost);
       } else {
         // Out of sight: to where they last saw you, then search the roads around it.
         if (u.mode === 'chase' && Math.hypot(u.lastKnown.x - car.position.x, u.lastKnown.z - car.position.z) < 14) { u.mode = 'search'; u.goal = null; }
         if (u.mode === 'search') {
           if (!u.goal || Math.hypot(u.goal.x - car.position.x, u.goal.z - car.position.z) < 14) {
-            const n = this.roads.nearest(u.lastKnown.x + (this.rng() - 0.5) * 180, u.lastKnown.z + (this.rng() - 0.5) * 180, (m) => m.tag !== 'lane');
+            const n = this.world.nearestNode(u.lastKnown.x + (this.rng() - 0.5) * 180, u.lastKnown.z + (this.rng() - 0.5) * 180, (m) => m.tag !== 'lane');
             u.goal = { x: n.x, z: n.z };
           }
           input = this._drive(u, u.goal.x, u.goal.z, dt, 0.7);
@@ -286,7 +331,8 @@ export class Police {
     // Heat: seen builds it, out of sight long enough sheds a tier.
     if (this.heat > 0) {
       const tier = this.tier;
-      if (seen) {
+      if (this.hold > 0) { this.hold -= dt; this.evade = 0; }   // an ambush: they're coming
+      else if (seen) {
         this.evade = 0;
         if (ctx.contraband) this._raise(Math.min(P.max, this.heat + P.buildRate * dt), events, p);
       } else {
@@ -300,7 +346,7 @@ export class Police {
         }
       }
     }
-    this._roadblock(dt, player, ctx);
+    this._roadblock(dt, player, ctx, events);
 
     // Bumping: the truck is heavier than a sedan.
     const act = this.active;
@@ -333,7 +379,7 @@ export class Police {
   }
 
   // At heat 2+, one roadblock goes up across a road on your route ahead, out of sight.
-  _roadblock(dt, player, ctx) {
+  _roadblock(dt, player, ctx, events = []) {
     const rb = this.roadblock, p = player.position;
     if (rb.active) {
       rb.age += dt;
@@ -343,7 +389,9 @@ export class Police {
     }
     this._rbTimer -= dt;
     if (this.tier < 2 || this._rbTimer > 0 || !ctx.route || ctx.route.length < 4) return;
-    this._rbTimer = this._placeRoadblock(p, ctx.route) ? P.roadblockEvery : 3;
+    const placed = this._placeRoadblock(p, ctx.route);
+    this._rbTimer = placed ? P.roadblockEvery : 3;
+    if (placed) events.push({ type: 'roadblock', x: this.roadblock.x, z: this.roadblock.z });
   }
 
   _placeRoadblock(p, route) {
@@ -378,7 +426,7 @@ export class Police {
     const car = u.car, pos = car.position;
     u.pathTimer -= dt;
     if (u.pathTimer <= 0 || !u.path.length) {
-      const from = this.roads.nearest(pos.x, pos.z), to = this.roads.nearest(gx, gz);
+      const from = this.world.nearestNode(pos.x, pos.z), to = this.world.nearestNode(gx, gz);
       u.path = this.roads.path(from.id, to.id, this.blocked) || this.roads.path(from.id, to.id) || [];
       if (u.path.length > 1) {
         const a = this.roads.nodes[u.path[0]], b = this.roads.nodes[u.path[1]];
@@ -473,12 +521,15 @@ export class Police {
     this.barriers.visible = rb.active || C.on;
   }
 
-  // Agents for the radar: within `range` of the truck (red when after you).
-  near(p, range = P.mapRange) {
+  // Agents for the radar: within `range` of the truck (red when after you), and with `look`
+  // (the police-band radio) the way each is facing.
+  near(p, range = P.mapRange, { look = false } = {}) {
     const out = [];
     for (const u of this.units) {
       if (!u.active || Math.hypot(u.car.position.x - p.x, u.car.position.z - p.z) > range) continue;
-      out.push({ kind: u.mode === 'chase' || u.mode === 'search' ? 'agent-chase' : 'agent', x: u.car.position.x, z: u.car.position.z });
+      const m = { kind: u.mode === 'chase' || u.mode === 'search' ? 'agent-chase' : 'agent', x: u.car.position.x, z: u.car.position.z };
+      if (look) m.look = u.car.heading;
+      out.push(m);
     }
     if (this.roadblock.active) out.push({ kind: 'roadblock', x: this.roadblock.x, z: this.roadblock.z });
     if (this.checkpoint.on) out.push({ kind: 'roadblock', x: this.checkpoint.x, z: this.checkpoint.z });

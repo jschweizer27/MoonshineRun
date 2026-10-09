@@ -4,10 +4,10 @@
 // upgrade, drive up York Road to Monkton and sell there; Otto's barn, a batch at the still
 // and the shine sold at a speakeasy; a contract taken and delivered; a new rank, Lead Foot
 // and Cockeysville's quarry store; a road event and the traffic; the map and the ledger,
-// rain and daylight) through window.shine at fixed 60 Hz steps, with a simple autopilot
-// that steers for the nearest market. At each beat it saves a
-// screenshot and a line of stats (state, toast, draw calls, render time, console errors)
-// and tiles them into artifacts/shots/playtest-<label>.png.
+// rain and daylight; the midnight freight, Loch Raven and an ending) through window.shine
+// at fixed 60 Hz steps, with a simple autopilot that steers for the nearest market. At each
+// beat it saves a screenshot and a line of stats (state, toast, draw calls, render time,
+// console errors) and tiles them into artifacts/shots/playtest-<label>.png.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
@@ -317,6 +317,23 @@ try {
     window.shine.step(2.5, { throttle: 0.8 });
   });
   await beat('daylight');
+  // Chapter 3's midnight freight at the Glyndon siding; Loch Raven and drowned Warren by night
+  // (chapter 5); then an ending, and its screen.
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 23.6; window.shine.teleport(-410, -630, 0); window.shine.step(0.5); });
+  await beat('freight', 'the midnight freight at Glyndon, 23:00–01:30');
+  await page.evaluate(() => { const g = window.shine.game; g.env.hour = 21.5; window.shine.teleport(528, -730, Math.PI / 2); window.shine.step(0.5); });
+  await beat('loch-raven', 'Loch Raven: drowned Warren in the water');
+  await page.evaluate(async () => {
+    const g = window.shine.game, d = g.dredge.data, { CHAPTERS } = await import('/src/chapters.js');
+    for (const c of CHAPTERS) { d.opened[c.id] = true; for (const st of c.steps) d.steps[st.id] = true; d.clues[c.clue.id] = true; if (c.tool) d.tools[c.tool.id] = true; }
+    d.chapter = CHAPTERS.length;
+    while (g.ui.anyOpen) g.ui.close();
+    g.resume();
+    window.shine.step(0.6);
+    g._end('paper');
+  });
+  await page.waitForTimeout(300);
+  await beat('ending', 'the paper: the ending screen');
 
   // Contact sheet.
   const sheet = await browser.newPage({ viewport: { width: 1640, height: 400 } });

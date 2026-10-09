@@ -138,9 +138,9 @@ test('with loot aboard, the minimap and full map draw the route to the nearest m
   test.setTimeout(300_000);
   await openGame(page);
   await startRun(page);
-  // An empty trunk: free roam, no route (with the chapters done; before that the route leads
+  // An empty trunk: free roam, no route (with the story over; before that the route leads
   // to the chapter step's place, chapters.spec).
-  expect(await page.evaluate(() => { const g = window.shine.game; g.dredge.data.chapter = 99; g._updateRoute(1); return g.minimap.route.length; })).toBe(0);
+  expect(await page.evaluate(() => { const g = window.shine.game; g.dredge.data.chapter = 99; g.dredge.data.ending = 'paper'; g._updateRoute(1); return g.minimap.route.length; })).toBe(0);
   await page.evaluate(() => window.shine.game.trunk.place('crate', 0, 0));
   // The minimap draws once per rendered frame. Draw it here rather than waiting on real
   // frames, which can crawl on software-rendered CI machines: there the page was too busy

@@ -1,10 +1,12 @@
 // Story beats from the Shine treatment, shown as dialogue cards. Each plays once per save,
 // when its trigger (on the save's data) is met. The spine: the Temperance Alliance burned
 // Otto's Highlandtown brewery; he scavenges the roads, brews at his late father's barn up
-// the valley, sells to the city's speakeasies, and buys the brewery back.
+// the valley, sells to the city's speakeasies, and finds out who paid for the fire (the
+// chapters, chapters.js, which end with the deed or the paper).
 // `asks`: the lines a contact says on the contract board when they post a job (one per job,
 // picked with it). Every speakeasy and farm has its contact (world.js DROPS, county.js
-// BARNS), and the Sheriff posts from the county lockup once Otto is a Brewer.
+// BARNS), and the Sheriff posts from the county lockup once Otto is a Brewer (or chapter 4
+// needs him).
 export const CAST = {
   narrator: { name: '', initials: '', color: '#b6ab90' },
   otto: { name: 'Otto Braun', initials: 'OB', color: '#d8b25a' },
@@ -28,6 +30,11 @@ export const CAST = {
   },
   coombs: { name: 'Reverend Coombs', initials: 'RC', color: '#c84a3a' },
   delaney: { name: 'Moss Delaney', initials: 'MD', color: '#bdb6a6' },
+  // The chapters' other people (chapters.js), who post no orders: the guard on the midnight
+  // freight, the Reverend's man in the Bureau, and the Sun's night editor.
+  guard: { name: 'Walt Purdy', initials: 'WP', color: '#a8a07a' },
+  draper: { name: 'Agent Draper', initials: 'AD', color: '#7f8ea0' },
+  editor: { name: 'Ned Holloway', initials: 'NH', color: '#d8d2c4' },
   // The speakeasies' contacts.
   kessler: {
     name: 'Gus Kessler', initials: 'GK', color: '#d89a4a', asks: [
@@ -135,6 +142,7 @@ export const THANKS = {
   tolley: 'Well, look at that. A visitor, and he brought the goods.',
   gill: 'The Grange dances tonight! Here, and not a word.',
   sheriff: 'Much obliged, Mr. Braun. You were never here.',
+  guard: 'Two crates aboard for Hagerstown. Mags said you were good for it.',
 };
 
 // What each contact says once they trust Otto (contracts.js, CONFIG.dredge.contracts
@@ -220,7 +228,7 @@ export const BEATS = {
     ],
   },
   sheriff: {
-    when: (d) => (d.rank || 0) >= 3,
+    when: (d) => (d.rank || 0) >= 3 || (d.chapter || 0) >= 3,    // Brewer, or Chapter 4 (chapters.js)
     lines: [
       ['sheriff', 'Mr. Braun. A man in my position hears things. A man in your position might want me to stop hearing them.'],
       ['sheriff', 'An envelope now and then, and my deputies forget what your truck looks like.'],
@@ -228,23 +236,7 @@ export const BEATS = {
       ['otto', 'Everyone has a price. Yours is at least written down.'],
     ],
   },
-  betrayal: {
-    when: (d) => (d.rank || 0) >= 5,
-    lines: [
-      ['narrator', 'The paddock at My Lady’s Manor, the following Saturday…'],
-      ['narrator', 'The Jockey, shaking hands with a Prohibition Bureau agent. An envelope changes hands, going the wrong way.'],
-      ['otto', '…I should have kept better books on him.'],
-    ],
-  },
-  deed: {
-    when: (d) => !!d.flags?.deed,
-    lines: [
-      ['narrator', 'Highlandtown. A bank clerk slides a folded paper across the counter.'],
-      ['otto', 'Braun & Sons. Mine again.'],
-      ['pruitt', 'Lager and shine under one roof. The Reverend will have a fit.'],
-      ['narrator', 'ACT II, THE JOCKEY’S RECKONING, is coming. Until then, the county is yours to run.'],
-    ],
-  },
+  // The Jockey's betrayal and the deed are chapter 5's and the endings' now (chapters.js).
 };
 
 // The first beat whose trigger is met and hasn't been seen in this save.

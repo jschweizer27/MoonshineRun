@@ -79,29 +79,3 @@ test('abilities: the Jockey’s Tip shows every salvage site, Lead Foot opens th
   expect(after.sweet).toBe(false);
   expect(problems).toEqual([]);
 });
-
-test('the ending: at the top rank, the Braun & Sons deed is for sale at Lexington Market, and buying it plays the last beat', async ({ page }) => {
-  const problems = await openGame(page, '&story');
-  await page.evaluate(() => { const g = window.shine.game; g.dredge.data.started = true; g.dredge.data.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true, quarry: true, sheriff: true, betrayal: true }; g.dredge.data.opened = { ashes: true }; });
-  await page.click('#start-btn');
-  // Not before the top rank.
-  await page.evaluate(() => { window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
-  await expect(page.locator('#market [data-id="deed"]')).toHaveCount(0);
-  await page.click('#market-done');
-  await page.evaluate(() => { const g = window.shine.game; g.dredge.data.rank = 5; g.dredge.data.cash = 25000; window.shine.teleport(-44, 120, 0); window.shine.step(0.2); window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
-  await expect(page.locator('#market [data-id="deed"]')).toHaveText('BUY $20,000');
-  await page.click('#market [data-id="deed"]');
-  await page.click('#confirm-yes');
-  const d = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, deed: window.shine.game.dredge.data.flags.deed }));
-  expect(d).toEqual({ cash: 5000, deed: true });
-  await expect(page.locator('#market [data-id="deed"]')).toHaveCount(0);
-  await page.click('#market-done');
-  await page.evaluate(() => window.shine.step(0.6));
-  await expect(page.locator('#dialog')).toBeVisible();
-  const seen = [];
-  for (let k = 0; k < 12 && await page.locator('#dialog').isVisible(); k++) { seen.push(await page.locator('#dialog-text').textContent()); await page.click('#dialog-next'); }
-  expect(seen.join(' ')).toContain('ACT II');
-  await page.evaluate(() => window.shine.game.quitToTitle());
-  await expect(page.locator('#intro-best')).toContainText('Braun & Sons is yours again');
-  expect(problems).toEqual([]);
-});

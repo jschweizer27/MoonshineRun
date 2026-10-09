@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Project the long game from the tuning (CONFIG.dredge): when each rank and the Braun & Sons
-// deed come, in hours of play with the clock on. `node scripts/progress.mjs [loot $/min]`,
+// deed's cash comes, in hours of play with the clock on. `node scripts/progress.mjs [loot $/min]`,
 // where loot $/min is what scripts/economy.mjs measures (selling loot at the markets).
 // On top of that: the jobs (contracts.js offersFor, three a game day; a game day is 16 real
 // minutes) pay their premium over the goods' market value and earn reputation; rare finds
@@ -43,14 +43,14 @@ function play(share) {
     if (min && min % Math.round(60 / (3 * share)) === 0) { rep += brewRep; cash += brewCash; }
     const r = rankOf(rep);
     while (rank < r) at.ranks[++rank] = min;
-    if (rank >= D.deed.rank && at.deed == null && cash >= D.deed.cost) at.deed = min;
-    if (rank >= D.deed.rank && at.all == null && cash >= D.deed.cost + upgrades) at.all = min;
+    if (at.deed == null && cash >= D.deed.cost) at.deed = min;
+    if (at.all == null && cash >= D.deed.cost + upgrades) at.all = min;
   }
   return at;
 }
 
 const h = (m) => (m == null ? 'over 12 h' : `${(m / 60).toFixed(1)} h`);
-console.log(`loot ${lootPerMin} $/min; jobs ${D.contracts.perDay} a game day (${dayMinutes} min); a rare find every ~${rareEvery.toFixed(0)} min ($${Math.round(rareCash)}); every upgrade $${upgrades.toLocaleString()}; the deed $${D.deed.cost.toLocaleString()} at ${D.ranks[D.deed.rank].name}`);
+console.log(`loot ${lootPerMin} $/min; jobs ${D.contracts.perDay} a game day (${dayMinutes} min); a rare find every ~${rareEvery.toFixed(0)} min ($${Math.round(rareCash)}); every upgrade $${upgrades.toLocaleString()}; the deed $${D.deed.cost.toLocaleString()} (once the story's done)`);
 for (const [name, share] of [['busy', 1], ['easy', 0.5]]) {
   const at = play(share);
   console.log(`${name.padEnd(5)} ${D.ranks.map((r, i) => `${r.name} ${h(at.ranks[i])}`).join(' · ')}`);

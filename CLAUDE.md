@@ -68,22 +68,43 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `data.rank` against `CONFIG.dredge.ranks`; ranks gate recipes, upgrade levels (`ranks` on each
   upgrade, `dredgecareer.lockedRank`) and the abilities (`CONFIG.dredge.abilities`,
   `main.useAbility`, HUD chips in `#abilities`; actions `ability1-3`, the d-pad's left / up /
-  right while driving). The ending is the deed (`CONFIG.dredge.deed`, bought in
-  `main._deed` at Lexington Market), which sets `flags.deed` for the last story beat.
+  right while driving). The deed (`CONFIG.dredge.deed`, `main._deed` at Lexington Market) is
+  one of the two endings now, after the last chapter (below), not a rank's.
 - Traffic: `src/traffic.js`, a pool of `CONFIG.dredge.traffic.count` kinematic vehicles on
   the road graph near the camera (right-hand lane, turning at junctions, keeping a gap),
   drawn as one InstancedMesh with the loot's kind-selecting trick (three bodies). They join
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
-- Chapters (v4): `src/chapters.js` is the story spine (`CHAPTERS`: steps tested on the save,
-  a clue and a tool each; `current`, `openSites`, `advance`). `main._chapters` (on the story
-  timer) opens the current step's story site (`salvage.story`; the ruins and the Harrow
-  office are `placeStory` sites, hidden until open), plays the cards (only with `&story`
-  under `?test`) and toasts progress; `_storySalvaged` gives the coil or a clue. The banner
-  and route lead to a step's place (`_stepGoal`) before cargo. A recipe with `learn` is
-  taught by a step (`flags['learned:<id>']`). Save: `chapter`, `steps`, `opened`, `clues`,
-  `tools` (farm tyres set `perks.field` to 1).
+- Chapters (v4): `src/chapters.js` is the story spine (`CHAPTERS`, five of them: steps tested
+  on the save, a clue each and a tool for the first four; `current`, `openSites`, `advance`,
+  `choiceOpen`, `ENDINGS`). Step fields (documented at the top of chapters.js): `site` (a
+  story site, `night` or a `window` of hours) with `gives` / `sets` / `finds` / `ambush`;
+  `at` ('barn', 'loch'); `who` (that contact's offer comes daily: `offersFor` `focus`);
+  `order` (a story order in the book: `main._storyOrders` / `_storyOrder`, id `story:<step>`,
+  `due` null, can't be dropped, doesn't fill the book; delivered it sets
+  `flags['order:<step>']`); `learn`; `flag`. `main._chapters` (on the story timer) opens the
+  step's story site (`salvage.story`; `placeStory` sites, hidden until open; their kinds'
+  `game` is a mini-game or 'none' / 'pay' / 'give', `main._storyDeal`), plays the cards (only
+  with `&story` under `?test`) and toasts progress. Chapter 3 is the midnight freight
+  (`railway.js`), 4 the York Road checkpoint with the false bottom, bribery
+  (`flags.bribery`, needed by `_bust`'s Sheriff path) and the report for a price, 5 Loch Raven
+  and the ambush (`main._ambush`, `police.alert`; `flags.ambush` / `escaped`; the Jockey's
+  orders go with `flags.betrayed`). After it, `choiceOpen`: the deed at Lexington Market or
+  the Sun story site; `main._end` sets `data.ending`, plays `ENDINGS[id]` and opens the
+  `#ending` screen (`showEnding`). Tools: farm tyres (`perks.field` 1), the false bottom
+  (`perks.hidden`), the police band (`perks.agentRange`, `police.near(..., { look })`, the
+  radar's wedges). Save: `chapter`, `steps`, `opened`, `clues`, `tools`, `ending`.
+- Loch Raven and the railway (v4): `src/loch.js` is chapter 5's region east of the county
+  (`LOCH`): roads through two gaps in the east wall (nodes tagged 'county' with
+  `region: 'loch'`, which salvage sites and road events leave out), the lake (shore
+  colliders), drowned Warren, the dam and woods from its own random stream, built into
+  `world.lochGroup` (hidden far off, `world.updateFar`). `county.js` adds its roads only
+  after listing its own `edges`, so the woods and the city draw exactly the same numbers
+  (`tests/layout.spec.js` pins that for three seeds). `world.regionOf` / `nearestNode` keep
+  routes and Bureau cars on their side of the wall. `src/railway.js`: the line down the west
+  edge and the midnight freight at the Glyndon siding in its hours
+  (`CONFIG.dredge.story.freight.window`, `inWindow`), with a collider while it stands.
 - Orders and trust (v4): `contracts.js` rolls the day's offers (`offersFor`, with trust and the
   barn's distance), `progress` checks counts and a shine order's grade against the blend, and
   `trustLevel`/`nextDawn` are the helpers. The save keeps `orders` (the book, up to
@@ -98,6 +119,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   heat (`heat`, `tier`), the bust meter and the checkpoint, and `update` returns events that
   `main._onPolice` turns into toasts, `_searched` and `_bust`. Off under `?test` unless
   `&police`. Lights off (`main.toggleLights`) zeroes the headlamp via `feel.headlightBase`.
+  `alert(p, tier, { hold, range })` is a story's ambush (cars brought in on nearby roads,
+  heat held), and a roadblock going up is a `roadblock` event (the police band calls it out).
 - The still (v4): `src/brew.js` is a batch in three phases (`newBatch`, `stepBatch`,
   `pressBatch`): the fire, the cuts (heads/hearts/tails; an early first cut is a bad batch)
   and proofing, scored by `fireScore`/`cutScore`/`proofScore`, graded by `gradeOf`. Each
@@ -185,7 +208,7 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
 - Tests: `startRun(page, { loot: false })` / `clearLoot(page)` (tests/helpers.js) take the
   loot off the roads for tests that drive about; a pickup would open the trunk mid-drive.
 - North is −Z. The county spans z −247…−1040; York Road leaves the city through a gap in
-  the north wall at x = 0.
+  the north wall at x = 0. Loch Raven lies east of it (x 440…790).
 - `vendor/three/` Three.js r160, vendored (no CDN). Upgrade via `npm run vendor`.
 - `scripts/` zero-dependency dev server, build (esbuild → `dist/` site + single-file
   `dist/Shine.html`), checks, CI summary.
