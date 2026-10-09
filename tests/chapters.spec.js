@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun } from './helpers.js';
+import { openGame, startRun, KIT, past } from './helpers.js';
 
 const objective = (page) => page.evaluate(() => { window.shine.step(0.6); return document.getElementById('objective-text').textContent; });
 
@@ -151,32 +151,6 @@ test('the story in cards: the chapter opens, the clue is read out, and the noteb
   expect(problems).toEqual([]);
 });
 
-// A save that's done the chapters before `n` (0-based), and helpers for the page: step,
-// close whatever's open and drive on, stop at (x, z) coming in from 40 m off, pack what's
-// in hand.
-const PAST = `(g, n) => {
-  const { CHAPTERS } = window.__chapters;
-  const d = g.dredge.data;
-  CHAPTERS.slice(0, n).forEach((c) => { d.opened[c.id] = true; for (const st of c.steps) d.steps[st.id] = true; d.clues[c.clue.id] = true; if (c.tool) d.tools[c.tool.id] = true; });
-  d.chapter = n; d.still = 1; d.stats.brews = Math.max(1, d.stats.brews);
-  g.renderer.setAnimationLoop(null);
-  g._applyPerks();
-}`;
-const KIT = `(() => {
-  const g = window.shine.game;
-  const clear = () => { while (g.ui.anyOpen) g.ui.close(); g.resume(); };
-  const step = (s = 0.6) => window.shine.step(s);
-  const visit = (x, z) => { clear(); window.shine.teleport(x, z + 40, 0); window.shine.step(0.2); window.shine.teleport(x, z, 0); window.shine.step(0.3); };
-  const pack = () => { for (let k = 0; k < 6 && g.trunkScreen.isOpen; k++) { const s = g.trunkScreen, sp = s.hand && g.trunk.findSpot(s.hand.kind); if (sp) { s.cursor = { x: sp.x, y: sp.y }; s.hand.rot = sp.rot; s.confirm(); } s.close(); } };
-  const shine = (n) => { g.trunk.clear(); for (let k = 0; k < n; k++) { const s = g.trunk.findSpot('corn-shine'); g.trunk.place('corn-shine', s.x, s.y, s.rot); } g.dredge.data.market.blend['corn-shine'] = { q: 0.6, bad: false }; };
-  const objective = () => document.getElementById('objective-text').textContent;
-  const toast = () => document.getElementById('toast').textContent;
-  return { g, d: g.dredge.data, clear, step, visit, pack, shine, objective, toast };
-})()`;
-
-async function past(page, n) {
-  await page.evaluate(async ({ PAST, n }) => { window.__chapters = await import('/src/chapters.js'); eval(PAST)(window.shine.game, n); }, { PAST, n });
-}
 
 test('chapter 3, The Western Line: Mags’s trust (her offers come daily), the midnight freight loaded only while it stands at Glyndon, the guard’s van, and the false bottom', async ({ page }) => {
   const problems = await openGame(page);

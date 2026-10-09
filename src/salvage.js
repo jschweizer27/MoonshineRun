@@ -98,7 +98,7 @@ export function placeStory(world, regular = []) {
       for (let k = 0; k < 12; k++) {
         const a = (k / 12) * Math.PI * 2, x = harrow.stopX + Math.cos(a) * r, z = harrow.stopZ + Math.sin(a) * r;
         const stopX = harrow.stopX + Math.cos(a) * (r - 6), stopZ = harrow.stopZ + Math.sin(a) * (r - 6);
-        if (clear(x, z, 2) && clear(stopX, stopZ, 1.6)) { out.push({ kind: 'office', story: 'office', x, z, stopX, stopZ }); break found; }
+        if (clear(x, z, 2) && clear(stopX, stopZ, 1.6) && apart(x, z)) { out.push({ kind: 'office', story: 'office', x, z, stopX, stopZ }); break found; }
       }
     }
   }
