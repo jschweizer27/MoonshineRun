@@ -133,6 +133,9 @@ export class Police {
   alert(p, tier, { hold = 10, range = [70, 150] } = {}) {
     const events = [];
     this.hold = hold;
+    // Cars too far off to be part of it (a patrol across the county) go home; the trap's
+    // cars all come in close.
+    for (const u of this.units) if (u.active && u.car.position.distanceTo(p) > range[1] * 1.5 && !this._visible(u.car.position.x, u.car.position.z)) this._deactivate(u);
     this._raise(tier, events, p, this._roadPoints(p, range));
     this._rbTimer = 0;
     return events;

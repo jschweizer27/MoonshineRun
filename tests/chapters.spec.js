@@ -332,6 +332,9 @@ test('chapter 5, Drowned Warren: out to Loch Raven, the drowned mill after dark,
     d.orders.push({ id: 'jockey-test', contact: 'farm:3', who: 'jockey', name: 'The Jockey', place: 'Harrow Stables', kind: 'farm', x: 0, z: -600, wants: { crate: 1 }, grade: null, night: false, pay: 100, rep: 5, hours: 10, km: 0, line: '', due: 1e6 });
     const mill = g.salvage.sites.find((s) => s.story === 'mill');
     out.mill = [g.salvage.status(mill, 0, 12), g.salvage.status(mill, 0, 21.5)];
+    // A patrol far off in the city plays no part in the trap: every car comes in close.
+    const far = g.police.units[0];
+    far.active = true; far.mode = 'patrol'; far.goal = null; far.car.place(0, 100, 0);
     g.env.hour = 21.5;
     g._onSalvaged(mill, 0.8); clear(); step();
     const P = g.police, me = g.player.position;
