@@ -267,7 +267,7 @@ test('chapter 4, Stone and Iron: Delaney’s crates past the York Road checkpoin
   expect(r.store).toBe(true);
   expect(r.byDay).toContain('after dark');
   expect(r.handed).toBe(true);
-  expect(r.run).toEqual({ who: 'kessler', night: true, shine: 2, objective: 'Deliver to Gus Kessler at Highlandtown Speakeasy · tonight' });
+  expect(r.run).toEqual({ who: 'kessler', night: true, shine: 2, objective: 'Deliver to Gus Kessler at Highlandtown Speakeasy · fragile · tonight' });
   expect(r.search.state).toBe('playing');
   expect(r.search.toast).toContain('find nothing');
   expect(r.search.shine).toBe(2);
