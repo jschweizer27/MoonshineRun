@@ -198,17 +198,17 @@ test('a bad batch: pour it out and lose it, or keep it and taint the blend; sold
     g.resume();
     for (let k = 0; k < d.stash['corn-shine']; k++) { const spot = g.trunk.findSpot('corn-shine'); g.trunk.place('corn-shine', spot.x, spot.y, spot.rot); }
     d.stash = {};
-    d.rep = 100;
     const s = g.world.drops[0];
+    d.trust[s.who] = 6;
     window.shine.teleport(s.x + 30, s.z, -Math.PI / 2); window.shine.step(0.2);
     window.shine.teleport(s.x, s.z, -Math.PI / 2); window.shine.step(0.3);
-    return { rep: d.rep };
+    return { trust: d.trust[s.who], who: s.who };
   });
   await expect(page.locator('#market')).toBeVisible();
   await expect(page.locator('#market-body')).toContainText('grade C, tainted');
   await page.click('#market-sell-all');
-  const after = await page.evaluate(() => { const d = window.shine.game.dredge.data; return { rep: d.rep, blinded: d.stats.blinded, flag: d.flags.blinded, ledger: d.ledger[0].text, toast: document.getElementById('toast').textContent }; });
-  expect(r.rep - after.rep).toBe(30);
+  const after = await page.evaluate((who) => { const d = window.shine.game.dredge.data; return { trust: d.trust[who], blinded: d.stats.blinded, flag: d.flags.blinded, ledger: d.ledger[0].text, toast: document.getElementById('toast').textContent }; }, r.who);
+  expect(r.trust - after.trust).toBe(3);                  // the speakeasy that sold it trusts Otto less
   expect(after.blinded).toBe(1);
   expect(after.flag).toBe(true);
   expect(after.toast).toContain('blinded by bad corn shine');

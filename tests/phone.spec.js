@@ -20,7 +20,7 @@ for (const [name, viewport] of [['portrait', { width: 390, height: 844 }], ['lan
         g.police.heat = 2; g._updateHeat();
         g.dredge.data.wear = 0.6; g._updateWearPill();
         document.getElementById('lights').classList.remove('hidden');
-        g.dredge.data.rank = 3; g._buildAbilities();
+        g.dredge.data.tools.leadfoot = g.dredge.data.tools.sweet = true; g._buildAbilities();
         g.hud.setObjective('Ashes: Search the ruins of Braun & Sons in Highlandtown', '0.4 mi', 'market', 0.3);
         g.hud.toast('Order taken: 2 corn shines (grade B+) for Gus Kessler, Highlandtown Speakeasy · after dark, by dawn', 'gold', 60000);
         g.minimap.draw(g.player, g._mapMarkers());

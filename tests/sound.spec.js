@@ -60,7 +60,7 @@ test('the tune follows the road: stride by day, the blues in the city at night, 
     at(23, 0, 100, 'cityNight');
     at(23, 0, -600, 'valleyNight');
     at(12, 0, -600, 'valleyDay');
-    g.dredge.data.rank = 2;
+    g.dredge.data.tools.leadfoot = true;
     g.useAbility('leadfoot');
     window.shine.step(0.2);
     out.leadFoot = [g._tuneFor(), g.audio.music.tune];
@@ -110,7 +110,7 @@ test('a market rings its bell and the till is heard: a shop hushes the road inst
   expect(problems).toEqual([]);
 });
 
-test('fanfares for a rank, a rare find and the deed, a chime for a job done, a knock at a speakeasy, and each town its own sounds', async ({ page }) => {
+test('fanfares for a contact’s gift, a rare find and the deed, a chime for a job done, a knock at a speakeasy, and each town its own sounds', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   await expect.poll(() => page.evaluate(() => window.shine.game.audio.enabled)).toBe(true);
@@ -118,8 +118,9 @@ test('fanfares for a rank, a rare find and the deed, a chime for a job done, a k
     const { CONFIG } = await import('/src/config.js');
     const g = window.shine.game, a = g.audio, calls = eval(spy)(a);
     const n0 = calls.length;
-    // A rank, and word of a rare find.
-    g._addRep(30);
+    // A gift from a contact's trust (Mags O'Rourke's: Lead Foot), and word of a rare find.
+    g.dredge.data.trust.orourke = 6;
+    g._trustGifts();
     g._onRare({ type: 'rare', kind: CONFIG.dredge.loot.kinds.find((k) => k.rare), x: 0, z: -700 });
     const story = calls.slice(n0);
     // A knock at a speakeasy door.
