@@ -22,8 +22,6 @@ const DEFAULT = {
   stash: {},                 // loot kept at Otto's barn: kind -> count
   wear: 0,                   // 0 (sound) .. 1 (worn out): costs top speed until repaired
   still: 0,                  // the still's level: copper coils installed (0 = can't brew yet)
-  rep: 0,                    // reputation, from contracts, brews and rare finds
-  rank: 0,                   // CONFIG.dredge.ranks index reached (it never drops)
   orders: [],                // the order book: offers from contracts.js taken, each plus `due` (game hours)
   trust: {},                 // contact (story.js CAST id) -> trust points (contracts.js trustLevel)
   delivered: {},             // contact -> orders delivered
@@ -102,10 +100,12 @@ export class DredgeCareer {
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
     for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes']) d[k] = { ...(d[k] || {}) };
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
-    d.rank = Math.max(0, Math.min(CONFIG.dredge.ranks.length - 1, Math.floor(Number(d.rank) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     d.ending = ENDINGS[d.ending] ? d.ending : null;
+    // Reputation and ranks are gone (trust and tools now): a recipe brewed under them stays learned.
+    delete d.rep; delete d.rank;
+    for (const r of ['rye', 'lager']) if (d.best[r]) d.flags[`learned:${r}`] = true;
     if (!Number.isFinite(d.market.clock)) d.market.clock = DEFAULT.market.clock;
     // Bribery waits on chapter 4 now; a save whose Sheriff already took envelopes keeps it.
     if (d.flags.bribery == null && (d.trust.sheriff || 0) >= CONFIG.dredge.contracts.trustPer * 3) d.flags.bribery = true;
@@ -128,15 +128,16 @@ export class DredgeCareer {
     return lvl < costs.length ? costs[lvl] : null;
   }
 
-  // The rank the next level of an upgrade waits for, or null if it's open (or maxed).
-  lockedRank(id) {
-    const u = CONFIG.dredge.upgrades[id], need = u.ranks?.[this.level(id)] || 0;
-    return this.level(id) < u.costs.length && need > (this.data.rank || 0) ? need : null;
+  // The chapter (a CHAPTERS index) the next level of an upgrade waits for, or null if it's
+  // open (or maxed).
+  lockedChapter(id) {
+    const u = CONFIG.dredge.upgrades[id], need = u.chapters?.[this.level(id)] || 0;
+    return this.level(id) < u.costs.length && need > (this.data.chapter || 0) ? need : null;
   }
 
   buy(id) {
     const cost = this.nextCost(id);
-    if (cost == null || this.data.cash < cost || this.lockedRank(id) != null) return false;
+    if (cost == null || this.data.cash < cost || this.lockedChapter(id) != null) return false;
     this.data.cash -= cost;
     this.data.upgrades[id] = this.level(id) + 1;
     this.data.ledger.unshift({ t: Date.now(), text: `${CONFIG.dredge.upgrades[id].name} (level ${this.data.upgrades[id]})`, amount: -cost });

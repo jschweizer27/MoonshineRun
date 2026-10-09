@@ -7,8 +7,7 @@
 // picked with it). `wants`: the goods a contact's orders draw from, if not the usual (the
 // farm's or the speakeasy's list, CONFIG.dredge.contracts); `shine`: a farm contact whose
 // orders, once Otto brews, are shine after dark, like a speakeasy's. Every speakeasy and farm has its contact (world.js DROPS, county.js
-// BARNS), and the Sheriff posts from the county lockup once Otto is a Brewer (or chapter 4
-// needs him).
+// BARNS), and the Sheriff posts from the county lockup from chapter 4.
 export const CAST = {
   narrator: { name: '', initials: '', color: '#b6ab90' },
   otto: { name: 'Otto Braun', initials: 'OB', color: '#d8b25a' },
@@ -169,7 +168,7 @@ export const TRUSTED = {
   sheriff: 'You’re a good customer, Mr. Braun. If the Bureau ever catches you out in my county, you come to me.',
 };
 
-// `when(data)` reads the save (dredgecareer data): stats, flags and rank. Beats for systems
+// `when(data)` reads the save (dredgecareer data): stats, flags and the chapter. Beats for systems
 // a save hasn't reached yet simply wait.
 export const BEATS = {
   prologue: {
@@ -222,7 +221,7 @@ export const BEATS = {
     ],
   },
   quarry: {
-    when: (d) => (d.rank || 0) >= 2,
+    when: (d) => (d.chapter || 0) >= 2,       // Chapter 3 (chapters.js): the store deals with Otto from now
     lines: [
       ['narrator', 'Cockeysville, at the valley’s eastern crossroads. The marble for Baltimore’s Washington Monument came out of these hills.'],
       ['delaney', 'Braun, is it? The Jockey says you can carry a load and keep your mouth shut. The company store will deal with you now.'],
@@ -230,7 +229,7 @@ export const BEATS = {
     ],
   },
   sheriff: {
-    when: (d) => (d.rank || 0) >= 3 || (d.chapter || 0) >= 3,    // Brewer, or Chapter 4 (chapters.js)
+    when: (d) => (d.chapter || 0) >= 3,       // Chapter 4 (chapters.js)
     lines: [
       ['sheriff', 'Mr. Braun. A man in my position hears things. A man in your position might want me to stop hearing them.'],
       ['sheriff', 'An envelope now and then, and my deputies forget what your truck looks like.'],

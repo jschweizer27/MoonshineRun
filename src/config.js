@@ -144,13 +144,14 @@ export const CONFIG = {
     // Towns with a market (stop inside the radius to sell): the city, Monkton at the York
     // Road crossroads in the valley, Glyndon out west and Cockeysville out east (county.js
     // VILLAGES). `area` is how far out the town's name shows when you arrive. A town with a
-    // `rank` only deals with Otto from that rank on (its marker and route wait till then),
-    // and has no market events or market days (those are the same for every player).
+    // `chapter` (a CHAPTERS index, chapters.js) only deals with Otto from that chapter on (its
+    // marker and route wait till then), and has no market events or market days (those are
+    // the same for every player).
     towns: [
       { id: 'baltimore', town: 'Baltimore', name: 'Lexington Market', x: -44, z: 44, radius: 12 },
       { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95, supplies: true },
       { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90, supplies: true },
-      { id: 'cockeysville', town: 'Cockeysville', name: 'Cockeysville Quarry Store', x: 400, z: -650, radius: 12, area: 90, rank: 2, supplies: true },
+      { id: 'cockeysville', town: 'Cockeysville', name: 'Cockeysville Quarry Store', x: 400, z: -650, radius: 12, area: 90, chapter: 2, supplies: true },
     ],
     // The county stores (a town's `supplies`) sell the still's makings: these kinds, at their
     // base value x `markup` (rounded to $), into the trunk.
@@ -203,25 +204,25 @@ export const CONFIG = {
     },
     // The trunk: a grid to pack loot into (the trunk upgrade grows it).
     trunk: { cols: 5, rows: 3 },
-    // Upgrades, bought at a market. Costs are set from a measured economy (an autopilot
+    // Upgrades, bought at a market. `chapters`: the CHAPTERS index (chapters.js) each level
+    // waits for: levels 4 and 5 and the later upgrades open as the story goes on. Costs are set from a measured economy (an autopilot
     // earns ~$150-200 a game minute): the first upgrades come within a few minutes, all
     // fifteen levels in about an hour. Steps are still placeholders for playtesting.
     // `costs` are levels 1-3; each level adds `step` to the base value (trunk: `sizes` per
     // level, from the base 5x3 at level 0).
     upgrades: {
-      // `ranks`: the rank each level needs (levels 4 and 5 come with rank).
-      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], ranks: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
-      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], ranks: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
-      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], ranks: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
+      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], chapters: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
+      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], chapters: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
+      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], chapters: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
       // Padding: each level takes `padding` off the chance a crash breaks anything (breakage).
-      padding: { name: 'Padding', desc: 'Straw and sacking round the load: fewer jars, bottles and crates of shine break in a crash.', costs: [250, 600, 1200, 2200, 3600], ranks: [0, 0, 0, 2, 4], step: { padding: 0.16 } },
+      padding: { name: 'Padding', desc: 'Straw and sacking round the load: fewer jars, bottles and crates of shine break in a crash.', costs: [250, 600, 1200, 2200, 3600], chapters: [0, 0, 0, 2, 4], step: { padding: 0.16 } },
       // Spotter: salvage sites on the radar out to `siteRange` (CONFIG.dredge.salvage.mapRange)
       // more a level; at the top level, every site in the county.
-      spotter: { name: 'Spotter', desc: 'The radar shows salvage sites further off; at the top level, every site in the county.', costs: [200, 500, 1000, 1900, 3000], ranks: [0, 0, 0, 2, 4], step: { siteRange: 120 } },
-      tyres: { name: 'All-weather tyres', desc: 'Grip in the rain, and a little less bogging down in the fields.', costs: [300, 700, 1500], ranks: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
-      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], ranks: [1, 1, 2], step: { light: 0.25 } },
-      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], ranks: [2, 2, 3], step: { wear: 0.25 } },
-      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: each level hides two more crates of shine from a checkpoint search.', costs: [900, 2000], ranks: [2, 3], step: { hidden: 2 } },
+      spotter: { name: 'Spotter', desc: 'The radar shows salvage sites further off; at the top level, every site in the county.', costs: [200, 500, 1000, 1900, 3000], chapters: [0, 0, 0, 2, 4], step: { siteRange: 120 } },
+      tyres: { name: 'All-weather tyres', desc: 'Grip in the rain, and a little less bogging down in the fields.', costs: [300, 700, 1500], chapters: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
+      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], chapters: [1, 1, 2], step: { light: 0.25 } },
+      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], chapters: [2, 2, 3], step: { wear: 0.25 } },
+      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: each level hides two more crates of shine from a checkpoint search.', costs: [900, 2000], chapters: [2, 3], step: { hidden: 2 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
@@ -244,44 +245,45 @@ export const CONFIG = {
     // `span` metres across; on market day the town pays `marketDay` x. PLACEHOLDERS: tune
     // after playtesting.
     roadEvents: { hours: 4, offset: 2, chance: 0.6, lasts: 0.75, span: 14, marketDay: 1.15 },
-    // Ranks: reputation (contracts, brews, rare finds) lifts Otto through them; each unlocks
-    // recipes (CONFIG.dredge.brew), upgrade levels (`ranks` on each upgrade), abilities and,
-    // at the top, the brewery deed. Reputation: a contract's pay / contracts.repPer, a brew's
-    // quality x `repPerBrew`, `repPerFind` a rare find. PLACEHOLDERS: tune after playtesting.
-    ranks: [
-      { name: 'Junk Hauler', rep: 0 },
-      { name: 'Scavenger', rep: 30, unlocks: 'Jockey’s Tip (1), tyres and lamps' },
-      { name: 'Runner', rep: 90, unlocks: 'Lead Foot (2), steel plating, upgrade level 4, the Cockeysville Quarry Store' },
-      { name: 'Brewer', rep: 150, unlocks: 'Barrel Rye, Sweet Talk (3), Sheriff Hale’s jobs' },
-      { name: 'Bootlegger', rep: 250, unlocks: 'Highlandtown Lager, upgrade level 5' },
-      { name: 'King of York Road', rep: 360, unlocks: 'a name every speakeasy in Baltimore knows' },
-    ],
-    repPerBrew: 6,
-    repPerFind: 5,
-    // Abilities (keys 1-3, the D-pad's left / up / right, or the HUD chips), each from a rank:
-    // the Jockey's Tip shows every salvage site on the radar for `seconds`; Lead Foot opens
-    // the engine up (`speed` / `accel` x) for `seconds`; Sweet Talk adds `bonus` to the next
-    // sale or job. `cooldown` seconds before each can be used again.
+    // Trust and tools: a contact who trusts Otto (`at` stars) gives him something, once
+    // (main._trustGifts): a recipe (`learn`: the save's flags 'learned:<id>') or an ability
+    // (`tool`: the save's tools). Gus Kessler teaches Barrel Rye, Mags O'Rourke's dockers tune
+    // the engine (Lead Foot) and Mr. Abernathy shows Otto how a deal is closed (Sweet Talk).
+    gifts: {
+      kessler: { at: 3, learn: 'rye' },
+      orourke: { at: 3, tool: 'leadfoot' },
+      abernathy: { at: 3, tool: 'sweet' },
+    },
+    // Abilities (keys 2 and 3, the D-pad's up / right, or the HUD chips), each a tool from a
+    // contact's trust (`gifts`): Lead Foot opens the engine up (`speed` / `accel` x) for
+    // `seconds`; Sweet Talk adds `bonus` to the next sale or job. `cooldown` seconds before
+    // each can be used again.
     abilities: {
-      tip: { name: 'Jockey’s Tip', key: '1', rank: 1, seconds: 30, cooldown: 120 },
-      leadfoot: { name: 'Lead Foot', key: '2', rank: 2, seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
-      sweet: { name: 'Sweet Talk', key: '3', rank: 3, cooldown: 180, bonus: 0.2 },
+      leadfoot: { name: 'Lead Foot', key: '2', seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
+      sweet: { name: 'Sweet Talk', key: '3', cooldown: 180, bonus: 0.2 },
     },
     // One of the two endings (chapters.js ENDINGS): once the story's last chapter is done, buy
     // back the Braun & Sons brewery deed at Lexington Market.
     deed: { cost: 12000, town: 'baltimore' },
     // The story's own numbers (chapters.js). The midnight freight stands at the Glyndon siding
     // in its `window` (game hours, wrapping past midnight; railway.js), and chapter 3's load
-    // onto it (`count` crates of `kind`) pays `pay` and `rep`. Chapter 4: Moss Delaney's
-    // consignment (`count` crates of `kind` at quality `q`, into the blend on hand) and the
-    // run with it to Gus Kessler (`run`); what Sheriff Hale asks for his report (`report`).
-    // Chapter 5's ambush at Warren: the heat it starts at, the seconds it holds before it can
-    // cool, and how far out (metres) the cars come in. PLACEHOLDERS: tune after playtesting.
+    // onto it (`count` crates of `kind`) pays `pay`. Before it, Walt Purdy rides along
+    // (`passenger`): picked up at `from` (a contact's door: Mags O'Rourke's, on the Fells Point
+    // docks) and set down at the siding while the freight stands; a crash harder than `crash`
+    // m/s costs Mags `trust` points. Chapter 4: Moss Delaney's consignment (`count` crates of
+    // `kind` at quality `q`, into the blend on hand) and the run with it to Gus Kessler (`run`,
+    // fragile: any knock over CONFIG.dredge.breakage.from breaks one); what Sheriff Hale asks
+    // for his report (`report`). Chapter 5's brewery in Gus's cellar (`brewery`: the site's
+    // anchor, beside the Highlandtown Speakeasy), and the ambush at Warren: the heat it starts
+    // at, the seconds it holds before it can cool, and how far out (metres) the cars come in.
+    // PLACEHOLDERS: tune after playtesting.
     story: {
-      freight: { window: [23, 1.5], kind: 'corn-shine', count: 2, pay: 350, rep: 15 },
+      freight: { window: [23, 1.5], kind: 'corn-shine', count: 2, pay: 350 },
+      passenger: { who: 'guard', from: 'orourke', pay: 150, crash: 12, trust: 1 },
       consignment: { kind: 'corn-shine', count: 2, q: 0.6 },
-      run: { kind: 'corn-shine', count: 2, pay: 420, rep: 20 },
+      run: { kind: 'corn-shine', count: 2, pay: 420 },
       report: 500,
+      brewery: { x: 176, z: 44 },
       ambush: { tier: 3, hold: 12, range: [70, 150] },
     },
     // Brewing at Otto's still (src/brew.js), in three phases:
@@ -302,9 +304,10 @@ export const CONFIG = {
     // `heat` and `drift` scale the fire, `hearts` are the two marks, `tol` the cut margin,
     // `proof` the line. Crates of one recipe on hand are one blend (src/brew.js `blend`):
     // its grade sets the price (`gradePrice`); a bad batch taints it until it's all gone,
-    // and selling tainted shine blinds someone (`badRep` reputation lost). A recipe needs
-    // its ingredients (loot kinds, from the trunk and the stash) and a rank, and one with
-    // `learn` must be taught first (a chapter step, chapters.js: the save's flags 'learned:<id>').
+    // and selling tainted shine blinds someone (`badTrust` trust points lost with whoever was
+    // sold it, and the papers have it). A recipe needs its ingredients (loot kinds, from the
+    // trunk and the stash), and one with `learn` must be taught first (a chapter step,
+    // chapters.js, or a contact's trust, `gifts`: the save's flags 'learned:<id>').
     // PLACEHOLDERS: tune after playtesting.
     brew: {
       maxLevel: 3,
@@ -317,13 +320,29 @@ export const CONFIG = {
       weights: { fire: 0.4, cuts: 0.4, proof: 0.2 },
       grades: [['A', 0.78], ['B', 0.5], ['C', 0]],
       gradePrice: { A: 1.4, B: 1, C: 0.65 },
-      badRep: 30,
+      badTrust: 3,
       yields: [[0.8, 3], [0.45, 2], [0, 1]],
+      // The brewery in Gus's cellar (screens.js showBrewery, brew.js newLagerBatch), a batch
+      // of Highlandtown Lager in three phases:
+      // 1. The mash (`mash.seconds`): hold HEAT to warm it (`up` a second), let go and it
+      //    cools (`down`); hold it within `band` of each rest in turn (`rests`, half the time
+      //    each). 2. The boil (`boil.seconds`): the boil runs along; press as it passes each
+      //    hop mark (`hops`), within `tol`. 3. Lagering (`lager.seconds`): weeks in the cold
+      //    cellar run by, faster and faster (`speed`, `speedUp`); press to tap it inside the
+      //    `window`. Quality is the phases by `weights`; crates by `yields`.
+      lager: {
+        mash: { seconds: 14, rests: [0.42, 0.68], band: 0.08, up: 0.38, down: 0.24 },
+        boil: { seconds: 9, hops: [0.22, 0.52, 0.82], tol: 0.05 },
+        lager: { seconds: 7, speed: 0.12, speedUp: 0.06, window: [0.72, 0.86] },
+        weights: { mash: 0.45, boil: 0.35, lager: 0.2 },
+        yields: [[0.8, 6], [0.5, 5], [0, 4]],
+      },
       recipes: [
-        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, rank: 0, heat: 1, drift: 1, hearts: [0.25, 0.75], tol: 0.06, proof: 0.6 },
-        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, rank: 0, learn: true, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
-        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, rank: 3, heat: 1, drift: 1.1, hearts: [0.38, 0.64], tol: 0.035, proof: 0.68 },
-        { id: 'lager', needs: { sack: 2, barrel: 1, keg: 1 }, rank: 4, heat: 0.85, drift: 0.9, hearts: [0.3, 0.7], tol: 0.045, proof: 0.4 },
+        { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, heat: 1, drift: 1, hearts: [0.25, 0.75], tol: 0.06, proof: 0.6 },
+        { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, learn: true, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
+        { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, learn: true, heat: 1, drift: 1.1, hearts: [0.38, 0.64], tol: 0.035, proof: 0.68 },
+        // Lager is brewed only at the brewery in Gus's cellar (`brewery`, `lager` below), not the still.
+        { id: 'lager', needs: { sack: 3, barrel: 1 }, learn: true, brewery: true, heat: 0.85, drift: 0.9, hearts: [0.3, 0.7], tol: 0.045, proof: 0.4 },
       ],
     },
     // Breakage: a knock harder than `from` m/s can break the fragile pieces aboard (the
@@ -363,10 +382,8 @@ export const CONFIG = {
     // `shine` of at least a grade, handed over only after dark and due at the next dawn, at
     // least `dawnMin` hours off). Otto keeps up to `book` orders at once. An order pays its
     // goods' value x `payMult` (shine at its grade's price, `gradePrice`, x `nightPay`: the
-    // risk of the night run), more for the
-    // distance from the barn (`distPay` per km) and for trust (`trustPay` per level), and
-    // earns pay / `repPer` reputation. Missing one costs `failRep`. Deliver by stopping
-    // within `radius` of the contact.
+    // risk of the night run), more for the distance from the barn (`distPay` per km) and for
+    // trust (`trustPay` per level). Deliver by stopping within `radius` of the contact.
     // Trust (0-5) is per contact: `trustPer` points a level; an order delivered is +1 (+1 more
     // for grade A shine), dropped -1, late -2, tainted shine -3. Higher trust asks for more
     // and better: from level 2 some orders want grade B, from 4 grade A, from 3 one crate more.
@@ -374,7 +391,7 @@ export const CONFIG = {
     // Sheriff at `bribeAt` a bust in the county goes away for `bribe` x the fine.
     // PLACEHOLDERS: tune after playtesting.
     contracts: {
-      perDay: 4, book: 3, farmShare: 0.4, payMult: 1.7, nightPay: 2.4, repPer: 20, failRep: 15, hours: [8, 16], radius: 9, dawnMin: 4,
+      perDay: 4, book: 3, farmShare: 0.4, payMult: 1.7, nightPay: 2.4, hours: [8, 16], radius: 9, dawnMin: 4,
       distPay: 0.35, trustPay: 0.08, trustPer: 2, sceneAt: 3, bribeAt: 2, bribe: 1.5,
       farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
       barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
@@ -405,7 +422,8 @@ export const CONFIG = {
         cellar: { name: 'Back-alley cellar', game: 'search', color: '#6a4e3a', yields: { 'bottle-case': 3, jugs: 2, keg: 2, strongbox: 1, radio: 1 } },
         // Story sites (chapters.js): open only while their chapter step is. `game` is the
         // mini-game, or 'none' (handed over), 'pay' (a price, chapters.js `price`) or 'give'
-        // (the Sun: one of the endings). `wait` is said when stopping outside its hours.
+        // (the Sun: one of the endings) or 'lager' (the brewery). `wait` is said when stopping
+        // outside its hours.
         ruins: { name: 'Ruins of Braun & Sons', game: 'search', color: '#3a3430', yields: { coil: 1 } },
         office: { name: 'Harrow Stables office', game: 'pry', color: '#7a6248', yields: { coil: 1 } },
         waybills: { name: 'The guard’s van', game: 'search', color: '#8a2a1c', yields: { crate: 1 }, wait: 'The midnight freight isn’t in. It stands at the Glyndon siding from 23:00 to 01:30.' },
@@ -413,6 +431,8 @@ export const CONFIG = {
         report: { name: 'Sheriff Hale’s lockup', game: 'pay', color: '#5a6066', yields: { crate: 1 } },
         mill: { name: 'The drowned mill at Warren', game: 'search', color: '#4a5a5e', yields: { crate: 1 } },
         sun: { name: 'The Baltimore Sun', game: 'give', color: '#d8d2c4', yields: { crate: 1 } },
+        // Gus's cellar (chapter 5 on): the brewery mini-game (`lager`, screens.js showBrewery).
+        brewery: { name: 'Gus’s cellar', game: 'lager', color: '#b8733a', yields: { crate: 1 } },
       },
       // Pry: a needle sweeps the ring and turns back at each hit; press inside a green arc.
       // `arcs` to hit within `seconds`, `strikes` misses and the wood splinters.

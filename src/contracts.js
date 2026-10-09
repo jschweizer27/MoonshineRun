@@ -21,16 +21,16 @@ export function nextDawn(clock) {
   return due;
 }
 
-// Everyone who posts jobs: { id, name, place, who, x, z, kind: 'speakeasy' | 'farm', rank? }.
+// Everyone who posts jobs: { id, name, place, who, x, z, kind: 'speakeasy' | 'farm', chapter? }.
 // `name` is the contact (a character from story.js CAST, `who`), `place` where they are.
 // Sheriff Hale wants what the speakeasies want, delivered to the county lockup, and only
-// posts once Otto's rank reaches his (`rank`).
+// posts from chapter 4 on (`chapter`, a CHAPTERS index).
 export function contacts(world) {
   const person = (who, place) => ({ who, name: CAST[who]?.name ?? place, place });
   return [
     ...world.drops.map((d, i) => ({ id: `drop:${i}`, ...person(d.who, d.name), x: d.x, z: d.z, kind: 'speakeasy' })),
     ...world.barns.map((b, i) => ({ id: `farm:${i}`, ...person(b.who, b.name), x: b.stopX, z: b.stopZ, kind: 'farm' })),
-    ...(world.lockup ? [{ id: 'lockup', ...person(world.lockup.who, world.lockup.name), x: world.lockup.x, z: world.lockup.z, kind: 'speakeasy', rank: 3 }] : []),
+    ...(world.lockup ? [{ id: 'lockup', ...person(world.lockup.who, world.lockup.name), x: world.lockup.x, z: world.lockup.z, kind: 'speakeasy', chapter: 3 }] : []),
   ];
 }
 
@@ -43,19 +43,19 @@ function roll(salt, day) {
 }
 
 // The day's offers. Speakeasies (and the Sheriff) want bar goods, or once Otto brews, shine
-// of a recipe his rank allows, at a grade their trust in him asks for; farms want goods for
+// of a recipe he's learned, at a grade their trust in him asks for; farms want goods for
 // the house and the yard. Each comes with a line from its contact (`line`). `home` (the
 // barn) sets the distance pay; `trust` is { who: points }; `learned` the save's flags.
 // `focus`: the contact a chapter step waits on (chapters.js `who`): one more offer is
-// theirs, whatever their rank, a fresh one after each order delivered to them (`focusN`, the
+// theirs, whatever the chapter, a fresh one after each order delivered to them (`focusN`, the
 // count so far: id `<day>-f<focusN>`), so a trust step moves at the player's pace, not a
 // day's. `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
 // that lands on one goes to someone else. Without either, the offers are as they always were.
-export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [] } = {}) {
-  // Recipes his rank allows, and (for one that must be taught) that he's learned.
+export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [] } = {}) {
+  // Recipes he can brew: the plain one, and those he's been taught.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
-    return (r?.rank ?? 0) <= rank && (!r?.learn || learned[`learned:${k}`]);
+    return !r?.learn || learned[`learned:${k}`];
   });
   const offer = (i, contact) => {
     const r = (s) => roll(`${s}:${i}`, day);
@@ -84,14 +84,14 @@ export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, ho
     const hours = Math.round(C.hours[0] + r('hours') * (C.hours[1] - C.hours[0]));
     return {
       id: `${day}-${i}`, contact: contact.id, name: contact.name, place: contact.place, who: contact.who, line: asks[Math.floor(r('line') * asks.length)] || '',
-      kind: contact.kind, x: contact.x, z: contact.z, wants, grade, night, pay, rep: Math.round(pay / C.repPer), hours, km: Math.round(km * 10) / 10,
+      kind: contact.kind, x: contact.x, z: contact.z, wants, grade, night, pay, hours, km: Math.round(km * 10) / 10,
     };
   };
   const out = [];
   for (let i = 0; i < C.perDay; i++) {
     const r = (s) => roll(`${s}:${i}`, day);
     const farm = r('who') < C.farmShare;
-    const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.rank || 0) <= rank);
+    const pool = list.filter((c) => c.kind === (farm ? 'farm' : 'speakeasy') && (c.chapter || 0) <= chapter);
     let contact = pool[Math.floor(r('contact') * pool.length)];
     if (exclude.includes(contact.who)) {
       const rest = pool.filter((c) => !exclude.includes(c.who));

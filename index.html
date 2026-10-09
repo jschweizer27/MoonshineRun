@@ -59,6 +59,7 @@
     <div id="rotate-hint" aria-hidden="true">Turn your phone sideways for a better view</div>
     <div class="hud-bl">
       <div id="heat" class="pill hidden" aria-live="polite"><b>☆☆☆</b> <span>HEAT</span><i aria-hidden="true"></i></div>
+      <div id="passenger" class="pill hidden" aria-live="polite">PASSENGER ABOARD</div>
       <div id="lights" class="pill hidden">LIGHTS OFF</div>
       <div id="wear" class="pill hidden">TRUCK 100%</div>
       <div id="cargo" class="pill">TRUNK 0/15</div>
@@ -313,6 +314,22 @@
     </div>
   </div>
 
+  <!-- The brewery in Gus's cellar: a batch of Highlandtown Lager (src/screens.js showBrewery) -->
+  <div id="brewery" class="overlay hidden" role="dialog" aria-labelledby="brewery-title">
+    <div class="overlay-card">
+      <h1 class="title small" id="brewery-title">GUS’S CELLAR</h1>
+      <ol id="brewery-steps" aria-label="The batch"><li data-phase="mash">1 · THE MASH</li><li data-phase="boil">2 · THE BOIL</li><li data-phase="lager">3 · LAGERING</li></ol>
+      <p id="brewery-what" class="story"></p>
+      <div id="brewery-gauge" aria-hidden="true"><div id="brewery-band"></div><i class="brewery-mark"></i><i class="brewery-mark"></i><i class="brewery-mark"></i><div id="brewery-needle"></div></div>
+      <div id="brewery-progress" aria-hidden="true"><i></i></div>
+      <p id="brewery-msg" class="hint" role="status" aria-live="polite"></p>
+      <div class="btn-row">
+        <button id="brewery-act" class="btn" data-autofocus>HOLD TO HEAT</button>
+        <button id="brewery-done" class="btn hidden">DONE</button>
+      </div>
+      <p id="brewery-help" class="hint small"></p>
+    </div>
+  </div>
   <!-- Saved games: three slots (filled in by src/screens.js) -->
   <div id="slots" class="overlay hidden" role="dialog" aria-labelledby="slots-title">
     <div class="overlay-card wide">
