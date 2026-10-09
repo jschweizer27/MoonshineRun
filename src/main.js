@@ -1809,6 +1809,7 @@ class Game {
     }
     this._updateJobMarker();
     this._updateTrunkPill();
+    this._updatePassenger();
     this.hud.setCash(this.dredge.cash, true);
     const paid = done.reduce((s, x) => s + x.paid, 0);
     this.hud.cashPop(`+${money(paid)}`);

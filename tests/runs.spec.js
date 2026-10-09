@@ -52,13 +52,13 @@ test('the brewery: chapter 5 opens in Gus’s cellar; short of the makings it sa
     const { g, d, step, objective, clear } = eval(KIT);
     clear(); step();
     const { offersFor } = await import('/src/contracts.js');
-    const learned = offersFor(3, g.contactList, { brewing: true, learned: d.flags, trust: { kessler: 9 } }).some((o) => o.wants.lager);
+    const learned = Array.from({ length: 12 }, (_, k) => offersFor(k + 3, g.contactList, { brewing: true, learned: d.flags })).flat().some((o) => o.wants.lager);
     return {
       lager: d.stash.lager, grade: d.market.blend.lager && d.market.blend.lager.q > 0.8, learned: !!d.flags['learned:lager'], objective: objective(),
       stillOpen: Object.keys(g.salvage.story).includes('brewery'), ledger: d.ledger[0].text, offers: learned,
     };
   }, KIT);
-  expect(after).toMatchObject({ lager: 6, grade: true, learned: true, objective: 'Drowned Warren: Drive out to Loch Raven, east of Cockeysville', stillOpen: true });
+  expect(after).toMatchObject({ lager: 6, grade: true, learned: true, objective: 'Drowned Warren: Drive out to Loch Raven, east of Cockeysville', stillOpen: true, offers: true });
   expect(after.ledger).toContain('Highlandtown Lager in Gus’s cellar');
   // At the barn, the still doesn't offer Lager (it's the brewery's).
   await page.evaluate(() => { const g = window.shine.game, h = g.world.home; window.shine.teleport(h.stopX, h.stopZ + 40, 0); window.shine.step(0.2); window.shine.teleport(h.stopX, h.stopZ, 0); window.shine.step(0.2); });
