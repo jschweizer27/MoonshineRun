@@ -7,6 +7,7 @@ import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
 import { CHAPTERS, choiceOpen } from './chapters.js';
 import { ARCS, arcStep } from './arcs.js';
+import { SITE_KINDS, setOf, ODDS } from './codex.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -68,7 +69,7 @@ function contractRows(body, jobs, trunk, render) {
 // A county store's supplies (CONFIG.dredge.supplies): what a piece of `kind` costs there.
 export const supplyPrice = (kind) => Math.round(KINDS[kind].value * CONFIG.dredge.supplies.markup);
 
-export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), onSell, onBuy, onSupply = null, onTrunk, onBack }) {
+export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), have = () => ({}), onSell, onBuy, onSupply = null, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
@@ -124,14 +125,17 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       for (const [id, u] of Object.entries(CONFIG.dredge.upgrades)) {
         const lvl = career.level(id), cost = career.nextCost(id), max = u.costs.length;
         const pips = el('span', { class: 'pips', 'aria-label': `level ${lvl} of ${max}` }, ...u.costs.map((_, k) => el('i', { class: k < lvl ? 'on' : '' })));
-        const locked = career.lockedChapter(id);
+        const locked = career.lockedChapter(id), parts = cost == null ? null : career.nextParts(id);
+        const short = parts ? missing({ needs: parts }, have()) : [];
         const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `up-${id}` },
           cost == null ? 'MAXED' : locked != null ? `IN CHAPTER ${locked + 1}` : `BUY ${money(cost)}`);
-        if (cost == null || locked != null || career.cash < cost) btn.disabled = true;
+        if (cost == null || locked != null || career.cash < cost || short.length) btn.disabled = true;
         btn.addEventListener('click', () => { onBuy(id); render(); });
         // The false bottom says how many crates it hides now (chapter 3's own floor counts too).
         const hides = id === 'falsebottom' ? ` Hides ${u.step.hidden * (lvl + (career.data.tools?.falsebottom ? 1 : 0))} now.` : '';
-        body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, `${u.desc}${hides}`)), btn));
+        // The next level's parts, and what's still to find (the trunk and the barn's stash count).
+        const needs = parts && locked == null ? el('small', { class: short.length ? 'needs short' : 'needs' }, `Needs ${wantsText(parts)}${short.length ? `: short of ${wantsText(Object.fromEntries(short))} (the trunk and the barn count)` : ', on hand'}.`) : '';
+        body.append(el('div', { class: 'upgrade' }, el('div', {}, el('b', {}, u.name), pips, el('small', {}, `${u.desc}${hides}`), needs), btn));
       }
     }
     const all = quote(town.id, trunk, career.market, null, keep()), every = quote(town.id, trunk, career.market);
@@ -742,6 +746,19 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     body.append(el('h3', {}, 'TOOLS'));
     for (const t of tools) body.append(note(el('div', {}, el('b', {}, t.name), el('small', {}, t.text.replace(/^Earned: [^.]*\. /, '')))));
   }
+  // The finds (codex.js): each site kind's goods, found or not, and the odd variants.
+  const cx = d.codex || {}, seen = (k) => cx[k]?.n > 0;
+  const findText = (k) => `${KINDS[k].name}${cx[k].n > 1 ? ` ×${cx[k].n}` : ''}${cx[k].best ? ` (best ${money(cx[k].best)})` : ''}`;
+  const all = [...new Set(SITE_KINDS.flatMap(setOf))];
+  body.append(el('h3', {}, `FINDS · ${all.filter(seen).length}/${all.length} · ODD ${ODDS.filter(seen).length}/${ODDS.length}`));
+  for (const site of SITE_KINDS) {
+    const goods = setOf(site), n = goods.filter(seen).length;
+    body.append(note(el('div', {}, el('b', {}, `${CONFIG.dredge.salvage.kinds[site].name}s · ${n}/${goods.length}${d.flags[`set:${site}`] ? ' ✓' : ''}`),
+      el('small', {}, goods.map((k) => (seen(k) ? findText(k) : '?')).join(' · ')))));
+  }
+  body.append(note(el('div', {}, el('b', {}, `Odd ones · ${ODDS.filter(seen).length}/${ODDS.length}${d.tools.eye ? ' ✓ the collector’s eye' : ''}`),
+    el('small', {}, ODDS.map((k) => (seen(k) ? findText(k) : `? (an odd ${KINDS[KINDS[k].odd].name.toLowerCase()})`)).join(' · ')),
+    el('small', { class: 'says' }, 'Odd ones turn up now and then in place of the usual piece, most often at night sites worked well.'))));
   body.append(el('h3', {}, `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {

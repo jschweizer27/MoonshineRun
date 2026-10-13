@@ -124,6 +124,12 @@ const MODELS = {
   'corn-shine': (add, c) => shineCrate(add, c),
   applejack: (add, c) => shineCrate(add, c),
   kummel: (add, c) => shineCrate(add, c),
+  // The odd variants: the usual piece, in the premium tier's amber.
+  'odd-coil': (add, c) => MODELS.coil(add, c),
+  'odd-radio': (add, c) => MODELS.radio(add, c),
+  'odd-keg': (add, c) => MODELS.keg(add, c),
+  'odd-sewing-machine': (add, c) => MODELS['sewing-machine'](add, c),
+  'odd-strongbox': (add, c) => MODELS.strongbox(add, c),
   rye: (add, c) => { shineCrate(add, c); add(box(0.5, 0.5, 0.5), c.main, -0.25, 0.25, 0.5); },
   lager: (add, c) => {
     add(cyl(0.42, 0.42, 1.0, 10).rotateZ(Math.PI / 2), c.main, 0, 0.5, 0);

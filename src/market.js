@@ -50,7 +50,7 @@ export const saturdayNight = (clock, night) => night && weekday(nightOf(clock)) 
 // game) has none. Returns { town, townName, kind, kindName, mult } or null.
 export function eventFor(day) {
   if (day < 1) return null;
-  const towns = openTowns(), kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed);
+  const towns = openTowns(), kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed && !k.odd);
   const pick = (list, salt) => list[Math.floor(roll(salt, day) * list.length)];
   const town = pick(towns, 'town'), kind = pick(kinds, 'kind');
   return { town: town.id, townName: town.town, kind: kind.id, kindName: kind.name, mult: M.event.multiplier };
