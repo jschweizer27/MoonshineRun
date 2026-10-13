@@ -32,6 +32,9 @@ const DEFAULT = {
   opened: {},                // chapter id -> true once its opening card has played
   clues: {},                 // clue id -> true once found
   tools: {},                 // tool id -> true once earned
+  arcs: {},                  // side story id (arcs.js) -> { open, done }
+  follow: null,              // the side story the banner and the route follow (null: the chapter)
+  once: {},                  // a tool's once-a-night/day use: tool id -> the game day it was used
   ending: null,              // 'deed' or 'paper' once an ending is chosen (chapters.js ENDINGS)
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
   taken: {},                 // offer ids already taken (done, failed or dropped), so they don't come back
@@ -98,7 +101,8 @@ export class DredgeCareer {
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once']) d[k] = { ...(d[k] || {}) };
+    if (typeof d.follow !== 'string' || !d.arcs[d.follow] || d.arcs[d.follow].done) d.follow = null;
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };

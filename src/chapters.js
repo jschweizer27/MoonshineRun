@@ -1,5 +1,6 @@
 import { trustLevel } from './contracts.js';
 import { CONFIG } from './config.js';
+import { activeArcs } from './arcs.js';
 
 // The story in chapters (docs/GAME_DESIGN.md "Regions as chapters"). Pure logic over the
 // save (dredgecareer data): each chapter is a run of steps taken in order, each step done
@@ -225,9 +226,11 @@ export function lostNow(d, have) {
 
 // The story sites open now: { [site]: { night, window } } for the current step, if it has
 // one (or the site that gives back what it needs, if that's lost); the Sun while the
-// ending's choice is open; and Gus's cellar (the brewery) for good once Lager is learned.
+// ending's choice is open; Gus's cellar (the brewery) for good once Lager is learned; and
+// the sites of the side stories' current steps (arcs.js).
 export function openSites(d, have = null) {
   const out = d.flags?.['learned:lager'] ? { brewery: { night: false, window: null } } : {};
+  if (d.arcs) for (const { step } of activeArcs(d)) if (step.site) out[step.site] = { night: !!step.night, window: step.window || null };
   if (choiceOpen(d)) return { ...out, sun: { night: false, window: null } };
   const { step } = current(d), lost = lostNow(d, have);
   if (lost) return { ...out, [lost.site]: { night: false, window: null } };

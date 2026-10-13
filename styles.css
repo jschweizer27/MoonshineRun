@@ -358,6 +358,8 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 #notebook-body .note .stars { margin-left: auto; color: var(--gold); white-space: nowrap; letter-spacing: 0.08em; }
 #notebook-body .note .says { font-style: italic; color: #d8cfb8; }
 #notebook-body .note .done { color: #8a8270; }
+#notebook-body .note .follow { margin-left: auto; }
+#notebook-body .note .follow.on { color: #1a1408; background: var(--gold); }
 #notebook-body .note .now { color: var(--gold); }
 #notebook-body .note .later { color: #6d675d; }
 #ledger-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin-bottom: 16px; text-align: left; font-family: "Courier New", Courier, monospace; font-size: calc(14px * var(--ts)); }

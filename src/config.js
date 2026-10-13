@@ -262,6 +262,9 @@ export const CONFIG = {
       leadfoot: { name: 'Lead Foot', key: '2', seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
       sweet: { name: 'Sweet Talk', key: '3', cooldown: 180, bonus: 0.2 },
     },
+    // The side stories' rewards (arcs.js): the quality of Widow Carroll's dawn crate, and
+    // what the Belvedere pays on a Saturday night (a multiple).
+    arcs: { farmstill: { q: 0.6 }, belvedere: 2 },
     // One of the two endings (chapters.js ENDINGS): once the story's last chapter is done, buy
     // back the Braun & Sons brewery deed at Lexington Market.
     deed: { cost: 12000, town: 'baltimore' },
@@ -339,6 +342,8 @@ export const CONFIG = {
       },
       recipes: [
         { id: 'corn-shine', needs: { sack: 1, jugs: 1 }, heat: 1, drift: 1, hearts: [0.25, 0.75], tol: 0.06, proof: 0.6 },
+        // Braun's Kümmel: Father's caraway schnapps, from his recipe book (Izzy Feld's side story).
+        { id: 'kummel', needs: { sack: 1, 'small-crate': 1, jugs: 1 }, learn: true, heat: 1.15, drift: 1.1, hearts: [0.34, 0.68], tol: 0.045, proof: 0.64 },
         { id: 'applejack', needs: { 'small-crate': 2, jugs: 1 }, learn: true, heat: 1.35, drift: 1.25, hearts: [0.3, 0.72], tol: 0.05, proof: 0.52 },
         { id: 'rye', needs: { sack: 2, barrel: 1, jugs: 1 }, learn: true, heat: 1, drift: 1.1, hearts: [0.38, 0.64], tol: 0.035, proof: 0.68 },
         // Lager is brewed only at the brewery in Gus's cellar (`brewery`, `lager` below), not the still.
@@ -395,7 +400,7 @@ export const CONFIG = {
       distPay: 0.35, trustPay: 0.08, trustPer: 2, sceneAt: 3, bribeAt: 2, bribe: 1.5,
       farmWants: ['sewing-machine', 'bicycle', 'radio', 'crate', 'long-crate', 'small-crate', 'sack', 'barrel'],
       barWants: ['bottle-case', 'jugs', 'barrel', 'keg'],
-      shine: ['corn-shine', 'applejack', 'rye', 'lager'],
+      shine: ['corn-shine', 'applejack', 'kummel', 'rye', 'lager'],
     },
     // The speakeasies (world.drops) buy shine, stopped at within `radius`.
     speakeasy: { radius: 9 },
@@ -433,6 +438,9 @@ export const CONFIG = {
         sun: { name: 'The Baltimore Sun', game: 'give', color: '#d8d2c4', yields: { crate: 1 } },
         // Gus's cellar (chapter 5 on): the brewery mini-game (`lager`, screens.js showBrewery).
         brewery: { name: 'Gus’s cellar', game: 'lager', color: '#b8733a', yields: { crate: 1 } },
+        // The side stories' deals (arcs.js `price`).
+        board: { name: 'State Board of Pharmacy', game: 'pay', color: '#6a7a8a', yields: { crate: 1 } },
+        note: { name: 'The Harrow estate’s agent', game: 'pay', color: '#6a5a4a', yields: { crate: 1 } },
       },
       // Pry: a needle sweeps the ring and turns back at each hit; press inside a green arc.
       // `arcs` to hit within `seconds`, `strikes` misses and the wood splinters.
@@ -494,6 +502,7 @@ export const CONFIG = {
         // `brewed`), and sold only at the city's speakeasies.
         { id: 'corn-shine', name: 'Corn Shine', short: 'Corn', tier: 'brewed', brewed: true, value: 70, weight: 0, cells: [[0, 0], [1, 0]] },
         { id: 'applejack', name: 'Applejack', short: 'Apple', tier: 'brewed', brewed: true, accent: 'olive', value: 95, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'kummel', name: 'Braun’s Kümmel', short: 'Kümmel', tier: 'brewed', brewed: true, accent: 'slate', value: 120, weight: 0, cells: [[0, 0], [1, 0]] },
         { id: 'rye', name: 'Barrel Rye', short: 'Rye', tier: 'brewed', brewed: true, accent: 'brick', value: 130, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
         { id: 'lager', name: 'Highlandtown Lager', short: 'Lager', tier: 'brewed', brewed: true, accent: 'amber', value: 170, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
       ],

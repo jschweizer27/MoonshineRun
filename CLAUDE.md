@@ -109,6 +109,18 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   (`perks.hidden`), the police band (`perks.agentRange`, `police.near(..., { look })`, the
   radar's wedges). Save: `chapter`, `steps`, `opened`, `clues`, `tools`, `ending`,
   `stepTimes`.
+- Side stories (v5, `src/arcs.js`, design in `docs/EXPANSION.md`): six contacts' own arcs
+  (`ARCS`), opened at a contact's trust (★★ or ★★★) from a chapter (`at`, `chapter`, `also`), on the same step fields
+  (plus `price` / `deal` for a 'pay' site, `got`, `order.place`, a passenger's `vouch`), run
+  alongside the chapters: `advanceArcs` (from `main._chapters`), `activeArcs` (their sites
+  join `openSites`; their orders `_storyOrders`; `main._activeSteps` / `_siteStep`). Step ids
+  are unique across chapters and arcs. Save: `arcs` ({ open, done }), `follow` (the arc the
+  banner, route and focus order follow: `main._followed`, the notebook's FOLLOW) and `once`
+  (a tool's once-a-night/day use). Rewards: Kümmel (a recipe) and the tools `prescriptions`
+  (`main._byDay`: Wexler deals by day), `labels` (`_searched`, once a night: `nightOf`),
+  `farmstill` (`_dawn`), `family` (`_bust` in the city, once a day), `belvedere`
+  (`_belvedere`: Banks pays `CONFIG.dredge.arcs.belvedere`x on Saturday nights; the clock
+  shows the weekday, `market.weekday`). Any number of passengers ride at once.
 - One clock: the save's `market.clock` (game hours from midnight of day 0; a new game starts
   at 21.5) is the time; `env.hour` is set from it on every load (`main._syncHour`) and both
   advance together, so deadlines, dawn, refills, the freight and the sky agree. The night's

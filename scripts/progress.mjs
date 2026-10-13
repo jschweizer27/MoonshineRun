@@ -7,7 +7,7 @@
 // is 16 minutes), the screens (mini-games, the still, cards) don't. Salvage pays what
 // scripts/economy.mjs measures (SALVAGE below, from its clean and fair runs, scaled for a
 // person at the wheel). Prints each chapter's minutes, the hours to the ending's choice, and
-// the cash then (against the deed's price) for:
+// the cash then (against the deed's price), then the side stories' hours (arcs.js), for:
 //  - rusher: plays well and goes straight for the story, sleeping through the days;
 //  - steady: plays well, salvages by day, runs two more orders a night, buys upgrades;
 //  - casual: plays fairly, drives slower, one more order a night, upgrades, and through
@@ -16,7 +16,8 @@
 // straight. Targets (docs/GAME_DESIGN.md): chapter 1 in 45-60 minutes, 5-7 hours in all.
 import { CONFIG } from '../src/config.js';
 import { CHAPTERS, advance, current, choiceOpen } from '../src/chapters.js';
-import { offersFor } from '../src/contracts.js';
+import { offersFor, trustLevel } from '../src/contracts.js';
+import { ARCS } from '../src/arcs.js';
 import { KINDS } from '../src/trunk.js';
 import { gradeOf, yieldFor } from '../src/brew.js';
 
@@ -27,7 +28,7 @@ const PLACES = {
   kessler: [176, 44], orourke: [132, 176], abernathy: [0, -132], romano: [44, 132], hummel: [-176, -132], pryor: [220, 132], healy: [-88, 176],
   banks: [88, -176], wexler: [-88, -88], feld: [-132, 44], carroll: [-246, -512], ridgely: [256, -497], pruitt: [-292, -608], jockey: [292, -722],
   tolley: [-334, -956], gill: [238, -917], sheriff: [396, -614], ruins: [148, 48], office: [295, -722], van: [-408, -668], quarry: [422, -674],
-  lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735], brewery: [150, 70],
+  lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735], brewery: [150, 70], board: [12, -110], note: [-256, -520],
 };
 const FARMS = ['carroll', 'ridgely', 'pruitt', 'jockey', 'tolley', 'gill'];
 const BARS = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
@@ -204,13 +205,41 @@ function play(P) {
     advance(d);
     if (d.chapter !== chapter) { s.chapters.push(s.t - from); from = s.t; chapter = d.chapter; }
   }
-  return { ...s, days: day() };
+  // The side stories (arcs.js), for a player who takes the side orders: the contacts' trust
+  // to the arcs' stars, then their steps (orders, passengers, sites and their prices). Played
+  // after the chapters here; a real player weaves them in, for about the same time.
+  const story = { t: s.t, cash: s.cash, days: day() };
+  if (P.side) {
+    // Every contact's trust to their arc's stars, then the arcs' steps side by side, a step of
+    // each in turn (as a player works them all at once: one night serves several).
+    for (const arc of ARCS) for (let k = 0; k < 20 && trustLevel(d.trust[arc.who]) < arc.at; k++) focusOrder(arc.who);
+    const trust = s.t;
+    for (let i = 0; ARCS.some((a) => a.steps[i]); i++) {
+      for (const arc of ARCS) {
+        const st = arc.steps[i];
+        if (!st) continue;
+        side();
+        const O = st.order;
+        if (O?.passenger || O?.window) {
+          for (const [k, n] of Object.entries(O.wants)) need(k, n);
+          if (O.passenger) { drive(O.passenger.from); screen(0.2); }
+          site(O.at, { window: O.window, night: O.night });
+          for (const [k, n] of Object.entries(O.wants)) s.stock[k] -= n;
+          s.cash += O.pay; s.orders++;
+        } else if (O) deliver({ wants: O.wants, night: O.night, pay: O.pay, who: null }, O.at);
+        else { site(st.site, { night: st.night }); s.cash -= st.price || 0; }
+      }
+    }
+    if (process.env.ARCS) console.log(`  side stories: trust ${Math.round(trust - story.t)} min, steps ${Math.round(s.t - trust)} min`);
+  }
+  return { ...s, days: day(), story, sideMin: s.t - story.t };
 }
 
 const m = (x) => `${Math.round(x)}`.padStart(4);
 console.log(`chapters: ${CHAPTERS.map((c, i) => `${i + 1} ${c.title}`).join(' · ')}; the deed $${D.deed.cost.toLocaleString()}`);
 for (const [name, P] of Object.entries(PLAYERS)) {
-  const r = play(P);
-  console.log(`${name.padEnd(7)} minutes ${r.chapters.map(m).join(' ')}  total ${(r.t / 60).toFixed(1)} h, ${r.days} game days, ${r.orders} orders; cash at the choice $${Math.round(r.cash).toLocaleString()} (${Math.round((r.cash / D.deed.cost) * 100)}% of the deed), upgrades $${r.spent.toLocaleString()}`);
+  const r = play(P), c = r.story;
+  console.log(`${name.padEnd(7)} minutes ${r.chapters.map(m).join(' ')}  story ${(c.t / 60).toFixed(1)} h, ${c.days} game days; cash at the choice $${Math.round(c.cash).toLocaleString()} (${Math.round((c.cash / D.deed.cost) * 100)}% of the deed)`);
+  console.log(`        side stories ${(r.sideMin / 60).toFixed(1)} h; in all ${(r.t / 60).toFixed(1)} h, ${r.days} game days, ${r.orders} orders, upgrades $${r.spent.toLocaleString()}`);
   console.log(`        driving ${m(r.spend.drive)} min, screens ${m(r.spend.screens)}, salvaging ${m(r.spend.salvage)}, slept ${r.spend.sleep} times`);
 }

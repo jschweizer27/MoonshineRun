@@ -36,6 +36,9 @@ export const CAST = {
   guard: { name: 'Walt Purdy', initials: 'WP', color: '#a8a07a' },
   draper: { name: 'Agent Draper', initials: 'AD', color: '#7f8ea0' },
   editor: { name: 'Ned Holloway', initials: 'NH', color: '#d8d2c4' },
+  // The side stories' passengers (arcs.js): Sal Romano's uncle, and Lulu Banks's band.
+  vito: { name: 'Uncle Vito', initials: 'UV', color: '#c87a6a' },
+  band: { name: 'The Moonlight Serenaders', initials: 'MS', color: '#e0c070' },
   // The speakeasies' contacts.
   kessler: {
     name: 'Gus Kessler', initials: 'GK', color: '#d89a4a', asks: [
