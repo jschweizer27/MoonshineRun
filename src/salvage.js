@@ -117,6 +117,19 @@ export function placeStory(world, regular = []) {
   // Chapter 5 on: Gus's cellar, the brewery, along the street from his speakeasy.
   const B = CONFIG.dredge.story.brewery;
   sidewalk('brewery', 'brewery', B.x, B.z, 25, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 20));
+  // The side stories (arcs.js): the State Board of Pharmacy on Mount Vernon Place, and the
+  // Harrow estate's agent in Widow Carroll's yard at Stone Hollow, clear of her door.
+  sidewalk('board', 'board', 0, -110, 12, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 25));
+  const stone = world.barns.find((b) => b.name === 'Stone Hollow Farm');
+  if (stone) {
+    found: for (const r of [13, 16, 19]) {
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2, x = stone.stopX + Math.cos(a) * r, z = stone.stopZ + Math.sin(a) * r;
+        const stopX = stone.stopX + Math.cos(a) * (r - 6), stopZ = stone.stopZ + Math.sin(a) * (r - 6);
+        if (clear(x, z, 2) && clear(stopX, stopZ, 1.6) && apart(x, z) && Math.hypot(stopX - stone.stopX, stopZ - stone.stopZ) > 6.5) { out.push({ kind: 'note', story: 'note', x, z, stopX, stopZ }); break found; }
+      }
+    }
+  }
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }

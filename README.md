@@ -105,6 +105,18 @@ Enter, the D-pad and A/B, or touch.
    While a step waits on someone, they post an order every day. Some steps put a **story order**
    in the book: no deadline, but it can't be dropped. The notebook keeps the steps and the clues.
 
+   **Side stories.** Win a contact's trust (★★, or ★★★ for most) and six of them ask for more
+   than an order: a story of their own, run alongside the chapters, each with a reward of its own.
+   - **Izzy Feld, The Brass Key:** Father's vault under the ruins, and his **Kümmel** recipe.
+   - **Doc Wexler, The Prescription Pad:** his licence, and then his dispensary deals by day.
+   - **Nell Pryor, The Tomato Crates:** cannery labels; once a night a search waves you through.
+   - **Widow Carroll, The Widow's Note:** her farm saved, and a crate of Corn Shine every dawn.
+   - **Sal Romano, The Wedding:** you're family; once a day a bust in the city goes away.
+   - **Lulu Banks, The Band's Night:** the Belvedere pays double on Saturday nights (the clock
+     shows the day of the week).
+
+   The notebook lists them; **FOLLOW** one to point the banner and the route at it.
+
    **The endings.** After chapter 5 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
    - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
@@ -333,6 +345,7 @@ src/
   trunk.js, trunkscreen.js   the trunk grid and its screen
   market.js     prices and selling (drift, gluts)
   dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger
+  chapters.js, arcs.js  the story's chapters, and the contacts' side stories
   marker.js     the market markers
   screens.js    the market and ledger screens
   particles.js  exhaust, dust, sparks and smoke

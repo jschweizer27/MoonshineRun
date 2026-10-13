@@ -38,6 +38,13 @@ export const openTowns = () => CONFIG.dredge.towns.filter((t) => !t.chapter);
 // The in-game day a market state is on (the clock counts hours from the start).
 export const dayOf = (state) => Math.floor((state.clock || 0) / 24);
 
+// The day of the week (a new game starts on a Thursday night), and the day a night began
+// (its small hours belong to the evening before): Saturday night is day 2's, 9's, ...
+const WEEK = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'];
+export const weekday = (day) => WEEK[((day % 7) + 7) % 7];
+export const nightOf = (clock) => Math.floor(((clock || 0) - 6) / 24);
+export const saturdayNight = (clock, night) => night && weekday(nightOf(clock)) === 'Sat';
+
 // The day's market event: from day 1 on, one town pays a multiple for one kind of loot (a
 // demand posted for the day). Rolled from the day number, so it's repeatable; day 0 (a new
 // game) has none. Returns { town, townName, kind, kindName, mult } or null.

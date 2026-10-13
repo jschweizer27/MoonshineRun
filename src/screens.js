@@ -6,6 +6,7 @@ import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
 import { CHAPTERS, choiceOpen } from './chapters.js';
+import { ARCS, arcStep } from './arcs.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -257,6 +258,7 @@ const TAUGHT = {
   applejack: 'Ma Pruitt at Old Mill Barn knows it.',
   rye: 'Gus Kessler will teach it to a man he trusts (★★★).',
   lager: 'Father’s own recipe; it needs a brewery, not a still.',
+  kummel: 'Father’s recipe book is somewhere. Izzy Feld has a key (★★★).',
 };
 
 // A blend's grade as shown: A, B or C, and "C, tainted" for a bad one.
@@ -697,8 +699,9 @@ export function showLedger(ui, career) {
 // every contact and their trust (and what they've told him once they trust him), and the
 // recipes with the best batch and the blend on hand. `contacts` from contracts.js; `clock`
 // game hours.
-export function showNotebook(ui, { career, contacts, clock, onBack }) {
+export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) {
   const d = career.data, body = $('notebook-body'), C = CONFIG.dredge.contracts;
+  const render = (focusArc = null) => {
   body.textContent = '';
   const level = (who) => Math.max(0, Math.min(5, Math.floor((d.trust[who] || 0) / C.trustPer)));
   const note = (...kids) => el('div', { class: 'note' }, ...kids);
@@ -720,6 +723,25 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
   if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
   for (const c of found) body.append(note(el('div', {}, el('b', {}, c.title), el('small', { class: 'says' }, c.text))));
+  // The side stories (arcs.js): open ones with their step and FOLLOW (the banner and the
+  // route follow it), done ones with what they gave, and a hint at the next to open.
+  const open = ARCS.filter((a) => d.arcs?.[a.id]?.open), next = ARCS.find((a) => !d.arcs?.[a.id]?.open);
+  body.append(el('h3', {}, `SIDE STORIES · ${ARCS.filter((a) => d.arcs?.[a.id]?.done).length}/${ARCS.length}`));
+  if (!open.length) body.append(note(el('span', {}, 'Win a contact’s trust (★★ or ★★★) and they’ll ask for more than an order.')));
+  for (const a of open) {
+    const st = arcStep(d, a), on = d.follow === a.id;
+    const btn = st ? el('button', { type: 'button', class: `btn small-btn follow${on ? ' on' : ''}`, 'data-arc': a.id, 'aria-pressed': String(on) }, on ? 'FOLLOWING' : 'FOLLOW') : '';
+    if (btn) btn.addEventListener('click', () => { d.follow = on ? null : a.id; career.save(); onFollow?.(); render(a.id); });
+    body.append(note(face(a.who), el('div', {}, el('b', {}, `${a.title} · ${CAST[a.who].name}`),
+      el('small', { class: st ? '' : 'says' }, st ? `▸ ${st.text}${st.night ? ', after dark' : ''}` : `✓ ${a.reward.text}`)), btn));
+  }
+  if (next && open.length < ARCS.length) body.append(note(el('span', { class: 'later' }, `· ${CAST[next.who].name} has something on their mind. (${'★'.repeat(next.at)}${next.chapter > (d.chapter || 0) ? `, from chapter ${next.chapter + 1}` : ''})`)));
+  // What the story has given Otto to work with: the chapters' tools and the side stories'.
+  const tools = [...CHAPTERS.filter((c) => c.tool && d.tools[c.tool.id]).map((c) => c.tool), ...ARCS.filter((a) => a.reward.tool && d.tools[a.reward.tool]).map((a) => a.reward)];
+  if (tools.length) {
+    body.append(el('h3', {}, 'TOOLS'));
+    for (const t of tools) body.append(note(el('div', {}, el('b', {}, t.name), el('small', {}, t.text.replace(/^Earned: [^.]*\. /, '')))));
+  }
   body.append(el('h3', {}, `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {
@@ -742,6 +764,10 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
     body.append(note(el('div', {}, el('b', {}, r.name),
       el('small', {}, unlearned ? `Not learned yet. ${TAUGHT[r.id] || ''} Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${r.brewery ? ' Brewed at the brewery in Gus’s cellar.' : ''}${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
   }
+  const again = focusArc && body.querySelector(`[data-arc="${focusArc}"]`);
+  if (again) again.focus();
+  };
+  render();
   ui.open('notebook', { onBack });
 }
 

@@ -123,6 +123,7 @@ const MODELS = {
   // Brewed at the still: a slatted crate of mason jars (the lager: a keg in its cradle).
   'corn-shine': (add, c) => shineCrate(add, c),
   applejack: (add, c) => shineCrate(add, c),
+  kummel: (add, c) => shineCrate(add, c),
   rye: (add, c) => { shineCrate(add, c); add(box(0.5, 0.5, 0.5), c.main, -0.25, 0.25, 0.5); },
   lager: (add, c) => {
     add(cyl(0.42, 0.42, 1.0, 10).rotateZ(Math.PI / 2), c.main, 0, 0.5, 0);
