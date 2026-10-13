@@ -28,7 +28,9 @@ test('order offers: rolled from the day, from farms and speakeasies, paid over t
       varied: new Set(all.map((o) => o.contact)).size,
       shineBefore: all.some((o) => Object.keys(o.wants).some((k) => KINDS[k].brewed)),
       shineAfter: allB.filter((o) => o.kind === 'speakeasy').every((o) => Object.keys(o.wants).every((k) => k === 'corn-shine') && o.night && o.grade === 'C'),
-      farmsAnyTime: allB.filter((o) => o.kind === 'farm').every((o) => !o.night && !o.grade),
+      farmsAnyTime: allB.filter((o) => o.kind === 'farm' && o.who !== 'jockey').every((o) => !o.night && !o.grade),
+      jockey: allB.filter((o) => o.who === 'jockey').every((o) => o.night),   // he wants shine for the estates' parties
+      pruitt: all.filter((o) => o.who === 'pruitt').every((o) => Object.keys(o.wants).every((k) => ['sack', 'jugs', 'small-crate', 'barrel'].includes(k))),
       pay: all.every((o) => o.pay === Math.round((worth(o) * 1.7) / 5) * 5 && o.pay > worth(o)),
       distance: far.every((o, i) => o.km > 0 && o.pay === Math.round((worth(o) * 1.7 * (1 + CONFIG.dredge.contracts.distPay * Math.hypot(o.x - home.x, o.z - home.z) / 1000)) / 5) * 5 && o.pay >= days[3][i].pay),
       hours: all.every((o) => o.hours >= 8 && o.hours <= 16),
@@ -43,6 +45,8 @@ test('order offers: rolled from the day, from farms and speakeasies, paid over t
   expect(r.shineBefore).toBe(false);
   expect(r.shineAfter).toBe(true);           // a rank-0 brewer is only asked for Corn Shine, at grade C, after dark
   expect(r.farmsAnyTime).toBe(true);
+  expect(r.jockey).toBe(true);
+  expect(r.pruitt).toBe(true);           // Ma Pruitt wants the still's makings
   expect(r.pay).toBe(true);
   expect(r.distance).toBe(true);             // the far ones pay for the drive
   expect(r.hours).toBe(true);

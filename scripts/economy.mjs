@@ -1,16 +1,20 @@
 #!/usr/bin/env node
-// Measure the run's economy: `node scripts/economy.mjs [minutes] [upgrade level] [seed]
-// [rare]`. A road-following autopilot plays the run with the clock on (prices drift and
-// gluts ease): it drives to the nearest loot, packs what fits, and sells at the nearest
-// market when the trunk is three-quarters full. With `rare` it also fetches each rare find
-// and sells it where it pays best. Prints what it earned per game minute, pickups per minute
-// and each sale ([second, pieces, $]), to set prices and upgrade costs against. One run is
-// one layout: compare a few seeds.
+// Measure the salvage economy: `node scripts/economy.mjs [minutes] [score] [upgrade level]
+// [seed]`. A road-following autopilot plays with the clock on: it drives to the nearest
+// salvage site that can be worked now (night sites only after dark), works it at a set
+// mini-game score (0..1; 0.85 is a clean job, 0.5 a fair one), packs what it gives up and,
+// with the trunk three-quarters full, sells at the nearest market. The mini-games, the
+// packing and the market take real time with the game paused, so each counts a fixed
+// overhead (OVERHEAD, seconds) on top of the driving. Prints dollars per real minute, sites
+// worked per hour, the still's makings found per hour (sacks, jugs, small crates) and each
+// sale ([minute, pieces, $]): scripts/progress.mjs takes its salvage rates from these. One
+// run is one layout: compare a few seeds.
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-const minutes = Number(process.argv[2] || 10), levels = process.argv[3] || '0';
-const seed = process.argv[4], rare = process.argv[5] === 'rare';
+const minutes = Number(process.argv[2] || 20), score = Number(process.argv[3] ?? 0.85), levels = process.argv[4] || '0';
+const seed = process.argv[5];
+const OVERHEAD = { site: 12, piece: 3, sale: 6 };
 const port = 4620 + Math.floor(Math.random() * 30);
 const server = spawn(process.execPath, ['scripts/serve.mjs', '--port', String(port)], { stdio: 'ignore' });
 const browser = await chromium.launch({ executablePath: fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined, args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist'] });
@@ -22,56 +26,58 @@ try {
   await page.evaluate((lv) => {
     const g = window.shine.game;
     g.eraseProgress();
-    for (const id of Object.keys(g.dredge.data.upgrades)) g.dredge.data.upgrades[id] = Number(lv);
+    for (const id of Object.keys(g.dredge.data.upgrades)) g.dredge.data.upgrades[id] = Math.min(Number(lv), 3);
     g.renderer.setAnimationLoop(null);
   }, levels);
   await page.click('#start-btn');
-  await page.evaluate(() => { window.shine.game.renderer.setAnimationLoop(null); });
-  const res = await page.evaluate(async ({ minutes, rare }) => {
-    const g = window.shine.game, L = g.loot, R = g.world.roads, { sell } = await import('/src/market.js');
-    const st = { picked: 0, left: 0, sales: 0, earned: 0, value: 0, stuck: 0, rares: 0, log: [] };
-    const K = Object.fromEntries((await import('/src/config.js')).CONFIG.dredge.loot.kinds.map((k) => [k.id, k]));
+  const res = await page.evaluate(async ({ minutes, score, OVERHEAD }) => {
+    const g = window.shine.game, w = g.world, R = w.roads, { sell, dayOf } = await import('/src/market.js');
+    g.renderer.setAnimationLoop(null);
+    while (g.ui.anyOpen) g.ui.close();
+    if (g.state === 'paused') g.resume();
+    const st = { sites: 0, pieces: 0, left: 0, sales: 0, earned: 0, stuck: 0, overhead: 0, makings: {}, kinds: {}, log: [] };
+    // Work a site at the set score, without the mini-game (its time is counted instead).
+    g.openSalvage = (site) => { g.pause({ showMenu: false }); st.sites++; st.overhead += OVERHEAD.site; g._onSalvaged(site, score); };
     let way = [], goal = null, goalKind = '', stuckT = 0, revT = 0, stalls = 0;
-    const skip = new Map();   // pieces it gave up on (stalled three times on the way), for 30 s
-    // Plan a road route to `t`; the same target keeps its route (re-planning from the nearest
-    // node, which can lie behind the truck, would turn it round on a long drive).
+    const skip = new Map();   // sites it gave up on (stalled three times on the way), for a while
     const plan = (t, kind) => {
       if (way.length && goal && goal.x === t.x && goal.z === t.z) return;
-      // Around a road closed by a road event, as the radar's route goes.
-      const p = g.player.position, a = R.nearest(p.x, p.z).id, b = R.nearest(t.x, t.z).id;
+      const p = g.player.position, a = w.nearestNode(p.x, p.z).id, b = w.nearestNode(t.x, t.z).id;
       const ids = R.path(a, b, g.roadEvents.blocked) || R.path(a, b) || [];
       if (!goal || goal.x !== t.x || goal.z !== t.z) stalls = 0;
       way = [...ids.map((i) => R.nodes[i]), t]; goal = t; goalKind = kind;
     };
-    const towns = (await import('/src/config.js')).CONFIG.dredge.towns;
-    // The market to sell at: where a rare find aboard pays best (rare mode), else the nearest.
-    const marketFor = () => {
-      if (rare) for (const pc of g.trunk.pieces.values()) if (K[pc.kind].paysAt) return towns.find((t) => t.id === K[pc.kind].paysAt);
-      return g._nearestMarket().town;
-    };
     const pickTarget = () => {
       const p = g.player.position;
-      const out = rare && L.rare?.();
-      if (out && g.trunk.findSpot(out.kind.id)) { plan({ x: out.x, z: out.z, i: L.rareSlot }, 'loot'); return; }
-      if (g.trunk.used >= g.trunk.size * 0.75 || (rare && [...g.trunk.pieces.values()].some((pc) => K[pc.kind].paysAt))) { plan(marketFor(), 'market'); return; }
+      if (g.trunk.used >= g.trunk.size * 0.75) { plan(g._nearestMarket().town, 'market'); return; }
+      const day = dayOf(g.dredge.market);
       let best = null, bd = Infinity;
-      for (let i = 0; i < L.n; i++) if (L.active[i] && !(skip.get(i) > g.time)) { const d = Math.hypot(L.x[i] - p.x, L.z[i] - p.z); if (d < bd) { bd = d; best = i; } }
-      if (best == null) { plan(g._nearestMarket().town, 'market'); return; }
-      plan({ x: L.x[best], z: L.z[best], i: best }, 'loot');
+      for (const s of g.salvage.sites) {
+        if (s.story || skip.get(s.id) > g.time || g.salvage.status(s, day, g.env.hour) !== 'ok') continue;
+        const d = Math.hypot(s.stopX - p.x, s.stopZ - p.z);
+        if (d < bd) { bd = d; best = s; }
+      }
+      if (!best) { plan(g._nearestMarket().town, 'market'); return; }
+      plan({ x: best.stopX, z: best.stopZ, id: best.id }, 'site');
     };
     const end = g.time + minutes * 60;
     let decide = 0;
     while (g.time < end) {
       if (g.state === 'paused') {
         const s = g.trunkScreen;
-        if (s.isOpen) {
+        for (let k = 0; k < 8 && s.isOpen; k++) {
           const spot = s.hand && g.trunk.findSpot(s.hand.kind);
-          if (spot) { if (K[s.hand.kind].rare) st.rares++; s.cursor = { x: spot.x, y: spot.y }; s.hand.rot = spot.rot; s.confirm(); st.picked++; } else st.left++;
+          if (spot) {
+            const kind = s.hand.kind;
+            s.cursor = { x: spot.x, y: spot.y }; s.hand.rot = spot.rot; s.confirm(); st.pieces++; st.overhead += OVERHEAD.piece;
+            st.kinds[kind] = (st.kinds[kind] || 0) + 1;
+            if (['sack', 'jugs', 'small-crate'].includes(kind)) st.makings[kind] = (st.makings[kind] || 0) + 1;
+          } else st.left++;
           s.close();
         }
         if (g.ui.isOpen('market')) {
           const town = g._nearestMarket().town, r = sell(town.id, g.trunk, g.dredge.market, null);
-          if (r.count) { g.dredge.sold({ ...r, town: town.name, trunk: g.trunk }); st.sales++; st.earned += r.total; st.log.push([Math.round(g.time), r.count, r.total]); }
+          if (r.count) { g.dredge.sold({ ...r, town: town.name, trunk: g.trunk }); st.sales++; st.earned += r.total; st.overhead += OVERHEAD.sale; st.log.push([Math.round(g.time / 6) / 10, r.count, r.total]); }
           g.ui.close('market'); g._marketRender = null;
         }
         while (g.ui.anyOpen) g.ui.close();
@@ -79,28 +85,34 @@ try {
         way = [];
         continue;
       }
-      if (!way.length || (goalKind === 'loot' && !L.active[goal.i]) || (decide -= 1 / 60) < 0) { pickTarget(); decide = 3; }
+      if (!way.length || (decide -= 1 / 60) < 0) { pickTarget(); decide = 3; }
       const v = g.player, p = v.position;
       while (way.length > 1 && Math.hypot(way[0].x - p.x, way[0].z - p.z) < 9) way.shift();
-      const w = way[0];
-      const want = Math.atan2(w.x - p.x, -(w.z - p.z));
+      const wp = way[0];
+      const want = Math.atan2(wp.x - p.x, -(wp.z - p.z));
       const err = Math.atan2(Math.sin(want - v.heading), Math.cos(want - v.heading));
       const dGoal = Math.hypot(goal.x - p.x, goal.z - p.z);
       let thr = Math.abs(err) > 0.6 ? 0.25 : 1;
       if (Math.abs(v.speed) > 22 && Math.abs(err) > 0.3) thr = -0.5;
-      if (goalKind === 'market' && dGoal < 14) thr = Math.abs(v.speed) > 1 ? -1 : 0.15;
-      if (Math.abs(v.speed) < 1) stuckT += 1 / 60; else stuckT = 0;
-      if (stuckT > 2) { revT = 1; stuckT = 0; st.stuck++; way = [];
-        if (goalKind === 'loot' && ++stalls >= 3) { skip.set(goal.i, g.time + 30); stalls = 0; goal = null; } }   // back off, then re-plan
+      // Pull up at the stop: the site's ring, the market's.
+      if (dGoal < (goalKind === 'site' ? 10 : 14)) thr = Math.abs(v.speed) > 1 ? -1 : dGoal > 3 ? 0.15 : 0;
+      if (Math.abs(v.speed) < 1 && dGoal > 4) stuckT += 1 / 60; else stuckT = 0;
+      if (stuckT > 2) {
+        revT = 1; stuckT = 0; st.stuck++; way = [];
+        if (goalKind === 'site' && ++stalls >= 3) { skip.set(goal.id, g.time + 120); stalls = 0; goal = null; }
+      }
       let input = { throttle: thr, steer: Math.max(-1, Math.min(1, err * 2)) };
       if (revT > 0) { revT -= 1 / 60; input = { throttle: -1, steer: -input.steer }; }
       g.step(1 / 60, input);
+      // Parked at a site that won't open (worked, or a night site by day): on to the next.
+      if (goalKind === 'site' && goal && dGoal < 6 && Math.abs(v.speed) < 0.5 && g.state === 'playing') { skip.set(goal.id, g.time + 120); goal = null; way = []; }
     }
     st.value = g.trunk.value;
-    st.cash = g.dredge.cash;
+    st.days = g.dredge.market.clock / 24;
     return st;
-  }, { minutes, rare });
-  const perMin = (n) => (n / minutes).toFixed(1);
-  console.log(JSON.stringify({ levels, minutes, seed: seed || 'default', rare, rares: res.rares, picked: res.picked, left: res.left, sales: res.sales, earned: res.earned, inTrunk: res.value, stuck: res.stuck }));
-  console.log(`$/min ${perMin(res.earned + res.value)}  pickups/min ${perMin(res.picked)}  sales ${JSON.stringify(res.log)}`);
+  }, { minutes, score, OVERHEAD });
+  const real = minutes + res.overhead / 60, perHour = (n) => ((n / real) * 60).toFixed(1);
+  console.log(JSON.stringify({ minutes, score, levels, seed: seed || 'default', sites: res.sites, pieces: res.pieces, left: res.left, sales: res.sales, earned: res.earned, inTrunk: res.value, stuck: res.stuck, kinds: res.kinds }));
+  console.log(`$/real min ${((res.earned + res.value) / real).toFixed(1)} (driving ${minutes} min + ${(res.overhead / 60).toFixed(1)} min at the screens)  sites/h ${perHour(res.sites)}  pieces/site ${(res.pieces / Math.max(1, res.sites)).toFixed(2)}`);
+  console.log(`makings/h ${Object.entries(res.makings).map(([k, n]) => `${k} ${perHour(n)}`).join(', ')}  sales ${JSON.stringify(res.log)}`);
 } finally { await browser.close(); server.kill(); }

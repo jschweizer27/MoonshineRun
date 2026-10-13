@@ -2,7 +2,7 @@
 // on-screen touch controls. Driving input is read every frame with read(); one-shot
 // actions (pause, map, horn, menu navigation) are delivered through onAction(name, device).
 const DEADZONE = 0.18;
-const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 export class Input {
   constructor(bindings) {
@@ -89,6 +89,8 @@ export class Input {
     edge(PAD.X, 'trunk');
     edge(PAD.LB, 'rotate');
     edge(PAD.RB, 'rotate');
+    // A click of the left stick: Otto's notebook.
+    edge(PAD.LS, 'notebook');
     // The d-pad moves through menus; while driving, left / up / right are the abilities and
     // down the headlamps
     // (the stick's menu moves don't count, so steering never fires one).

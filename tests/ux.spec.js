@@ -236,7 +236,7 @@ test('the pause menu: resume, map, notebook, ledger, settings, help and quit; th
   });
   await page.locator('#market-sell-all').click();
   const earned = await page.evaluate(() => window.shine.game.dredge.data.stats.earned);
-  await page.click('#market-body [data-id="up-magnet"]');
+  await page.click('#market-body [data-id="up-padding"]');
   await page.click('#market-done');
   await page.keyboard.press('Escape');
   await page.click('#pause-ledger');
@@ -244,7 +244,7 @@ test('the pause menu: resume, map, notebook, ledger, settings, help and quit; th
   await expect(page.locator('#ledger-totals')).toContainText('Pieces sold1');
   await expect(page.locator('#ledger-totals')).toContainText('Upgrades bought1');
   const rows = await page.locator('#ledger-runs tr').allTextContents();
-  expect(rows[1]).toContain('Long arm (level 1)');
+  expect(rows[1]).toContain('Padding (level 1)');
   expect(rows[1]).toContain('−$250');
   expect(rows[2]).toContain('Sold 1 piece at Lexington Market');
   await screenshot(page, '11-ledger');

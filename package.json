@@ -2,7 +2,7 @@
   "name": "moonshine-run",
   "version": "0.2.0",
   "private": true,
-  "description": "SHINE: a 1920s Baltimore driving game demo built with Three.js: pick up loot, pack the truck, sell it in town",
+  "description": "SHINE: a 1920s Baltimore bootlegging game built with Three.js: salvage the county, pack the truck, brew shine, run it past the Bureau and find out who burned Braun & Sons",
   "type": "module",
   "license": "UNLICENSED",
   "scripts": {

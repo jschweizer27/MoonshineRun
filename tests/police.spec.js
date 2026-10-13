@@ -148,6 +148,7 @@ test('the York Road checkpoint at night: stopped and searched is a bust unless t
   await startRun(page, { loot: false });
   const r = await page.evaluate((SETUP) => {
     const g = window.shine.game, P = g.police, setup = eval(SETUP), C = P.checkpoint, d = g.dredge.data;
+    d.chapter = 2;                                    // it stands from chapter 3
     const stop = (opts) => { setup(g, opts); g.player.place(C.x, C.z - 40, 0); window.shine.step(0.1); g.player.place(C.x, C.z, 0); window.shine.step(0.1); return { state: g.state, toast: document.getElementById('toast').textContent, shine: g._contraband() }; };
     const empty = stop({ shine: 0 });
     d.upgrades.falsebottom = 1; g._applyPerks();

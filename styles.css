@@ -4,7 +4,7 @@
   --ink: #0d0b08;
   --paper: #ece3cf;
   --muted: #b6ab90;
-  --gutter: max(16px, env(safe-area-inset-left));
+  --gutter: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
   --ts: 1;          /* text scale; 1.25 with the Large text setting */
 }
 html.large-text { --ts: 1.25; }
@@ -30,10 +30,10 @@ html, body {
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 
 .hud-tl, .hud-tr, .hud-bl, .hud-br { position: absolute; }
-.hud-tl { top: 16px; left: var(--gutter); }
-.hud-tr { top: 12px; right: var(--gutter); text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-.hud-bl { bottom: 16px; left: var(--gutter); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.hud-br { bottom: 20px; right: var(--gutter); }
+.hud-tl { top: max(16px, env(safe-area-inset-top)); left: var(--gutter); }
+.hud-tr { top: max(12px, env(safe-area-inset-top)); right: var(--gutter); text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.hud-bl { bottom: max(16px, env(safe-area-inset-bottom)); left: var(--gutter); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.hud-br { bottom: max(20px, env(safe-area-inset-bottom)); right: var(--gutter); }
 
 .hud-stat {
   font-size: calc(26px * var(--ts));
@@ -43,7 +43,10 @@ html, body {
 }
 #cash { font-size: calc(clamp(26px, 5vw, 38px) * var(--ts)); font-weight: bold; font-variant-numeric: tabular-nums; }
 
-#hud-buttons { display: flex; gap: 6px; margin-bottom: 6px; pointer-events: auto; }
+#hud-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-bottom: 6px; pointer-events: auto; }
+/* The headlamps, trunk and notebook buttons: only with the touch controls (keys and pads have their own). */
+.touch-only { display: none; }
+body.touch-mode .touch-only { display: inline-block; }
 .icon-btn {
   width: 40px; height: 40px; padding: 8px;
   color: var(--paper); background: rgba(13, 11, 8, 0.55);
@@ -149,10 +152,16 @@ html, body {
 .touch-btn.small { width: 64px; height: 64px; font-size: 11px; justify-self: center; }
 .touch-btn.pressed { background: rgba(216, 178, 90, 0.4); }
 
-/* Touch layout: minimap to the top, speed above the pedals. */
-body.touch-mode .hud-bl { top: 70px; bottom: auto; }
+/* Touch layout: the pills and the radar down the top left, the speed above the pedals (on
+   a short landscape screen, beside them); the banner, toasts and tips keep to the middle. */
+body.touch-mode .hud-bl { top: 84px; bottom: auto; }
 body.touch-mode #minimap { width: 120px; height: 120px; }
 body.touch-mode .hud-br { bottom: 250px; }
+body.touch-mode .hud-banner { max-width: calc(100vw - 2 * var(--gutter) - 300px); }
+body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var(--gutter) - 300px); }
+@media (max-height: 500px) {
+  body.touch-mode .hud-br { bottom: max(16px, env(safe-area-inset-bottom)); right: calc(var(--gutter) + 224px); }
+}
 
 /* ---------- Overlays ---------- */
 /* Overlays scroll when their card is taller than the screen, so every button stays
@@ -189,8 +198,8 @@ body.touch-mode .hud-br { bottom: 250px; }
 .ability { font: inherit; font-size: calc(12px * var(--ts)); letter-spacing: 1px; padding: 4px 8px; color: var(--muted); background: rgba(13, 11, 8, 0.6); border: 1px solid rgba(216, 178, 90, 0.35); border-radius: 2px; cursor: pointer; }
 .ability.ready { color: var(--paper); border-color: var(--gold); }
 .ability.on { color: #0b0d14; background: var(--gold); border-color: var(--gold); }
-#salvage-ring { display: block; margin: 8px auto; width: min(240px, 60vw); height: auto; }
-#salvage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(260px, 70vw); margin: 10px auto; }
+#salvage-ring { display: block; margin: 8px auto; width: min(240px, 60vw, 40vh); height: auto; }
+#salvage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(260px, 70vw, 46vh); margin: 10px auto; }
 #salvage-grid button { aspect-ratio: 1; font-size: calc(26px * var(--ts)); background: #1b2a33; color: var(--paper); border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; }
 #salvage-grid button.glint { background: #5a4a22; box-shadow: 0 0 14px #f2c55c inset; }
 #salvage-grid button.found { background: #2f4a2a; }
@@ -208,6 +217,8 @@ body.touch-mode .hud-br { bottom: 250px; }
 #dialog-text { font-size: calc(clamp(17px, 3.6vw, 20px) * var(--ts)); line-height: 1.55; min-height: 4.8em; margin: 0 0 18px; color: var(--paper); }
 #dialog.narration #dialog-text { font-style: italic; color: #d8cfb8; }
 #ledger, #notebook { z-index: 26; }
+/* The trunk opens over the market and the barn it's opened from. */
+#trunk { z-index: 27; }
 #confirm { z-index: 30; }
 /* Menus stack on top of each other, so their cards are solid (nothing bleeds through). */
 #pause .overlay-card, #settings .overlay-card, #help .overlay-card, #map .overlay-card, #confirm .overlay-card { background: #0c0b09; }
@@ -233,7 +244,7 @@ body.touch-mode .hud-br { bottom: 250px; }
   color: var(--gold);
   text-shadow: 0 4px 24px rgba(216, 178, 90, 0.4);
 }
-.title.small { font-size: calc(40px * var(--ts)); letter-spacing: 8px; margin-bottom: 18px; }
+.title.small { font-size: calc(clamp(24px, 7vw, 40px) * var(--ts)); letter-spacing: clamp(3px, 1.6vw, 8px); margin-bottom: 18px; overflow-wrap: anywhere; }
 
 .subtitle { margin: 0 0 18px; font-size: calc(clamp(12px, 2.6vw, 16px) * var(--ts)); letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
 .story { font-size: calc(clamp(15px, 3.4vw, 17px) * var(--ts)); line-height: 1.55; color: #d8cfb8; margin: 0 0 16px; }
@@ -247,8 +258,8 @@ body.touch-mode .hud-br { bottom: 250px; }
 .copper { color: #c8743a; font-weight: bold; }
 
 .btn-col { display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 360px; margin: 0 auto; }
-.btn-row { display: flex; gap: 10px; justify-content: center; }
-.btn-row > .btn { flex: 1; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.btn-row > .btn { flex: 1 1 auto; }
 
 .btn {
   pointer-events: auto;
@@ -354,18 +365,34 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
 /* Short landscape phones: tighten everything up. */
 @media (max-height: 500px) {
   .title { font-size: 44px; letter-spacing: 8px; }
+  .title.small { font-size: calc(26px * var(--ts)); letter-spacing: 6px; margin-bottom: 8px; }
   .subtitle { margin-bottom: 8px; }
-  .story, .hint { font-size: 14px; margin-bottom: 10px; }
-  .overlay-card { padding: 16px 22px; }
+  .story, .hint { font-size: 14px; margin-bottom: 8px; }
+  .overlay { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .overlay-card { padding: 12px 20px; }
+  .btn { min-height: 40px; padding: 8px 16px; font-size: calc(16px * var(--ts)); }
+  #market-body, #barn-body { max-height: 44vh; margin-bottom: 10px; }
+  #notebook-body { max-height: 56vh; }
+  #trunk-grid { --cell: min(52px, calc((100vw - 96px) / var(--cols, 5)), calc((100vh - 190px) / var(--rows, 3))); margin: 4px auto; }
   .hud-banner { top: 56px; }
   #toast { top: 96px; }
   #minimap { width: 130px; height: 130px; }
 }
 @media (max-width: 700px) {
-  .hud-banner { max-width: calc(100vw - 2 * var(--gutter)); top: 104px; }
-  #toast { top: 150px; }
+  /* Narrow: the banner goes full width under the top row and wraps to two lines rather
+     than cutting the step off; the toasts and tips under it, the radar under those. */
+  .hud-banner, body.touch-mode .hud-banner { max-width: calc(100vw - 2 * var(--gutter)); width: max-content; top: 78px; white-space: normal; align-items: center; letter-spacing: 1px; }
+  #objective-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  #objective-dist { white-space: nowrap; }
+  #toast, body.touch-mode #toast { top: 146px; width: max-content; max-width: calc(100vw - 2 * var(--gutter)); }
+  #guide, body.touch-mode #guide { top: 212px; max-width: calc(100vw - 2 * var(--gutter)); }
+  body.touch-mode .hud-bl { top: 290px; }
   #hud-buttons .icon-btn { width: 36px; height: 36px; padding: 7px; }
 }
+/* A phone held upright: a nudge to turn it sideways (the drive is made for landscape). */
+#rotate-hint { display: none; position: absolute; left: 50%; bottom: calc(200px + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 14px; font-size: calc(14px * var(--ts)); letter-spacing: 1px; text-align: center; color: var(--paper); background: rgba(13, 11, 8, 0.72); border: 1px solid var(--gold); border-radius: 3px; width: max-content; max-width: calc(100vw - 2 * var(--gutter)); }
+@media (orientation: portrait) and (max-width: 600px) { body.touch-mode #rotate-hint { display: block; animation: hint-out 0.6s 6s forwards; } }
+@keyframes hint-out { to { opacity: 0; visibility: hidden; } }
 
 /* Model credits on the How to play screen. */
 .credits { font-size: 0.72rem; opacity: 0.6; margin: 0.8rem 0 0.4rem; line-height: 1.4; }
@@ -419,6 +446,9 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
 #trunk-grid .cell.ghost { box-shadow: inset 0 0 0 3px var(--d-amber, var(--gold)); }
 #trunk-grid .cell.ghost.bad { box-shadow: inset 0 0 0 3px var(--d-taillight, #d8402f); }
 #trunk .hint.small { font-size: calc(12px * var(--ts)); opacity: 0.75; }
+/* The controls line for the device in hand. */
+#trunk-keys .for-touch, body.touch-mode #trunk-keys .for-keys { display: none; }
+body.touch-mode #trunk-keys .for-touch { display: inline; }
 @media (prefers-reduced-motion: reduce) { #trunk-grid.nope { animation: none; } }
 
 /* ---------- The palette (CONFIG.dredge.palette, set on <html> as --d-* with html.dredge) ----------

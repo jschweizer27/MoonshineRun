@@ -1,8 +1,10 @@
 import { CONFIG } from './config.js';
 
 // Corner radar (heading-up or north-up) and the full-screen map. The static map (roads,
-// buildings) is drawn once into an offscreen canvas; each frame only draws the visible
-// slice plus the route and icons. Markers use distinct shapes, not just colours.
+// buildings) is drawn once into an offscreen canvas; each frame only copies the slice round
+// the truck plus the route and icons. Markers use distinct shapes, not just colours. The
+// radar's size on screen is watched (a ResizeObserver), not read each frame, so drawing it
+// never forces the page to lay itself out.
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
@@ -21,6 +23,8 @@ export class MiniMap {
     this._routeTarget = null;
     this.bounds = world.mapBounds;
     this.layer = this._prerender();
+    this._shown = null;                        // CSS pixels across (0 while hidden; null: not measured yet)
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(([e]) => { this._shown = e.contentRect.width; }).observe(canvas);
   }
 
   _prerender() {
@@ -71,17 +75,18 @@ export class MiniMap {
     this._routeTarget = null;
   }
 
-  _fit(canvas) {
+  _fit(canvas, shown = canvas.clientWidth) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.round(canvas.clientWidth * dpr) || canvas.width;
+    const w = Math.round(shown * dpr) || canvas.width;
     if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
     return w;
   }
 
   draw(player, markers) {
-    if (!this.canvas.offsetParent) return;   // hidden
+    this._shown ??= this.canvas.clientWidth;
+    if (!this._shown) return;   // hidden
     const g = this.ctx;
-    const size = this._fit(this.canvas);
+    const size = this._fit(this.canvas, this._shown);
     const c = size / 2;
     const s = size / (2 * this.radius);      // px per metre
     const p = player.position;
@@ -96,7 +101,11 @@ export class MiniMap {
     g.fillRect(0, 0, size, size);
     g.translate(c, c);
     if (this.rotate) g.rotate(-h);
-    g.drawImage(this.layer, (b.minX - p.x) * s, (b.minZ - p.z) * s, this.layer.width * (s / LAYER_SCALE), this.layer.height * (s / LAYER_SCALE));
+    // Only the square round the truck that the circle can show, turned any way.
+    const R = this.radius * 1.42, L = LAYER_SCALE;
+    const sx = Math.max(0, Math.floor((p.x - R - b.minX) * L)), sz = Math.max(0, Math.floor((p.z - R - b.minZ) * L));
+    const sw = Math.min(this.layer.width - sx, Math.ceil(2 * R * L)), sh = Math.min(this.layer.height - sz, Math.ceil(2 * R * L));
+    if (sw > 0 && sh > 0) g.drawImage(this.layer, sx, sz, sw, sh, (b.minX + sx / L - p.x) * s, (b.minZ + sz / L - p.z) * s, sw * (s / L), sh * (s / L));
     this._drawRoute(g, (x) => (x - p.x) * s, (z) => (z - p.z) * s, Math.max(2, size / 60));
     g.restore();
 

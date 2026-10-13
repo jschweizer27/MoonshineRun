@@ -279,6 +279,8 @@ try {
   await beat('chase', 'heat 2: two cars after you, a roadblock ahead');
   await page.evaluate(() => {
     const g = window.shine.game, P = g.police, C = P.checkpoint;
+    window.__chapter = g.dredge.data.chapter;
+    g.dredge.data.chapter = Math.max(2, g.dredge.data.chapter);   // the checkpoint stands from chapter 3
     P.reset(); P._patrols = () => {};
     g.player.place(C.x, C.z + 45, 0);
     g.chase.snap(g.player);
@@ -287,7 +289,7 @@ try {
   await beat('checkpoint', 'the York Road checkpoint at night');
   await page.evaluate(() => { const g = window.shine.game, C = g.police.checkpoint; g.player.place(C.x, C.z, 0); window.shine.step(0.2); });
   await beat('bust', 'searched with shine aboard: busted');
-  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.police.enabled = false; g.police.reset(); });
+  await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.police.enabled = false; g.police.reset(); g.dredge.data.chapter = window.__chapter; });
   // Otto's notebook: the order book, the contacts and their trust, the recipes.
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); g.openNotebook(); });
   await page.waitForTimeout(200);

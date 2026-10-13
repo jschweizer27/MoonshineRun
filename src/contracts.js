@@ -46,11 +46,12 @@ function roll(salt, day) {
 // of a recipe his rank allows, at a grade their trust in him asks for; farms want goods for
 // the house and the yard. Each comes with a line from its contact (`line`). `home` (the
 // barn) sets the distance pay; `trust` is { who: points }; `learned` the save's flags.
-// `focus`: the contact a chapter step waits on (chapters.js `who`): if none of the day's
-// offers is theirs, one more is (id `<day>-f`, whatever their rank). `exclude`: contacts
-// who post nothing (the Jockey, once he's sold Otto out); a slot that lands on one goes to
-// someone else. Without either, the offers are as they always were.
-export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {}, focus = null, exclude = [] } = {}) {
+// `focus`: the contact a chapter step waits on (chapters.js `who`): one more offer is
+// theirs, whatever their rank, a fresh one after each order delivered to them (`focusN`, the
+// count so far: id `<day>-f<focusN>`), so a trust step moves at the player's pace, not a
+// day's. `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
+// that lands on one goes to someone else. Without either, the offers are as they always were.
+export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [] } = {}) {
   // Recipes his rank allows, and (for one that must be taught) that he's learned.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
@@ -58,10 +59,10 @@ export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, ho
   });
   const offer = (i, contact) => {
     const r = (s) => roll(`${s}:${i}`, day);
-    const farm = contact.kind === 'farm';
-    const asks = CAST[contact.who]?.asks || [];
+    const farm = contact.kind === 'farm', cast = CAST[contact.who] || {};
+    const asks = cast.asks || [];
     const level = trustLevel(trust[contact.who]);
-    const night = !farm && brewing && shine.length > 0;
+    const night = (!farm || cast.shine) && brewing && shine.length > 0;
     const wants = {};
     let grade = null, worth;
     if (night) {
@@ -70,7 +71,7 @@ export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, ho
       grade = level >= 4 && r('grade') < 0.5 ? 'A' : level >= 2 && r('grade') < 0.6 ? 'B' : 'C';
       worth = KINDS[kind].value * CONFIG.dredge.brew.gradePrice[grade] * wants[kind];
     } else {
-      const goods = farm ? C.farmWants : C.barWants;
+      const goods = cast.wants || (farm ? C.farmWants : C.barWants);
       const kinds = 1 + (r('kinds') < 0.4 ? 1 : 0);
       for (let k = 0; k < kinds; k++) {
         const kind = goods[Math.floor(r(`kind${k}`) * goods.length)];
@@ -98,8 +99,8 @@ export function offersFor(day, list, { brewing = false, rank = 0, trust = {}, ho
     }
     out.push(offer(i, contact));
   }
-  const wanted = focus && !exclude.includes(focus) && !out.some((o) => o.who === focus) && list.find((c) => c.who === focus);
-  if (wanted) out.push(offer('f', wanted));
+  const wanted = focus && !exclude.includes(focus) && list.find((c) => c.who === focus);
+  if (wanted) out.push(offer(`f${focusN}`, wanted));
   return out;
 }
 
