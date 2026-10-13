@@ -27,12 +27,13 @@ function roll(salt, day) {
 
 export function townById(id) { return CONFIG.dredge.towns.find((t) => t.id === id); }
 
-// Whether a town's market deals with Otto at his rank (a town with a `rank` waits for it).
-export const townOpen = (town, rank = 0) => !town.rank || rank >= town.rank;
+// Whether a town's market deals with Otto yet (a town with a `chapter` waits for the story
+// to reach it: `chapter` is the save's CHAPTERS index).
+export const townOpen = (town, chapter = 0) => !town.chapter || chapter >= town.chapter;
 
 // The towns every player can trade in from the start: the market events and market days,
 // which are the same for everyone, only come to these.
-export const openTowns = () => CONFIG.dredge.towns.filter((t) => !t.rank);
+export const openTowns = () => CONFIG.dredge.towns.filter((t) => !t.chapter);
 
 // The in-game day a market state is on (the clock counts hours from the start).
 export const dayOf = (state) => Math.floor((state.clock || 0) / 24);

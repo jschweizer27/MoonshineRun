@@ -20,7 +20,6 @@ export const ACTIONS = [
   ['trunk', 'Open the trunk'],
   ['lights', 'Headlamps on/off'],
   ['notebook', 'Otto’s notebook'],
-  ['ability1', 'Jockey’s Tip'],
   ['ability2', 'Lead Foot'],
   ['ability3', 'Sweet Talk'],
 ];
@@ -42,7 +41,6 @@ export const DEFAULT_BINDINGS = {
   trunk: ['KeyT'],
   lights: ['KeyL'],
   notebook: ['KeyB'],
-  ability1: ['Digit1'],
   ability2: ['Digit2'],
   ability3: ['Digit3'],
 };

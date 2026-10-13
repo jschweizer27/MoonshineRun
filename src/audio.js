@@ -4,7 +4,7 @@ import { juice } from './juice.js';
 // Procedural audio (no asset files). Everything routes through master -> (music | sfx)
 // buses so volume settings, mute and pause apply everywhere. Created after a user
 // gesture so browsers allow it. The radio fades between four tunes (music.js, picked by
-// main); the towns have their own sounds (`update`); and the markets, jobs, ranks, rare
+// main); the towns have their own sounds (`update`); and the markets, jobs, gifts, rare
 // finds and the deed have theirs (bell, chime, fanfare).
 export class Audio {
   constructor() {
@@ -374,7 +374,7 @@ export class Audio {
     [1047, 1319, 1568].forEach((f, i) => this._bell(f, t + i * 0.12, 0.08, 1.4));
   }
 
-  // Fanfares: `rank` (a new rank: a brass call), `rare` (word of a rare find: a sparkle)
+  // Fanfares: `rank` (a contact's gift, a recipe or a tool: a brass call), `rare` (word of a rare find: a sparkle)
   // and `deed` (the deed bought back: the long one, ending on a chord).
   fanfare(kind = 'rank') {
     if (!this._ok()) return;

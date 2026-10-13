@@ -1,7 +1,7 @@
 import { el } from './ui.js';
 import { CONFIG } from './config.js';
 import { priceOf, quote, dayOf, eventFor, eventText, buys } from './market.js';
-import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, gradeOf, yieldFor, blendGrade } from './brew.js';
+import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, gradeOf, yieldFor, blendGrade, newLagerBatch, stepLagerBatch, pressLagerBatch, lagerQuality, lagerYield, lagerRest } from './brew.js';
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
@@ -25,7 +25,7 @@ function face(who) {
 
 const stars = (n) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
 // "2 corn shines (grade B+) · after dark"
-const orderText = (o) => `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}`;
+const orderText = (o) => (o.passenger ? `a ride from ${o.pickup.place} to ${o.drop.place}` : `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}${o.fragile ? ', fragile' : ''}`);
 // A window of game hours as a clock reads it: "23:00–01:30".
 const clock = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 // When an order in the book is due: hours left, or for a story order (no deadline) when it
@@ -47,7 +47,7 @@ function contractRows(body, jobs, trunk, render) {
     const status = pr.ready && pr.gradeOk ? ' · ready to deliver' : pr.ready ? ` · the blend is grade ${pr.grade}` : '';
     body.append(el('div', { class: 'upgrade job active' },
       el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
-        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${dueText(o, left)} · aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`)),
+        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${dueText(o, left)} · ${o.passenger ? (o.aboard ? 'aboard' : 'waiting to be picked up') : `aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`}`)),
       drop));
   }
   const offers = jobs.offers();
@@ -123,9 +123,9 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       for (const [id, u] of Object.entries(CONFIG.dredge.upgrades)) {
         const lvl = career.level(id), cost = career.nextCost(id), max = u.costs.length;
         const pips = el('span', { class: 'pips', 'aria-label': `level ${lvl} of ${max}` }, ...u.costs.map((_, k) => el('i', { class: k < lvl ? 'on' : '' })));
-        const locked = career.lockedRank(id);
+        const locked = career.lockedChapter(id);
         const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `up-${id}` },
-          cost == null ? 'MAXED' : locked != null ? `AT ${CONFIG.dredge.ranks[locked].name.toUpperCase()}` : `BUY ${money(cost)}`);
+          cost == null ? 'MAXED' : locked != null ? `IN CHAPTER ${locked + 1}` : `BUY ${money(cost)}`);
         if (cost == null || locked != null || career.cash < cost) btn.disabled = true;
         btn.addEventListener('click', () => { onBuy(id); render(); });
         // The false bottom says how many crates it hides now (chapter 3's own floor counts too).
@@ -170,7 +170,7 @@ export function playTime(seconds) {
 // ---------- Otto's barn ----------
 // The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
 // the truck's wear). Callbacks do the work; this draws and re-draws.
-export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = null, sleeps = () => [], onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onSleep, onTrunk, onBack }) {
+export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () => [], onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onSleep, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk(), d = career.data, body = $('barn-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -195,7 +195,8 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
           el('b', {}, k.brewed ? `${k.name} · grade ${gradeLabel(d.market.blend?.[k.id])}` : k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
         el('span', { class: 'slot-buttons' }, store, take)));
     }
-    // The still: copper coils raise it a level; recipes need their ingredients and a rank.
+    // The still: copper coils raise it a level; recipes need their ingredients, and most must
+    // be taught (Lager is brewed only at the brewery in Gus's cellar).
     const level = d.still || 0, have = { ...d.stash };
     for (const p of trunk.pieces.values()) have[p.kind] = (have[p.kind] || 0) + 1;
     body.append(el('h3', { class: 'market-head' }, `THE STILL · LEVEL ${level}/${CONFIG.dredge.brew.maxLevel}`));
@@ -207,15 +208,15 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
         el('small', {}, level >= CONFIG.dredge.brew.maxLevel ? 'The still is as good as it gets.'
           : level ? 'Each coil makes the still easier to run: a wider band to keep it in.' : 'The still needs a copper coil before it can run. Rail sidings and wrecks turn them up.')),
       install));
-    for (const r of RECIPES) {
-      const unlearned = r.learn && !d.flags[`learned:${r.id}`], lacks = missing(r, have), locked = rank() < r.rank || unlearned;
+    for (const r of RECIPES.filter((x) => !x.brewery)) {
+      const unlearned = r.learn && !d.flags[`learned:${r.id}`], lacks = missing(r, have), locked = unlearned;
       const need = wantsText(r.needs);
       const brew = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `brew-${r.id}` }, locked ? 'LOCKED' : 'BREW');
       brew.disabled = locked || !level || lacks.length > 0;
       brew.addEventListener('click', () => onBrew(r));
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(r.id).main}`, 'aria-hidden': 'true' }), el('b', {}, r.name),
-          el('small', {}, unlearned ? `Somebody up the valley has to teach you this one. Needs ${need}.` : locked ? `Learned at a later rank. Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${wantsText(Object.fromEntries(lacks))}.` : `Needs ${need}. Ready to brew.`)),
+          el('small', {}, unlearned ? `${TAUGHT[r.id] || 'Somebody has to teach you this one.'} Needs ${need}.` : lacks.length ? `Needs ${need}; short of ${wantsText(Object.fromEntries(lacks))}.` : `Needs ${need}. Ready to brew.`)),
         brew));
     }
     contractRows(body, jobs, trunk, render);
@@ -250,6 +251,13 @@ export function showBarn(ui, { career, getTrunk, cap, rank = () => 0, jobs = nul
   ui.open('barn', { onBack });
   return render;
 }
+
+// Who teaches a recipe (the barn's and the notebook's hint until it's learned).
+const TAUGHT = {
+  applejack: 'Ma Pruitt at Old Mill Barn knows it.',
+  rye: 'Gus Kessler will teach it to a man he trusts (★★★).',
+  lager: 'Father’s own recipe; it needs a brewery, not a still.',
+};
 
 // A blend's grade as shown: A, B or C, and "C, tainted" for a bad one.
 const gradeLabel = (bl) => (bl?.bad ? 'C, tainted' : blendGrade(bl));
@@ -393,6 +401,119 @@ export function showStill(ui, { recipe, level, onDone }) {
   raf = requestAnimationFrame(tick);
   // `manual()` stops the screen's own clock, for stepping it by hand (tests).
   return { batch: b, step, press, finish, pour: () => finish(true), manual: () => { cancelAnimationFrame(raf); raf = 0; } };
+}
+
+// ---------- The brewery ----------
+// A batch of Highlandtown Lager in Gus's cellar (brew.js newLagerBatch). The mash: hold HEAT
+// (W / Up / Space, RT or A, or the button) to warm it and let go to let it cool, keeping the
+// needle on the rest (the band moves to the second rest halfway). The boil: press as the
+// needle passes each hop mark. Lagering: press to tap it inside the band, as the weeks run by.
+// Runs on its own clock (rAF); `onDone(quality, crates, grade)` once DONE is pressed. Returns
+// { batch, step, press, finish, manual } so tests can brew by hand.
+export function showBrewery(ui, { onDone }) {
+  const b = newLagerBatch(), L = CONFIG.dredge.brew.lager;
+  let held = false, raf = 0, last = 0, finished = false, padWas = false;
+  const HEAT_KEYS = new Set(['KeyW', 'ArrowUp', 'Space']), PRESS_KEYS = new Set(['KeyW', 'ArrowUp', 'Space', 'Enter', 'KeyE']);
+  const act = $('brewery-act'), done = $('brewery-done'), marks = [...document.querySelectorAll('#brewery-gauge .brewery-mark')];
+  const band = (from, to) => { const z = $('brewery-band'); z.style.display = from == null ? 'none' : ''; if (from != null) { z.style.left = `${from * 100}%`; z.style.width = `${(to - from) * 100}%`; } };
+  const TEXT = {
+    mash: ['The mash: hold the heat on the rest, then on the next.', 'HOLD TO HEAT', 'Hold W, &uarr;, Space, RT, A or the button to heat it; let go and it cools. Keep the needle in the band; halfway, the band moves up.'],
+    boil: ['The boil: hops in as the needle passes each mark.', 'HOPS IN', 'Press Space, Enter, A or the button as the needle crosses each green mark.'],
+    lager: ['Lagering: the weeks run by in the cold. Tap it in the band.', 'TAP IT', 'One press, while the needle is in the band. Too soon it’s green; too late, flat.'],
+  };
+  let shown = '';
+  const draw = () => {
+    const ph = b.phase;
+    if (ph !== shown) {
+      shown = ph;
+      $('brewery-what').textContent = TEXT[ph][0];
+      act.textContent = TEXT[ph][1];
+      $('brewery-help').innerHTML = TEXT[ph][2];
+      const order = ['mash', 'boil', 'lager'];
+      for (const li of document.querySelectorAll('#brewery-steps li')) {
+        li.classList.toggle('on', li.dataset.phase === ph);
+        li.classList.toggle('past', order.indexOf(li.dataset.phase) < order.indexOf(ph));
+      }
+    }
+    let needle, inside, progress;
+    if (ph === 'mash') {
+      const r = lagerRest(b);
+      band(r - L.mash.band, r + L.mash.band);
+      needle = b.temp; inside = Math.abs(b.temp - r) <= L.mash.band; progress = b.mash.t / L.mash.seconds;
+    } else if (ph === 'boil') {
+      band(null);
+      needle = b.boil.pos; inside = L.boil.hops.some((h, i) => b.boil.errs[i] == null && Math.abs(h - needle) <= L.boil.tol); progress = b.boil.pos;
+    } else {
+      band(...L.lager.window);
+      needle = b.lager.at ?? b.lager.pos; inside = needle >= L.lager.window[0] && needle <= L.lager.window[1]; progress = b.lager.pos;
+    }
+    marks.forEach((m, i) => { m.style.display = ph === 'boil' ? 'block' : 'none'; m.style.left = `${L.boil.hops[i] * 100}%`; m.classList.toggle('hit', b.boil.errs[i] != null); });
+    $('brewery-needle').style.left = `${needle * 100}%`;
+    $('brewery-needle').classList.toggle('in', inside);
+    $('brewery-progress').firstElementChild.style.width = `${Math.min(1, progress) * 100}%`;
+    if (b.done) {
+      const q = lagerQuality(b), crates = lagerYield(q);
+      $('brewery-msg').textContent = `Grade ${gradeOf(q)} (${Math.round(q * 100)}%): ${crates} crates of Highlandtown Lager. Gus’s boys run them out to the barn.`;
+    }
+  };
+  const ended = () => { act.classList.add('hidden'); done.classList.remove('hidden'); done.focus(); cancelAnimationFrame(raf); };
+  const step = (dt, heat = held) => { stepLagerBatch(b, dt, heat); draw(); if (b.done) ended(); return b; };
+  const press = () => { const ok = pressLagerBatch(b); draw(); if (b.done) ended(); return ok; };
+  const finish = () => {
+    if (!b.done || finished) return;
+    finished = true;
+    cleanup();
+    ui.close('brewery');
+    const q = lagerQuality(b);
+    onDone(q, lagerYield(q), gradeOf(q));
+  };
+  // A gamepad: RT or A held heats the mash; an RT pull presses; A presses through Input's
+  // 'confirm' (onAction), once a press.
+  const pads = () => [...(navigator.getGamepads?.() || [])].filter(Boolean);
+  const tick = (now) => {
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    const rt = pads().some((p) => (p.buttons[7]?.value || 0) > 0.2), a = pads().some((p) => p.buttons[0]?.pressed);
+    if (b.phase !== 'mash' && rt && !padWas) press();
+    padWas = rt;
+    if (!b.done) step(dt, held || rt || a);
+    if (!b.done && raf) raf = requestAnimationFrame(tick);
+  };
+  const onAction = (a) => {
+    if (a !== 'confirm' || b.done) return false;
+    if (b.phase !== 'mash') press();
+    return true;
+  };
+  const keyDown = (e) => {
+    if (b.done) return;
+    if (b.phase === 'mash' ? HEAT_KEYS.has(e.code) : PRESS_KEYS.has(e.code)) {
+      e.preventDefault(); e.stopPropagation();
+      if (b.phase === 'mash') held = true;
+      else if (!e.repeat) press();
+    }
+  };
+  const keyUp = (e) => { if (HEAT_KEYS.has(e.code)) held = false; };
+  const down = (e) => { e.preventDefault(); if (b.phase === 'mash') held = true; else press(); };
+  const up = () => { held = false; };
+  window.addEventListener('keydown', keyDown, true);
+  window.addEventListener('keyup', keyUp, true);
+  act.addEventListener('pointerdown', down);
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) act.addEventListener(ev, up);
+  const cleanup = () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener('keydown', keyDown, true);
+    window.removeEventListener('keyup', keyUp, true);
+    act.removeEventListener('pointerdown', down);
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) act.removeEventListener(ev, up);
+  };
+  $('brewery-msg').textContent = '';
+  act.classList.remove('hidden');
+  done.classList.add('hidden');
+  done.onclick = () => finish();
+  ui.open('brewery', { onBack: () => finish(), onAction });
+  draw();
+  raf = requestAnimationFrame(tick);
+  return { batch: b, step, press, finish, manual: () => { cancelAnimationFrame(raf); raf = 0; } };
 }
 
 // ---------- Salvage ----------
@@ -547,7 +668,7 @@ export function showLedger(ui, career) {
     ['Cash on hand', money(career.cash)], ['Earned, all time', money(s.earned)],
     ['Pieces sold', s.sold.toLocaleString()], ['Upgrades bought', upgrades],
     ['Rare finds', (s.rares || 0).toLocaleString()], ['Jobs done', (s.contracts || 0).toLocaleString()],
-    ['Rank', `${CONFIG.dredge.ranks[career.data.rank || 0].name} (${(career.data.rep || 0).toLocaleString()} rep)`], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
+    ['Contacts who trust you (★★★ or more)', Object.values(career.data.trust || {}).filter((p) => p >= 3 * CONFIG.dredge.contracts.trustPer).length], ['Miles driven', ((s.distance || 0) / 1609).toFixed(1)],
     ['Time on the road', playTime(s.playSeconds)],
   ];
   // How long each chapter took on the road (from the last one's end to its own last step),
@@ -608,7 +729,7 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   }
   body.append(el('h3', {}, 'CONTACTS'));
   for (const c of contacts) {
-    if (c.rank && (d.rank || 0) < c.rank && !d.trust[c.who]) continue;     // the Sheriff, before he deals
+    if (c.chapter && (d.chapter || 0) < c.chapter && !d.trust[c.who]) continue;     // the Sheriff, before he deals
     const t = level(c.who), n = d.delivered[c.who] || 0;
     body.append(note(face(c.who), el('div', {}, el('b', {}, c.name),
       el('small', {}, `${c.place} · ${d.flags.betrayed && c.who === 'jockey' ? 'gone: he sold you out' : n ? `${n} order${n === 1 ? '' : 's'} delivered` : 'no orders yet'}`),
@@ -617,9 +738,9 @@ export function showNotebook(ui, { career, contacts, clock, onBack }) {
   }
   body.append(el('h3', {}, 'RECIPES'));
   for (const r of RECIPES) {
-    const unlearned = r.learn && !d.flags[`learned:${r.id}`], locked = (d.rank || 0) < r.rank || unlearned, best = d.best[r.id], bl = d.market.blend?.[r.id];
+    const unlearned = r.learn && !d.flags[`learned:${r.id}`], best = d.best[r.id], bl = d.market.blend?.[r.id];
     body.append(note(el('div', {}, el('b', {}, r.name),
-      el('small', {}, unlearned ? `Not learned yet: somebody up the valley knows it. Needs ${wantsText(r.needs)}.` : locked ? `Learned at a later rank. Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
+      el('small', {}, unlearned ? `Not learned yet. ${TAUGHT[r.id] || ''} Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${r.brewery ? ' Brewed at the brewery in Gus’s cellar.' : ''}${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
   }
   ui.open('notebook', { onBack });
 }

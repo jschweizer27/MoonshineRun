@@ -19,8 +19,8 @@ export function missing(recipe, have) {
   return Object.entries(recipe.needs).filter(([k, n]) => (have[k] || 0) < n).map(([k, n]) => [k, n - (have[k] || 0)]);
 }
 
-export function canBrew(recipe, have, level, rank = 0) {
-  return level >= 1 && rank >= recipe.rank && missing(recipe, have).length === 0;
+export function canBrew(recipe, have, level, learned = {}) {
+  return level >= 1 && (!recipe.learn || !!learned[`learned:${recipe.id}`]) && missing(recipe, have).length === 0;
 }
 
 // Take a recipe's ingredients, from the stash first and then the trunk.
@@ -166,3 +166,73 @@ export function blend(blends, recipeId, onHandCount, crates, q, bad) {
 }
 
 export const blendGrade = (bl) => (bl ? gradeOf(bl.q, bl.bad) : 'B');
+
+// ---------- The brewery: Highlandtown Lager in Gus's cellar (CONFIG.dredge.brew.lager) ----------
+// A batch in three phases, a pure state machine like the still's: the mash (hold HEAT to keep
+// the temperature on each rest in turn), the boil (press as each hop mark passes) and
+// lagering (press to tap it inside the window, as the weeks run by faster and faster).
+const LG = B.lager;
+
+export function newLagerBatch() {
+  return { phase: 'mash', temp: 0.25, mash: { t: 0, inBand: 0 }, boil: { t: 0, pos: 0, errs: LG.boil.hops.map(() => null), misses: 0 }, lager: { t: 0, pos: 0, at: null }, done: false };
+}
+
+// The mash's rest now (the first for half the time, then the second).
+export const lagerRest = (b) => LG.mash.rests[b.mash.t < LG.mash.seconds / 2 ? 0 : 1];
+
+export function stepLagerBatch(b, dt, heat = false) {
+  if (b.done) return b;
+  if (b.phase === 'mash') {
+    const M = LG.mash;
+    b.temp = Math.max(0, Math.min(1, b.temp + (heat ? M.up : -M.down) * dt));
+    if (Math.abs(b.temp - lagerRest(b)) <= M.band) b.mash.inBand += dt;
+    b.mash.t += dt;
+    if (b.mash.t >= M.seconds) b.phase = 'boil';
+  } else if (b.phase === 'boil') {
+    b.boil.t += dt;
+    b.boil.pos = Math.min(1, b.boil.t / LG.boil.seconds);
+    if (b.boil.t >= LG.boil.seconds) b.phase = 'lager';
+  } else {
+    const L = LG.lager;
+    b.lager.t += dt;
+    b.lager.pos = Math.min(1, b.lager.pos + (L.speed + L.speedUp * b.lager.t) * dt);
+    if (b.lager.pos >= 1) { b.lager.at = 1; b.done = true; }       // left too long: it's flat
+  }
+  return b;
+}
+
+// A press: in the boil, the hops in at the nearest mark not yet taken (too far from any is a
+// miss); in lagering, it's tapped. Returns whether it counted.
+export function pressLagerBatch(b) {
+  if (b.done) return false;
+  if (b.phase === 'boil') {
+    const H = LG.boil.hops, pos = b.boil.pos;
+    let best = -1;
+    H.forEach((h, i) => { if (b.boil.errs[i] == null && (best < 0 || Math.abs(h - pos) < Math.abs(H[best] - pos))) best = i; });
+    if (best < 0 || Math.abs(H[best] - pos) > LG.boil.tol * 3) { b.boil.misses++; return false; }
+    b.boil.errs[best] = Math.abs(H[best] - pos);
+    return true;
+  }
+  if (b.phase === 'lager') { b.lager.at = b.lager.pos; b.done = true; return true; }
+  return false;
+}
+
+export function lagerScores(b) {
+  const mash = b.mash.inBand / LG.mash.seconds;
+  const hops = b.boil.errs.map((e) => (e == null ? 0 : Math.max(0, 1 - e / (LG.boil.tol * 3))));
+  const boil = Math.max(0, hops.reduce((a, x) => a + x, 0) / hops.length - 0.1 * b.boil.misses);
+  const [lo, hi] = LG.lager.window, at = b.lager.at;
+  const lager = at == null ? 0 : at >= lo && at <= hi ? 1 : Math.max(0, 1 - Math.min(Math.abs(at - lo), Math.abs(at - hi)) / 0.25);
+  return { mash, boil, lager };
+}
+
+export function lagerQuality(b) {
+  const s = lagerScores(b), W = LG.weights;
+  return Math.max(0, Math.min(1, W.mash * s.mash + W.boil * s.boil + W.lager * s.lager));
+}
+
+// Crates of Lager a batch of this quality makes (a brewery's, not a still's).
+export function lagerYield(q) {
+  for (const [least, crates] of LG.yields) if (q >= least) return crates;
+  return LG.yields[LG.yields.length - 1][1];
+}

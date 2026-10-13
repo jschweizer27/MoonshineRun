@@ -566,7 +566,7 @@ test('upgrades bought at the market change the truck, the trunk, the padding and
   expect(before.size).toEqual([5, 3]);
   expect(before.look).toBe('stock');
   expect(before.buttons).toEqual(['BUY $300', 'BUY $350', 'BUY $300', 'BUY $250', 'BUY $200']);
-  expect(before.later).toEqual(['AT SCAVENGER', 'AT SCAVENGER', 'AT RUNNER']);    // the rank-gated ones
+  expect(before.later).toEqual(['IN CHAPTER 2', 'IN CHAPTER 2', 'IN CHAPTER 3']);    // they come with the story
   // Buy one of each from the market screen, by keyboard focus and click.
   for (const id of ['trunk', 'engine', 'handling', 'padding', 'spotter']) await page.click(`#market-body [data-id="up-${id}"]`);
   const after = await page.evaluate(() => {

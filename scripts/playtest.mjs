@@ -2,8 +2,8 @@
 // Scripted playtest: `node scripts/playtest.mjs <label>`. Plays one run from the title
 // screen (drive out, work two salvage sites, pack the trunk, sell at Lexington Market, buy an
 // upgrade, drive up York Road to Monkton and sell there; Otto's barn, a batch at the still
-// and the shine sold at a speakeasy; a contract taken and delivered; a new rank, Lead Foot
-// and Cockeysville's quarry store; a road event and the traffic; the map and the ledger,
+// and the shine sold at a speakeasy; a contract taken and delivered; Mags O'Rourke's trust
+// and her gift, Lead Foot; Cockeysville's quarry store (chapter 3); a road event and the traffic; the map and the ledger,
 // rain and daylight; the midnight freight, Loch Raven and an ending) through window.shine
 // at fixed 60 Hz steps, with a simple autopilot that steers for the nearest market. At each
 // beat it saves a screenshot and a line of stats (state, toast, draw calls, render time,
@@ -199,9 +199,10 @@ try {
   await page.evaluate(() => { const c = window.shine.game.dredge.data.orders[0]; if (c) { window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3); } });
   await beat('delivered', 'paid at the door: the handoff card');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
-  // A new rank (Runner): Lead Foot, and Cockeysville's quarry store deals with Otto.
-  await page.evaluate(() => { const g = window.shine.game; g._addRep(Math.max(0, 90 - (g.dredge.data.rep || 0))); });
-  await beat('runner', 'a new rank and what it unlocks');
+  // Mags O'Rourke trusts Otto (★★★): her gift is Lead Foot. And on to chapter 3, when
+  // Cockeysville's quarry store deals with him.
+  await page.evaluate(() => { const g = window.shine.game, d = g.dredge.data; d.trust.orourke = 6; d.chapter = Math.max(2, d.chapter); g._trustGifts({ say: true }); });
+  await beat('gift', 'Mags O’Rourke’s trust earns Lead Foot');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   await page.evaluate(() => {
     const g = window.shine.game;
@@ -218,7 +219,7 @@ try {
     window.shine.teleport(394, -590, 0); window.shine.step(0.3);
     window.shine.teleport(400, -646, 0); window.shine.step(0.3);
   });
-  await beat('cockeysville', 'the quarry store, for a Runner');
+  await beat('cockeysville', 'the quarry store, from chapter 3');
   await page.evaluate(() => { const g = window.shine.game; while (g.ui.anyOpen) g.ui.close(); g.resume(); });
   // A road event: a cart broken down across a valley road, and the route going round it.
   await page.evaluate(() => {

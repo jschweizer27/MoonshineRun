@@ -162,6 +162,7 @@ test('chapter 3, The Western Line: Mags’s trust (her offers come daily), the m
     step();
     const out = { open: objective(), mags: g._jobs().offers().filter((o) => o.who === 'orourke').length };
     d.trust.orourke = 4;
+    d.flags['order:purdy'] = true;                 // Walt Purdy carried (passenger.spec)
     step();
     const o = d.orders.find((x) => x.story === 'freight');
     out.order = { x: o.x, z: o.z, window: o.window, due: o.due, objective: objective(), full: g._jobs().full() };
@@ -266,7 +267,7 @@ test('chapter 4, Stone and Iron: Delaney’s crates past the York Road checkpoin
   expect(r.store).toBe(true);
   expect(r.byDay).toContain('after dark');
   expect(r.handed).toBe(true);
-  expect(r.run).toEqual({ who: 'kessler', night: true, shine: 2, objective: 'Deliver to Gus Kessler at Highlandtown Speakeasy · tonight' });
+  expect(r.run).toEqual({ who: 'kessler', night: true, shine: 2, objective: 'Deliver to Gus Kessler at Highlandtown Speakeasy · fragile · tonight' });
   expect(r.search.state).toBe('playing');
   expect(r.search.toast).toContain('find nothing');
   expect(r.search.shine).toBe(2);
@@ -282,7 +283,7 @@ test('chapter 4, Stone and Iron: Delaney’s crates past the York Road checkpoin
   expect(r.done.tool).toBe(true);
   expect(r.done.chapter).toBe(4);
   expect(r.done.cash).toBe(400);
-  expect(r.done.objective).toBe('Drowned Warren: Drive out to Loch Raven, east of Cockeysville');
+  expect(r.done.objective).toBe('Drowned Warren: Brew Highlandtown Lager in Gus’s cellar (3 sacks of malt, a barrel)');
   expect(r.radar).toEqual([[300, 1.2]]);
   expect(r.roadblock).toContain('Police band: a roadblock going up near');
   expect(problems).toEqual([]);
@@ -295,6 +296,7 @@ test('chapter 5, Drowned Warren: out to Loch Raven, the drowned mill after dark,
   const r = await page.evaluate((KIT) => {
     const { g, d, clear, step, objective } = eval(KIT);
     g.police._patrols = () => {};
+    d.best.lager = 0.8;                             // the brewery's done (brewery.spec)
     step();
     const out = { open: objective() };
     g._updateRoute(1);

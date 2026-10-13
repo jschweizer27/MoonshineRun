@@ -9,7 +9,7 @@ test('order offers: rolled from the day, from farms and speakeasies, paid over t
     const { KINDS, Trunk } = await import('/src/trunk.js');
     const list = contacts(window.shine.game.world);
     const days = Array.from({ length: 20 }, (_, d) => offersFor(d, list));
-    const brewing = Array.from({ length: 20 }, (_, d) => offersFor(d, list, { brewing: true, rank: 0 }));
+    const brewing = Array.from({ length: 20 }, (_, d) => offersFor(d, list, { brewing: true }));
     const home = { x: window.shine.game.world.home.stopX, z: window.shine.game.world.home.stopZ };
     const far = offersFor(3, list, { home });
     const all = days.flat(), allB = brewing.flat();
@@ -43,7 +43,7 @@ test('order offers: rolled from the day, from farms and speakeasies, paid over t
   expect(r.kinds).toBe(2);
   expect(r.varied).toBeGreaterThan(8);
   expect(r.shineBefore).toBe(false);
-  expect(r.shineAfter).toBe(true);           // a rank-0 brewer is only asked for Corn Shine, at grade C, after dark
+  expect(r.shineAfter).toBe(true);           // a new brewer is only asked for Corn Shine, at grade C, after dark
   expect(r.farmsAnyTime).toBe(true);
   expect(r.jockey).toBe(true);
   expect(r.pruitt).toBe(true);           // Ma Pruitt wants the still's makings
@@ -98,14 +98,13 @@ test('an order: taken at a market into the book, marked on the road and the rada
     const visible = g.jobMarkers[c.kind].visible, calls = window.shine.renderInfo().calls;
     window.shine.teleport(c.x, c.z, 0); window.shine.step(0.3);
     const d = g.dredge.data;
-    return { waiting, paid: g.dredge.cash - cash, contracts: d.stats.contracts, rep: d.rep, active: d.orders.length, trunk: g.trunk.count, ledger: d.ledger[0].text, visible, calls, trust: d.trust[c.who], delivered: d.delivered[c.who] };
+    return { waiting, paid: g.dredge.cash - cash, contracts: d.stats.contracts, active: d.orders.length, trunk: g.trunk.count, ledger: d.ledger[0].text, visible, calls, trust: d.trust[c.who], delivered: d.delivered[c.who] };
   }, job);
   expect(s.waiting).toContain('is waiting on');
   expect(s.visible).toBe(true);
   expect(s.calls).toBeLessThan(60);
   expect(s.paid).toBe(job.pay);
   expect(s.contracts).toBe(1);
-  expect(s.rep).toBe(job.rep);
   expect(s.active).toBe(0);
   expect(s.trunk).toBe(0);
   expect(s.ledger).toContain(job.name);
@@ -125,17 +124,14 @@ test('an order: taken at a market into the book, marked on the road and the rada
   // A late job is lost, and costs standing.
   s = await page.evaluate(() => {
     const g = window.shine.game, d = g.dredge.data, o = g._jobs().offers()[0];
-    d.rep = 100;
     d.trust[o.who] = 4;
-    const rep = d.rep;
     g.takeContract(o);
     g.dredge.market.clock = d.orders[0].due + 0.5;
     window.shine.step(0.1);
-    return { active: d.orders.length, lost: rep - d.rep, trust: d.trust[o.who], toast: document.getElementById('toast').textContent, off: Object.values(g.jobMarkers).every((m) => m.userData.off) };
+    return { active: d.orders.length, trust: d.trust[o.who], toast: document.getElementById('toast').textContent, off: Object.values(g.jobMarkers).every((m) => m.userData.off) };
   });
   expect(s.active).toBe(0);
   expect(s.trust).toBe(2);                           // late costs two points of trust
-  expect(s.lost).toBe(15);
   expect(s.toast).toContain('Too late');
   expect(s.off).toBe(true);
   const info1 = await page.evaluate(() => ({ programs: window.shine.game.renderer.info.programs.length, geometries: window.shine.game.renderer.info.memory.geometries }));

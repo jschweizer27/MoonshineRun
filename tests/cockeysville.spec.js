@@ -66,7 +66,7 @@ test('Cockeysville: a fourth town at the eastern crossroads, in pale stone with 
   expect(problems).toEqual([]);
 });
 
-test('the quarry store deals only with a Runner: before that no marker or route, a barred mark on the radar and word of when; then it opens with Moss Delaney’s welcome', async ({ page }) => {
+test('the quarry store deals with Otto from chapter 3: before that no marker or route, a barred mark on the radar and word of when; then it opens with Moss Delaney’s welcome', async ({ page }) => {
   const problems = await openGame(page, '&story');
   // The earlier beats are behind this save.
   await page.evaluate(() => { const d = window.shine.game.dredge.data; d.started = true; d.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true }; d.opened = { ashes: true }; });
@@ -86,16 +86,14 @@ test('the quarry store deals only with a Runner: before that no marker or route,
     };
   });
   expect(before.market).toBe(false);
-  expect(before.toast).toContain('Come back when you’re a Runner');
+  expect(before.toast).toContain('in Chapter 3');
   expect(before.marker).toEqual({ off: true, visible: false });
   expect(before.radar).toBe('market-closed');
   expect(before.goTo).not.toBe('cockeysville');    // the route goes to a market that will deal
   expect(before.dialog).toBe(false);
 
-  // Runner (back out on the road): the rank's word names the store, and Moss Delaney has a
-  // word too.
-  await page.evaluate(() => { const g = window.shine.game; window.shine.teleport(392, -580, 0); window.shine.step(0.2); g._addRep(90); });
-  await expect(page.locator('#toast')).toContainText('Cockeysville Quarry Store');
+  // Chapter 3 (back out on the road): Moss Delaney has a word.
+  await page.evaluate(() => { const g = window.shine.game, d = g.dredge.data; window.shine.teleport(392, -580, 0); window.shine.step(0.2); d.chapter = 2; d.opened.green = d.opened.western = true; });
   await page.evaluate(() => window.shine.step(0.6));
   await expect(page.locator('#dialog')).toBeVisible();
   const speakers = new Set();
@@ -125,7 +123,7 @@ test('the quarry store deals only with a Runner: before that no marker or route,
   expect(problems).toEqual([]);
 });
 
-test('contacts are people: each speakeasy and farm has its character, the board says who wants what and in their words, and Sheriff Hale posts from the lockup from Brewer on', async ({ page }) => {
+test('contacts are people: each speakeasy and farm has its character, the board says who wants what and in their words, and Sheriff Hale posts from the lockup from chapter 4', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   const r = await page.evaluate(async () => {
@@ -133,31 +131,31 @@ test('contacts are people: each speakeasy and farm has its character, the board 
     const { contacts, offersFor } = await import('/src/contracts.js');
     const { CAST } = await import('/src/story.js');
     const list = contacts(w);
-    const days = (rank) => Array.from({ length: 60 }, (_, d) => offersFor(d + 1, list, { rank })).flat();
+    const days = (chapter) => Array.from({ length: 60 }, (_, d) => offersFor(d + 1, list, { chapter })).flat();
     const low = days(2), high = days(3);
     const lockup = list.find((c) => c.id === 'lockup');
     return {
       people: list.every((c) => CAST[c.who] && CAST[c.who].name === c.name && CAST[c.who].asks.length >= 2 && c.place),
       unique: new Set(list.map((c) => c.who)).size === list.length,
       jockey: list.find((c) => c.who === 'jockey')?.place, pruitt: list.find((c) => c.who === 'pruitt')?.place,
-      lockup: { rank: lockup.rank, name: lockup.name, town: Math.hypot(lockup.x - 400, lockup.z + 650), road: Math.hypot(w.roads.nearest(lockup.x, lockup.z).x - lockup.x, w.roads.nearest(lockup.x, lockup.z).z - lockup.z) },
+      lockup: { chapter: lockup.chapter, name: lockup.name, town: Math.hypot(lockup.x - 400, lockup.z + 650), road: Math.hypot(w.roads.nearest(lockup.x, lockup.z).x - lockup.x, w.roads.nearest(lockup.x, lockup.z).z - lockup.z) },
       sheriffLow: low.some((o) => o.contact === 'lockup'), sheriffHigh: high.filter((o) => o.contact === 'lockup').length,
       lines: high.every((o) => CAST[o.who].asks.includes(o.line)),
-      sameBelow: JSON.stringify(offersFor(9, list, { rank: 0 }).map((o) => o.contact)) === JSON.stringify(offersFor(9, list.filter((c) => c.id !== 'lockup'), { rank: 0 }).map((o) => o.contact)),
+      sameBelow: JSON.stringify(offersFor(9, list, { chapter: 0 }).map((o) => o.contact)) === JSON.stringify(offersFor(9, list.filter((c) => c.id !== 'lockup'), { chapter: 0 }).map((o) => o.contact)),
     };
   });
   expect(r.people).toBe(true);
   expect(r.unique).toBe(true);
   expect(r.jockey).toBe('Harrow Stables');
   expect(r.pruitt).toBe('Old Mill Barn');
-  expect(r.lockup.rank).toBe(3);
+  expect(r.lockup.chapter).toBe(3);
   expect(r.lockup.name).toBe('Sheriff Hale');
   expect(r.lockup.town).toBeLessThan(60);
   expect(r.lockup.road).toBeLessThan(40);
   expect(r.sheriffLow).toBe(false);
   expect(r.sheriffHigh).toBeGreaterThan(2);
   expect(r.lines).toBe(true);
-  expect(r.sameBelow).toBe(true);                   // below Brewer, the day's jobs are as they were
+  expect(r.sameBelow).toBe(true);                   // before chapter 4, the day's jobs are as they were
 
   // The board at Lexington Market: a face, a name and place, and their words for each job.
   await page.evaluate(() => { window.shine.teleport(-44, 48, 0); window.shine.step(0.3); });
@@ -174,9 +172,9 @@ test('contacts are people: each speakeasy and farm has its character, the board 
   const s = await page.evaluate(async () => {
     const g = window.shine.game, d = g.dredge.data;
     const { offersFor } = await import('/src/contracts.js');
-    d.rank = 3;
+    d.chapter = 3;
     let job = null;
-    for (let day = 1; !job; day++) job = offersFor(day, g.contactList, { rank: 3 }).find((o) => o.contact === 'lockup');
+    for (let day = 1; !job; day++) job = offersFor(day, g.contactList, { chapter: 3 }).find((o) => o.contact === 'lockup');
     g.takeContract(job);
     const taken = document.getElementById('toast').textContent;
     for (const [kind, n] of Object.entries(job.wants)) for (let k = 0; k < n; k++) { const spot = g.trunk.findSpot(kind); g.trunk.place(kind, spot.x, spot.y, spot.rot); }

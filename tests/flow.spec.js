@@ -260,7 +260,7 @@ test('saves: a damaged save boots and loads with its bad values put right, a fre
     out.fresh = { ledger: g.dredge.data.ledger.length, sites: Object.keys(g.dredge.data.sites).length };
     return out;
   });
-  expect(r).toEqual({ ending: null, rank: 5, chapter: 0, clock: 21.5, orders: ['old'], padding: 2, magnet: false, title: true, fresh: { ledger: 0, sites: 0 } });
+  expect(r).toEqual({ ending: null, rank: undefined, chapter: 0, clock: 21.5, orders: ['old'], padding: 2, magnet: false, title: true, fresh: { ledger: 0, sites: 0 } });
   await startRun(page, { loot: false });
   const erased = await page.evaluate(() => {
     const g = window.shine.game;

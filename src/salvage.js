@@ -63,8 +63,9 @@ export function placeSites(world, seed = 1) {
 // the ruins of Braun & Sons on a sidewalk near the Highlandtown Speakeasy, the Harrow
 // Stables office beside that barn, the guard's van at the Glyndon siding (railway.js), Moss
 // Delaney's consignment by the Cockeysville quarry yard, Sheriff Hale's lockup, the drowned
-// mill at Warren (loch.js) and the Baltimore Sun downtown. Each is the nearest clear spot to
-// its anchor; the newer ones also keep clear of the regular sites (`regular`) and each other.
+// mill at Warren (loch.js), the Baltimore Sun downtown and Gus Kessler's cellar (the
+// brewery). Each is the nearest clear spot to its anchor; the newer ones also keep clear of
+// the regular sites (`regular`) and each other.
 export function placeStory(world, regular = []) {
   const c = world.collision, out = [];
   const clear = (x, z, r) => !c.resolveCircle(x, z, r).hit;
@@ -113,6 +114,9 @@ export function placeStory(world, regular = []) {
   field('mill', 'mill', MILL.x, MILL.z, [-0.77, 0.63]);
   // The paper: the Sun's office on Charles Street by the harbour, away from the speakeasies.
   sidewalk('sun', 'sun', 0, 205, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 40));
+  // Chapter 5 on: Gus's cellar, the brewery, along the street from his speakeasy.
+  const B = CONFIG.dredge.story.brewery;
+  sidewalk('brewery', 'brewery', B.x, B.z, 25, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 20));
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }

@@ -27,14 +27,14 @@ const PLACES = {
   kessler: [176, 44], orourke: [132, 176], abernathy: [0, -132], romano: [44, 132], hummel: [-176, -132], pryor: [220, 132], healy: [-88, 176],
   banks: [88, -176], wexler: [-88, -88], feld: [-132, 44], carroll: [-246, -512], ridgely: [256, -497], pruitt: [-292, -608], jockey: [292, -722],
   tolley: [-334, -956], gill: [238, -917], sheriff: [396, -614], ruins: [148, 48], office: [295, -722], van: [-408, -668], quarry: [422, -674],
-  lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735],
+  lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735], brewery: [150, 70],
 };
 const FARMS = ['carroll', 'ridgely', 'pruitt', 'jockey', 'tolley', 'gill'];
 const BARS = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
 const LIST = [
   ...BARS.map((who, i) => ({ id: `drop:${i}`, who, name: who, place: who, kind: 'speakeasy', x: PLACES[who][0], z: PLACES[who][1] })),
   ...FARMS.map((who, i) => ({ id: `farm:${i}`, who, name: who, place: who, kind: 'farm', x: PLACES[who][0], z: PLACES[who][1] })),
-  { id: 'lockup', who: 'sheriff', name: 'sheriff', place: 'lockup', kind: 'speakeasy', rank: 3, x: PLACES.sheriff[0], z: PLACES.sheriff[1] },
+  { id: 'lockup', who: 'sheriff', name: 'sheriff', place: 'lockup', kind: 'speakeasy', chapter: 3, x: PLACES.sheriff[0], z: PLACES.sheriff[1] },
 ];
 const HOME = { x: PLACES.barn[0], z: PLACES.barn[1] };
 // Salvage, per real minute at the wheel (scripts/economy.mjs: a clean job 157 $/min with
@@ -59,7 +59,7 @@ const inWin = (h, [a, b]) => { h = ((h % 24) + 24) % 24; return a <= b ? h >= a 
 const until = (clock, to) => (((to - clock) % 24) + 24) % 24;
 
 function play(P) {
-  const d = { still: 0, stats: { brews: 0, contracts: 0 }, flags: {}, steps: {}, opened: {}, clues: {}, tools: {}, trust: {}, delivered: {}, best: {}, chapter: 0, rank: 0, rep: 0 };
+  const d = { still: 0, stats: { brews: 0, contracts: 0 }, flags: {}, steps: {}, opened: {}, clues: {}, tools: {}, trust: {}, delivered: {}, best: {}, chapter: 0 };
   const s = { t: 0, clock: 21.5, cash: 0, at: 'spawn', stock: {}, spent: 0, orders: 0, nightDone: -1, chapters: [], spend: { drive: 0, screens: 0, salvage: 0, sleep: 0 } };
   const where = (p) => PLACES[p] || p;
   const drive = (to) => {
@@ -68,7 +68,6 @@ function play(P) {
     s.t += min; s.clock += min * HPM; s.at = to; s.spend.drive += min;
   };
   const screen = (min) => { s.t += min * P.slack; s.spend.screens += min * P.slack; };
-  const rank = () => { let r = 0; D.ranks.forEach((x, i) => { if (d.rep >= x.rep) r = i; }); d.rank = Math.max(d.rank, r); };
   // Salvage for `min` real minutes (by day, or waiting): cash for what's sold, the makings kept.
   const salvage = (min) => {
     s.t += min; s.clock += min * HPM * 0.7;           // ~30% of it at the screens (the clock stands)
@@ -97,7 +96,7 @@ function play(P) {
     salvage(min);
     s.stock[kind] = (s.stock[kind] || 0) + short;
   };
-  const nearestStore = () => ['monkton', 'glyndon', ...(d.rank >= 2 ? ['cockeysville'] : [])].reduce((a, b) => (Math.hypot(...where(s.at).map((v, i) => v - where(a)[i])) < Math.hypot(...where(s.at).map((v, i) => v - where(b)[i])) ? a : b));
+  const nearestStore = () => ['monkton', 'glyndon', ...(d.chapter >= 2 ? ['cockeysville'] : [])].reduce((a, b) => (Math.hypot(...where(s.at).map((v, i) => v - where(a)[i])) < Math.hypot(...where(s.at).map((v, i) => v - where(b)[i])) ? a : b));
   // A batch at the barn: the makings first, then the still.
   function brew(id) {
     const r = RECIPE[id];
@@ -109,7 +108,6 @@ function play(P) {
     s.stock[id] = (s.stock[id] || 0) + crates;
     d.stats.brews++;
     d.best[id] = Math.max(d.best[id] || 0, P.q);
-    d.rep += Math.round(P.q * D.repPerBrew); rank();
   }
   // An order handed over: what it wants (brewed or found), after dark if it's a night one.
   const deliver = (o, to = o.who) => {
@@ -119,14 +117,14 @@ function play(P) {
     if (o.night && !night(s.clock)) waitNight();
     screen(0.5);
     for (const [k, n] of Object.entries(o.wants)) s.stock[k] -= n;
-    s.cash += o.pay; d.rep += o.rep; rank();
+    s.cash += o.pay;
     d.stats.contracts++; s.orders++;
     if (o.who) { d.delivered[o.who] = (d.delivered[o.who] || 0) + 1; d.trust[o.who] = (d.trust[o.who] || 0) + 1 + (o.grade && gradeOf(P.q) === 'A' ? 1 : 0); }
     upgrade();
   };
   const day = () => Math.floor(s.clock / 24);
   const taken = new Set();
-  const offers = (focus) => offersFor(day(), LIST, { brewing: d.still > 0, rank: d.rank, trust: d.trust, home: HOME, learned: d.flags, focus, focusN: d.delivered[focus] || 0, exclude: d.flags.betrayed ? ['jockey'] : [] })
+  const offers = (focus) => offersFor(day(), LIST, { brewing: d.still > 0, chapter: d.chapter, trust: d.trust, home: HOME, learned: d.flags, focus, focusN: d.delivered[focus] || 0, exclude: d.flags.betrayed ? ['jockey'] : [] })
     .filter((o) => !taken.has(o.id));
   // Till the next game day (its new offers): sleep or salvage.
   const nextDay = () => {
@@ -157,7 +155,7 @@ function play(P) {
       let best = null;
       for (const [id, u] of Object.entries(D.upgrades)) {
         const lv = (s.levels ??= {})[id] || 0;
-        if (lv >= u.costs.length || (u.ranks?.[lv] || 0) > d.rank) continue;
+        if (lv >= u.costs.length || (u.chapters?.[lv] || 0) > d.chapter) continue;
         if (!best || u.costs[lv] < best.cost) best = { id, cost: u.costs[lv] };
       }
       if (!best || best.cost > (s.cash - D.deed.cost * 0.15) * P.upgrades) return;
@@ -184,12 +182,14 @@ function play(P) {
     'jockey-trust': () => focusOrder('jockey'),
     office: () => { site('office', { night: true }); d.clues.ledger = true; },
     'mags-trust': () => focusOrder('orourke'),
+    purdy: () => { drive(D.story.passenger.from); screen(0.3); site('load', { window: W }); s.cash += D.story.passenger.pay; d.flags['order:purdy'] = true; },
     freight: () => { const F = D.story.freight; need(F.kind, F.count); site('load', { window: F.window }); s.stock[F.kind] -= F.count; s.cash += F.pay; d.flags['order:freight'] = true; },
     waybills: () => { site('van', { window: W }); d.clues.manifest = true; },
     consignment: () => { site('quarry', { night: true }); s.stock[D.story.consignment.kind] = (s.stock[D.story.consignment.kind] || 0) + D.story.consignment.count; d.flags.consignment = true; },
-    run: () => { const R = D.story.run; deliver({ wants: { [R.kind]: R.count }, night: true, pay: R.pay, rep: R.rep }, 'kessler'); d.flags['order:run'] = true; },
+    run: () => { const R = D.story.run; deliver({ wants: { [R.kind]: R.count }, night: true, pay: R.pay }, 'kessler'); d.flags['order:run'] = true; },
     'hale-trust': () => focusOrder('sheriff'),
     report: () => { site('lockup', { night: true }); s.cash -= D.story.report; d.clues.report = true; },
+    brewery: () => { need('sack', 3); need('barrel', 1); drive('brewery'); screen(1.4); for (const [k, n] of [['sack', 3], ['barrel', 1]]) s.stock[k] -= n; d.best.lager = P.q; d.stats.brews++; },
     loch: () => { drive('loch'); d.flags.loch = true; },
     mill: () => { site('mill', { night: true }); d.clues.letters = true; d.flags.ambush = true; },
     escape: () => { s.t += 2.5; drive('barn'); d.flags.escaped = true; },
