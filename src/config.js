@@ -213,7 +213,7 @@ export const CONFIG = {
         'small-crate': 0.9, 'bottle-case': 1.15, sack: 0.7, barrel: 0.8, jugs: 0.9,
         crate: 1.0, 'long-crate': 0.85, coil: 0.9, keg: 1.1, strongbox: 1.4,
         bicycle: 1.3, radio: 1.35, 'sewing-machine': 1.45,
-        'pocket-watch': 1.2, bonds: 1.2,
+        'pocket-watch': 0.6, bonds: 0.6,
       },
     },
     market: {
