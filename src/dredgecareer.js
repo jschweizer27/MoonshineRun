@@ -33,6 +33,8 @@ const DEFAULT = {
   clues: {},                 // clue id -> true once found
   tools: {},                 // tool id -> true once earned
   nerves: 1,                 // Otto's nerves, 1 steady .. 0 frayed (main._nerves)
+  damage: { lamp: false },   // a smashed headlamp (the trunk's cracked cells are in `trunk`)
+  lore: {},                  // lore scrap id (lore.js) -> true once found
   codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
   follow: null,              // the side story the banner and the route follow (null: the chapter)
@@ -103,7 +105,8 @@ export class DredgeCareer {
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore']) d[k] = { ...(d[k] || {}) };
+    d.damage = { lamp: !!d.damage?.lamp };
     d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
     if (typeof d.follow !== 'string' || !d.arcs[d.follow] || d.arcs[d.follow].done) d.follow = null;
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
@@ -174,13 +177,18 @@ export class DredgeCareer {
   }
 
   // What a repair costs now (worn more, costs more).
-  repairCost() { return Math.ceil(this.data.wear * CONFIG.dredge.wear.repairCost); }
+  // Wear, a smashed headlamp and the trunk's `cracks` (cracked cells), mended together.
+  repairCost(cracks = 0) {
+    const D = CONFIG.dredge.damage;
+    return Math.ceil(this.data.wear * CONFIG.dredge.wear.repairCost) + (this.data.damage?.lamp ? D.cost : 0) + cracks * D.cost;
+  }
 
-  repair() {
-    const cost = this.repairCost();
+  repair(cracks = 0) {
+    const cost = this.repairCost(cracks);
     if (!cost || this.data.cash < cost) return false;
     this.data.cash -= cost;
     this.data.wear = 0;
+    this.data.damage = { lamp: false };
     this.data.ledger.unshift({ t: Date.now(), text: 'Repairs at the barn', amount: -cost });
     this.data.ledger.length = Math.min(this.data.ledger.length, 40);
     this.save();

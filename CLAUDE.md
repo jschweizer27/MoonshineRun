@@ -132,6 +132,17 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `priced` (best sale prices); the notebook's FINDS. Upgrades' `parts` per level
   (`dredge.nextParts`, consumed stash first in `main` `onBuy`; the market row says what's
   short).
+- Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
+  supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
+  `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`
+  slip). Lager spoils in the trunk by its share (`main._spoil`, `CONFIG.dredge.spoil`; ice
+  melts after `gear.ice.hours`, `d.iceLeft`; with the clock). Damage (`main._damage`,
+  `CONFIG.dredge.damage`; under ?test only with `&damage` or a stubbed `g._damageRng`):
+  `d.damage.lamp`, or a trunk cell cracked (`Trunk.crack` / `isCracked` / `mend`, -2 in the
+  grid, saved in the trunk JSON); `dredge.repairCost(cracks)` / `repair(cracks)`. Lore
+  scraps (`src/lore.js`, `siteFor(index)`, `main._lore` with the story on), `d.lore`, the
+  notebook's LETTERS. Bounties: `offersFor(..., { bounty })` appends `<day>-b`, an odd kind
+  at `CONFIG.dredge.bounty.pay`x.
 - One clock: the save's `market.clock` (game hours from midnight of day 0; a new game starts
   at 21.5) is the time; `env.hour` is set from it on every load (`main._syncHour`) and both
   advance together, so deadlines, dawn, refills, the freight and the sky agree. The night's

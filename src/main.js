@@ -19,7 +19,7 @@ import { Railway, RAILWAY, inWindow } from './railway.js';
 import { LOCH_NODES, WARREN } from './loch.js';
 import { advance, current, openSites, lostNow, choiceOpen, ENDINGS } from './chapters.js';
 import { advanceArcs, activeArcs, arcById, arcStep } from './arcs.js';
-import { consume, onHand, blend, missing, RECIPES } from './brew.js';
+import { consume, onHand, blend, missing, RECIPES, blendGrade } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText, trustLevel, nextDawn } from './contracts.js';
 import { KINDS } from './trunk.js';
 import { BEATS, nextBeat, CAST, THANKS, TRUSTED } from './story.js';
@@ -32,7 +32,8 @@ import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
 import { sell, passTime, dayOf, eventFor, eventText, townOpen, weekday, nightOf, saturdayNight, priceOf, buys } from './market.js';
-import { oddify, record, priced } from './codex.js';
+import { oddify, record, priced, ODDS } from './codex.js';
+import { siteFor } from './lore.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -64,6 +65,7 @@ export const OPTIONS = {
   traffic: !params.has('test') || params.has('traffic'),
   police: !params.has('test') || params.has('police'),
   odd: !params.has('test') || params.has('odd'),
+  damage: !params.has('test') || params.has('damage'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -356,7 +358,7 @@ class Game {
   // (CONFIG.dredge.upgrades): how it drives, how far it reaches for loot, what the radar
   // shows, how big the trunk is and which body it wears.
   _applyPerks() {
-    const base = CONFIG.player, D = CONFIG.dredge, U = D.upgrades, lv = (id) => this.dredge.level(id);
+    const base = CONFIG.player, D = CONFIG.dredge, U = D.upgrades, G = D.gear, lv = (id) => this.dredge.level(id);
     // Lead Foot opens the engine up (wear's lost speed is applied each step, in step()).
     const boost = this._leadFoot ? D.abilities.leadfoot : { speed: 1, accel: 1 };
     const car = {
@@ -375,8 +377,9 @@ class Game {
       padding: 1 - U.padding.step.padding * lv('padding'),   // share of a crash's breakage chance felt
       field: this.dredge.data.tools?.tyres ? 1 : 0.7 + U.tyres.step.field * lv('tyres'),   // speed kept in the fields (all of it on farm tyres)
       wet: 1 - U.tyres.step.wet * lv('tyres'),             // share of the rain's grip loss felt
-      light: 1 + U.lamps.step.light * lv('lamps'),         // headlamps and beams
-      wear: 1 - U.plating.step.wear * lv('plating'),       // share of a knock's wear taken
+      // headlamps and beams: the spotlamps, spare ones packed in the trunk, and a smashed one
+      light: (1 + U.lamps.step.light * lv('lamps') + G.spotlamp.light * Math.min(G.spotlamp.most, this._gear('spotlamp'))) * (this.dredge.data.damage?.lamp ? D.damage.lamp : 1),
+      wear: (1 - U.plating.step.wear * lv('plating')) * (this._gear('toolbox') ? 1 - G.toolbox.wear : 1),   // share of a knock's wear taken
       // crates of shine a search misses (the upgrade's levels, and chapter 3's false bottom)
       hidden: U.falsebottom.step.hidden * (lv('falsebottom') + (this.dredge.data.tools?.falsebottom ? 1 : 0)),
       agentRange: this.dredge.data.tools?.policeband ? Infinity : D.police.mapRange,   // the radar's Bureau cars (all of them on the police band)
@@ -988,6 +991,7 @@ class Game {
     // Revenue agents: patrols, heat, the bust meter and the York Road checkpoint.
     const night = this._night(), d = this.dredge.data;
     this._nerves(dt, night);
+    this._spoil(dt);
     const law = this.police.update(dt, this.player, this.camera, this.time, {
       contraband: this._contraband() > 0, night, lightsOff: this.lightsOff && night, route: this.minimap.route,
       checkpoint: (d.chapter || 0) >= CONFIG.dredge.police.checkpoint.chapter,
@@ -1273,6 +1277,16 @@ class Game {
     else if (h0 >= 6 && h0 + hours >= 30) this._dawn();
   }
 
+  // A lore scrap (lore.js) at a site worked well after dark: the notebook's LETTERS (with the
+  // story on: under ?test only with &story).
+  _lore(site, sc) {
+    const d = this.dredge.data, scrap = siteFor(Number(String(site.id).split(':')[1]));
+    if (!OPTIONS.story || !scrap || d.lore[scrap.id] || sc < 0.5 || !this._night()) return;
+    d.lore[scrap.id] = true;
+    this.dredge.save();
+    this.hud.toast(`Tucked in among it: ${scrap.kind.replace(/^./, (c) => c.toLowerCase())}. It’s in the notebook (B).`, 'gold', 4500);
+  }
+
   // Finds for the notebook (codex.js): an odd one's first, a site kind's set (cash) and
   // every odd variant (the collector's eye) said aloud.
   _finds(kinds) {
@@ -1389,7 +1403,7 @@ class Game {
     if (game === 'none') { this._storySalvaged(site, 1); return; }
     if (game === 'pay' || game === 'give') { this._storyDeal(site, game); return; }
     if (game === 'lager') { this.openBrewery(); return; }
-    this.salvageScreen = showSalvage(this.ui, { site, onDone: (sc) => this._onSalvaged(site, sc) });
+    this.salvageScreen = showSalvage(this.ui, { site, free: this._gear('crowbar') ? CONFIG.dredge.gear.crowbar.strikes : 0, onDone: (sc) => this._onSalvaged(site, sc) });
   }
 
   // Gus's cellar: a batch of Highlandtown Lager at the brewery (its makings from the trunk and
@@ -1478,6 +1492,7 @@ class Game {
     for (const k of pieces) counts[k] = (counts[k] || 0) + 1;
     if (!rare) this.hud.toast(`From the ${site.name.toLowerCase()}: ${wantsText(counts)}`, 'gold', 3000);
     this._finds(pieces);
+    this._lore(site, sc);
     this.audio.pickup?.();
     this._pending = pieces.slice(1);
     this.openTrunk(pieces[0]);
@@ -1654,8 +1669,11 @@ class Game {
         changed();
       },
       onRepair: () => {
-        const cost = this.dredge.repairCost();
-        if (!this.dredge.repair()) return;
+        const cracks = this.trunk.cracked.length, cost = this.dredge.repairCost(cracks);
+        if (!this.dredge.repair(cracks)) return;
+        this.trunk.mend();
+        this.dredge.saveTrunk(this.trunk);
+        this._applyPerks();
         this._updateWearPill();
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`−${money(cost)}`);
@@ -1726,6 +1744,63 @@ class Game {
     this._wear(impact);
     this._breakage(impact);
     this._passengerKnock(impact);
+    if (OPTIONS.damage && impact >= CONFIG.dredge.damage.at && (this._damageRng || Math.random)() < CONFIG.dredge.damage.chance) this._damage();
+  }
+
+  // Damage that bites (after DREDGE's hull breaches): a smashed headlamp (less light) or a
+  // cracked trunk cell (nothing packs there, and what was in it bounces out), till the barn
+  // mends it.
+  _damage() {
+    const d = this.dredge.data, t = this.trunk, rng = this._damageRng || Math.random;
+    if (!d.damage.lamp && rng() < 0.5) {
+      d.damage.lamp = true;
+      this._applyPerks();
+      this.dredge.save();
+      this.hud.toast('A headlamp’s smashed: half the light on the road. Get it mended at the barn.', 'red', 4000);
+      return;
+    }
+    const free = [];
+    for (let y = 0; y < t.rows; y++) for (let x = 0; x < t.cols; x++) if (!t.isCracked(x, y)) free.push([x, y]);
+    if (free.length <= t.cols) return;                  // never more than the last row's worth
+    const [x, y] = free[Math.floor(rng() * free.length)], out = t.crack(x, y);
+    if (out) {
+      const back = this.perks.pickupRadius + 4, p = this.player.position;
+      this.loot.drop(this.loot.kindIndex(out.kind), p.x - this.player.forwardX * back, p.z - this.player.forwardZ * back);
+    }
+    this.dredge.saveTrunk(t);
+    this._updateTrunkPill();
+    this.hud.toast(`The crash split the trunk’s floor${out ? `: the ${KINDS[out.kind].name.toLowerCase()} bounced out` : ''}. Nothing packs there till it’s mended at the barn.`, 'red', 4500);
+  }
+
+  // Lager goes flat in a warm trunk (after DREDGE's spoiling catch): its blend loses quality
+  // each game hour it rides without ice; a block of ice keeps it till it melts. With the
+  // clock running.
+  _spoil(dt) {
+    if (!OPTIONS.time) return;
+    const h = dt * this.env.hoursPerSecond, d = this.dredge.data;
+    if (!h || !this._carrying('lager')) return;
+    const ice = [...this.trunk.pieces.values()].find((p) => p.kind === 'ice');
+    if (ice) {
+      d.iceLeft = (d.iceLeft ?? CONFIG.dredge.gear.ice.hours) - h;
+      if (d.iceLeft > 0) return;
+      d.iceLeft = CONFIG.dredge.gear.ice.hours;
+      this.trunk.remove(ice.id);
+      this.dredge.saveTrunk(this.trunk);
+      this._updateTrunkPill();
+      this.hud.toast('The ice has melted. The Lager won’t keep long now.', '', 3500);
+      return;
+    }
+    // (the blend is every crate's, the barn's cool stash too: it slips by the trunk's share)
+    const bl = d.market.blend.lager, S = CONFIG.dredge.spoil;
+    if (!bl || bl.q <= S.floor) return;
+    const all = onHand(this.trunk, d.stash).lager || 1, aboard = onHand(this.trunk, {}).lager || 0, g0 = blendGrade(bl);
+    bl.q = Math.max(S.floor, bl.q - S.lager * h * (aboard / all));
+    if (blendGrade(bl) !== g0) this.hud.toast(`The Lager’s going flat in the trunk: grade ${blendGrade(bl)} now. Ice keeps it (the county stores).`, 'red', 4000);
+  }
+
+  _carrying(kind) {
+    for (const p of this.trunk.pieces.values()) if (p.kind === kind) return true;
+    return false;
   }
 
   // A hard knock can break what's fragile aboard: jars, bottles, every crate of shine. A
@@ -1893,6 +1968,7 @@ class Game {
       offers: () => offersFor(day, this.contactList, {
         brewing: (d.still || 0) > 0 || d.stats.brews > 0, chapter: d.chapter || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags,
         focus: current(d).step?.who, focusN: d.delivered[current(d).step?.who] || 0, exclude: d.flags.betrayed ? ['jockey'] : [],
+        bounty: ODDS.some((k) => d.codex?.[k]?.n),
       }).filter((o) => !d.taken[o.id]),
       hoursLeft: (o) => (o.due == null ? null : o.due - this.dredge.market.clock),
       trust: (who) => trustLevel(d.trust[who]),
@@ -2268,6 +2344,16 @@ class Game {
   _updateTrunkPill() {
     const t = this.trunk;
     this.hud.setCargo(`TRUNK ${t.used}/${t.size}`);
+    // Gear works while it's packed: when what's packed changes, so does the truck.
+    const gear = `${this._gear('spotlamp')}:${this._gear('toolbox')}`;
+    if (gear !== this._gearWas && this.perks) { this._gearWas = gear; this._applyPerks(); }
+  }
+
+  // Pieces of gear `kind` packed in the trunk.
+  _gear(kind) {
+    let n = 0;
+    if (this.trunk) for (const p of this.trunk.pieces.values()) if (p.kind === kind) n++;
+    return n;
   }
 
   // A hard crash (strength 0..1 at x, z): debris, and a hit-stop the main loop holds.

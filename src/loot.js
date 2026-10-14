@@ -130,6 +130,25 @@ const MODELS = {
   'odd-keg': (add, c) => MODELS.keg(add, c),
   'odd-sewing-machine': (add, c) => MODELS['sewing-machine'](add, c),
   'odd-strongbox': (add, c) => MODELS.strongbox(add, c),
+  // Gear (bought, never found): a spare spotlamp, a crowbar, a toolbox and a block of ice.
+  spotlamp: (add, c) => {
+    add(cyl(0.22, 0.26, 0.34, 10).rotateX(Math.PI / 2), c.main, 0, 0.3, 0);
+    add(cyl(0.2, 0.2, 0.03, 10).rotateX(Math.PI / 2), c.accent, 0, 0.3, 0.18);
+    add(box(0.08, 0.16, 0.08), P.slate, 0, 0.08, 0);
+  },
+  crowbar: (add, c) => {
+    add(box(1.2, 0.06, 0.06), c.main, 0, 0.04, 0);
+    add(box(0.06, 0.06, 0.18), c.main, 0.6, 0.04, 0.07);
+  },
+  toolbox: (add, c) => {
+    add(box(0.7, 0.3, 0.34), c.main, 0, 0.15, 0);
+    add(box(0.5, 0.05, 0.05), P.slate, 0, 0.38, 0);
+    for (const x of [-0.24, 0.24]) add(box(0.04, 0.1, 0.04), P.slate, x, 0.33, 0);
+  },
+  ice: (add, c) => {
+    add(box(0.5, 0.4, 0.5), c.accent, 0, 0.2, 0);
+    add(box(0.52, 0.04, 0.52), c.main, 0, 0.02, 0);
+  },
   rye: (add, c) => { shineCrate(add, c); add(box(0.5, 0.5, 0.5), c.main, -0.25, 0.25, 0.5); },
   lager: (add, c) => {
     add(cyl(0.42, 0.42, 1.0, 10).rotateZ(Math.PI / 2), c.main, 0, 0.5, 0);

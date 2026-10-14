@@ -160,14 +160,24 @@ Enter, the D-pad and A/B, or touch.
    breakages in a crash) and a **spotter** (salvage sites further off on the radar; at the top
    level, all of them). The later levels also take **parts** you've salvaged (a coil for the
    engine, a radio set for the spotter...), from the trunk or the barn's stash: the market
-   says what each needs. The county stores (Monkton, Glyndon, Cockeysville) also sell the
-   still's makings: sacks, jugs and small crates, straight into the trunk.
+   says what each needs. The county stores (Monkton, Glyndon, Cockeysville) sell the still's
+   makings (sacks, jugs and small crates, straight into the trunk) and **gear**, which only
+   works while it rides in the trunk, taking room from the cargo: spare **spotlamps**
+   (brighter headlamps), a **crowbar** (the first slip at a pry doesn't count), a **toolbox**
+   (knocks wear the truck less) and **blocks of ice** (they keep Highlandtown Lager from going
+   flat in a warm trunk, till they melt). Nobody buys your gear back.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, mend the truck in its garage, and **sleep**. Otto's **nerves** wear
    down on the night roads (faster with the headlamps off, slower with spotlamps), and the
    clock says when he's Uneasy, Rattled or Frayed. Rattled, the radar shows Bureau cars that
    aren't there; frayed, he hears sirens and the wheel won't sit still. Daylight and dawn
-   give some back; a sleep at the barn all of it. Hard knocks wear the truck and
+   give some back; a sleep at the barn all of it. A really hard crash can smash a headlamp
+   or crack the trunk's floor (nothing packs in a cracked cell, and what was there bounces
+   out); the barn's garage mends them with the wear. Now and then, working a site after
+   dark, Otto finds **papers** tucked in among the salvage: Father's diary, clippings,
+   Bureau memos. The notebook keeps them under LETTERS. And once you've found an odd one,
+   people start asking for them: a **bounty** on the board wants a particular odd find, at
+   twice its worth. Hard knocks wear the truck and
    slow it down until it's repaired.
 7. The roads aren't empty: motor cars, delivery vans and horse carts go about their
    business, busier in the city than the valley and quieter late at night. Hit one and it's a
