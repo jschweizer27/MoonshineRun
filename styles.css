@@ -322,6 +322,7 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 #map-canvas { width: min(640px, 100%, 62vh); aspect-ratio: 1; border: 1px solid rgba(216, 178, 90, 0.4); background: #0b0d14; }
 .legend { font-size: calc(14px * var(--ts)); color: var(--muted); display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .legend .me { color: var(--paper); }
+.legend .agent { color: #9fb4c8; }
 
 .spinner {
   width: 34px;

@@ -87,8 +87,8 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `main._cars` (props). `Traffic._collide` pushes the truck out and returns the impact;
   `main._onTraffic` runs `_crash` (sparks, wear) and a hard hit spills a trunk piece onto the
   road (`loot.drop`). Off under `?test` unless `&traffic`.
-- Chapters (v4): `src/chapters.js` is the story spine (`CHAPTERS`, five of them: steps tested
-  on the save, a clue each and a tool for the first four; `current`, `openSites`, `advance`,
+- Chapters (v4): `src/chapters.js` is the story spine (`CHAPTERS`, nine of them in two acts:
+  steps tested on the save, a clue each and most a tool; `current`, `openSites`, `advance`,
   `choiceOpen`, `ENDINGS`). Step fields (documented at the top of chapters.js): `site` (a
   story site, `night` or a `window` of hours) with `gives` / `sets` / `finds` / `ambush`;
   `at` ('barn', 'loch'); `who` (that contact always has an offer on the board, a fresh one
@@ -274,7 +274,7 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   compare several seeds. `node scripts/progress.mjs` models the story's pacing (the real
   `advance` and `offersFor`, the night and freight hours, brewing, supplies, salvage at the
   bot's rates) for a rusher, a steady and a casual player: minutes per chapter, hours to the
-  ending's choice, cash then. Targets: chapter 1 in 45-60 min, 5-7 h in all. The save keeps
+  ending's choice, cash then. Targets: chapter 1 in 45-60 min; the story 9-14 h, 10-15 h with the side stories. The save keeps
   `stepTimes` (play seconds each step was done), shown per chapter in the ledger.
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new

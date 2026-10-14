@@ -333,7 +333,7 @@ test('chapter 5, Drowned Warren: out to Loch Raven, the drowned mill after dark,
   expect(r.trap.cars.length).toBe(4);
   for (const d of r.trap.cars) { expect(d).toBeGreaterThan(40); expect(d).toBeLessThan(170); }
   expect(r.escaped).toBe(true);
-  expect(r.done).toEqual({ chapter: 5, betrayed: true, jockeyOrders: 0, objective: 'The County Seat: Drive to Towson, east through the county wall' });
+  expect(r.done).toEqual({ chapter: 5, betrayed: true, jockeyOrders: 0, objective: 'The County Seat: Drive to Towson, on past Loch Raven' });
   expect(r.jockeyOffers).toBe(0);
   expect(problems).toEqual([]);
 });
@@ -359,7 +359,7 @@ for (const ending of ['deed', 'paper']) {
     await page.click('#confirm-yes');
     const seen = [];
     for (let k = 0; k < 12 && await page.locator('#dialog').isVisible(); k++) { seen.push(await page.locator('#dialog-text').textContent()); await page.click('#dialog-next'); }
-    expect(seen.join(' ')).toContain(ending === 'deed' ? 'Braun & Sons. Mine again.' : 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE');
+    expect(seen.join(' ')).toContain(ending === 'deed' ? 'Braun & Sons. Mine again, and off Vail’s auction block.' : 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE');
     await expect(page.locator('#ending')).toBeVisible();
     await expect(page.locator('#ending-title')).toHaveText(ending === 'deed' ? 'THE DEED' : 'THE PAPER');
     await expect(page.locator('#ending-stats')).toContainText('Clues found9/9');
@@ -375,7 +375,7 @@ for (const ending of ['deed', 'paper']) {
     } else {
       await page.click('#ending-title-btn');
       await expect(page.locator('#intro')).toBeVisible();
-      await expect(page.locator('#intro-best')).toContainText('The Alliance has fallen');
+      await expect(page.locator('#intro-best')).toContainText('The Alliance and Vail have fallen');
       // No deed for sale after the paper.
       const deed = await page.evaluate(() => window.shine.game._deed({ id: 'baltimore' }));
       expect(deed).toBe(null);

@@ -330,7 +330,7 @@ export const CONFIG = {
     // The side stories' rewards (arcs.js): the quality of Widow Carroll's dawn crate, and
     // what the Belvedere pays on a Saturday night (a multiple).
     arcs: { farmstill: { q: 0.6 }, belvedere: 2 },
-    // One of the two endings (chapters.js ENDINGS): once the story's last chapter is done, buy
+    // One of the three endings (chapters.js ENDINGS): once the story's last chapter is done, buy
     // back the Braun & Sons brewery deed at Lexington Market.
     deed: { cost: 12000, town: 'baltimore' },
     // The story's own numbers (chapters.js). The midnight freight stands at the Glyndon siding

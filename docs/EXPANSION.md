@@ -120,7 +120,7 @@ More from the same touchstone, in the same spirit:
     and phone checks.
 
 ## Status: built (stages 8–14, PRs #22–#29)
-All of the above is in the game, plus the courting of a side story's contact (stage 14). The
+All of the above is in the game (with the differences listed below), plus the courting of a side story's contact (stage 14). The
 pacing model (`node scripts/progress.mjs`, which plays the real chapters, offers and side
 stories over a save) gives:
 
@@ -134,6 +134,18 @@ So the game is 10–15 hours for most players: a steady player who does everythi
 casual one who plays the story. Stage 14 lowered three side stories' trust (Widow Carroll
 ★, Nell Pryor and Sal Romano ★★), counted the night's side orders toward trust as the game
 does, and added courting, which the model's trust-building assumed.
+
+Built differently from the design above:
+- Vail is named by the bank's records room in chapter 6 (a letter among the salvage hints at
+  him earlier), not by the letters from Warren.
+- The Crackdown raids Otto's barn, not the speakeasies, and the still stays put: a hidden one
+  in the hollow joins it.
+- The deed is bought back at Lexington Market, by paying off the bank's note, not at the
+  auction.
+- Vail's men hijack loads and pick salvage sites clean at dawn; they don't take orders. They
+  come once Vail is named.
+- Gear is spotlamps, a crowbar, a toolbox and ice (no spare tyre; the false bottom stays an
+  upgrade), and only Lager spoils.
 
 Left out, for later: shorter winter days (above); DREDGE's tool for each kind of site,
 drop boxes that fill over days, and charged late-game abilities (the pacing has no room

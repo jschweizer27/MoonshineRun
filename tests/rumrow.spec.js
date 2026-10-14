@@ -39,7 +39,7 @@ test('chapter 7, Rum Row: Mags O’Rourke’s full trust, the launch at the Cant
     out.done = { clue: !!d.clues.manifests, tool: !!d.tools.launch, chapter: d.chapter, objective: objective() };
     return out;
   }, KIT);
-  expect(r.open).toBe('Rum Row: Earn Mags O’Rourke’s full trust (★★★)');
+  expect(r.open).toBe('Rum Row: Earn Mags O’Rourke’s trust (★★★)');
   expect(r.pier).toEqual({ open: { night: false, window: [23, 3] }, noon: 'closed', late: 'ok' });
   expect(r.crates).toEqual({ scotch: 2, rum: 1, contraband: 3 });
   expect(r.order).toEqual({ wants: { scotch: 2 }, night: true });

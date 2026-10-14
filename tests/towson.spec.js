@@ -86,7 +86,7 @@ test('chapter 6, The County Seat: to Towson, Ruby Dalton’s orders and trust, t
     out.done = { chapter: d.chapter, objective: objective() };
     return out;
   }, KIT);
-  expect(r.open).toBe('The County Seat: Drive to Towson, east through the county wall');
+  expect(r.open).toBe('The County Seat: Drive to Towson, on past Loch Raven');
   expect(r.market).toEqual([false, true]);
   expect(r.ruby).toBe(true);
   expect(r.arrived.flag).toBe(true);
@@ -97,7 +97,7 @@ test('chapter 6, The County Seat: to Towson, Ruby Dalton’s orders and trust, t
   expect(r.clue).toBe(true);
   expect(r.order).toEqual({ passenger: 'dalton', window: [6, 9], drop: 'the Towson courthouse' });
   expect(r.aboard).toBe(true);
-  expect(r.done).toEqual({ chapter: 6, objective: 'Rum Row: Earn Mags O’Rourke’s full trust (★★★)' });
+  expect(r.done).toEqual({ chapter: 6, objective: 'Rum Row: Earn Mags O’Rourke’s trust (★★★)' });
   expect(problems).toEqual([]);
 });
 

@@ -2,7 +2,7 @@
 // when its trigger (on the save's data) is met. The spine: the Temperance Alliance burned
 // Otto's Highlandtown brewery; he scavenges the roads, brews at his late father's barn up
 // the valley, sells to the city's speakeasies, and finds out who paid for the fire (the
-// chapters, chapters.js, which end with the deed or the paper).
+// chapters, chapters.js, which end with the deed, the paper or the crown).
 // `asks`: the lines a contact says on the contract board when they post a job (one per job,
 // picked with it). `wants`: the goods a contact's orders draw from, if not the usual (the
 // farm's or the speakeasy's list, CONFIG.dredge.contracts); `shine`: a farm contact whose
@@ -32,7 +32,7 @@ export const CAST = {
   coombs: { name: 'Reverend Coombs', initials: 'RC', color: '#c84a3a' },
   delaney: { name: 'Moss Delaney', initials: 'MD', color: '#bdb6a6' },
   // The chapters' other people (chapters.js), who post no orders: the guard on the midnight
-  // freight, the Reverend's man in the Bureau, and the Sun's night editor.
+  // freight, Vail's man in the Bureau, and the Sun's night editor.
   guard: { name: 'Walt Purdy', initials: 'WP', color: '#a8a07a' },
   draper: { name: 'Agent Draper', initials: 'AD', color: '#7f8ea0' },
   editor: { name: 'Ned Holloway', initials: 'NH', color: '#d8d2c4' },
@@ -156,7 +156,7 @@ export const THANKS = {
   tolley: 'Well, look at that. A visitor, and he brought the goods.',
   gill: 'The Grange dances tonight! Here, and not a word.',
   sheriff: 'Much obliged, Mr. Braun. You were never here.',
-  guard: 'Two crates aboard for Hagerstown. Mags said you were good for it.',
+  guard: 'Right on time, and the bumps weren’t too bad. Mags said you were good for it.',
 };
 
 // What each contact says once they trust Otto (contracts.js, CONFIG.dredge.contracts
@@ -204,7 +204,7 @@ export const BEATS = {
     ],
   },
   rare: {
-    when: (d) => d.stats.rares >= 1,
+    when: (d) => d.stats.rares >= 1 && !d.flags.betrayed,      // (not once he's sold Otto out)
     lines: [
       ['jockey', 'A find like that belongs to somebody who’ll miss it. Sell it where nobody asks, and sell it fast.'],
       ['otto', 'Everything on these roads belonged to somebody. Tonight it belongs to the truck.'],

@@ -2,7 +2,7 @@ import { trustLevel } from './contracts.js';
 import { CONFIG } from './config.js';
 import { activeArcs } from './arcs.js';
 
-// The story in chapters (docs/GAME_DESIGN.md "Regions as chapters"). Pure logic over the
+// The story in chapters (docs/GAME_DESIGN.md "Regions as chapters"; Act II in docs/EXPANSION.md). Pure logic over the
 // save (dredgecareer data): each chapter is a run of steps taken in order, each step done
 // when its test on the save passes; the last ends in a clue to who burned Braun & Sons and,
 // but for the last chapter, a tool that the next one needs. Story salvage sites (salvage.js
@@ -90,7 +90,7 @@ export const CHAPTERS = [
     id: 'western', title: 'The Western Line', place: 'Glyndon and the railway',
     open: [
       ['narrator', 'Chapter 3: The Western Line. Out past Glyndon, the Western Maryland Railway runs its freight up to Hagerstown and back every night, by the timetable.'],
-      ['otto', 'Mags O’Rourke said a barge of kerosene came in the week of the fire, and nobody unloaded it at Canton. Freight that doesn’t come ashore goes somewhere by rail.'],
+      ['otto', 'Talk on the docks: a barge of kerosene came in the week of the fire, and nobody unloaded it at Canton. Freight that doesn’t come ashore goes somewhere by rail. Mags O’Rourke would know.'],
     ],
     steps: [
       { id: 'mags-trust', text: 'Earn Mags O’Rourke’s trust (★★)', who: 'orourke', done: (d) => trustLevel(d.trust.orourke) >= 2,
@@ -180,18 +180,19 @@ export const CHAPTERS = [
     close: [
       ['otto', 'The Alliance wanted a headline, and the Jockey wanted Father’s land. Now I have it in his own hand.'],
       ['otto', 'But the pledge card in the cellar was stamped PAID by a bank in Towson. Somebody paid for the kerosene, and it wasn’t a jockey.'],
-      ['narrator', 'Chapter 5 complete. The trail goes up York Road, past the county wall, to the county seat.'],
+      ['narrator', 'Chapter 5 complete. The trail goes on past Loch Raven, to the county seat.'],
     ],
   },
   // Act II (docs/EXPANSION.md): the bank.
   {
     id: 'seat', title: 'The County Seat', place: 'Towson',
     open: [
-      ['narrator', 'Chapter 6: The County Seat. Up York Road and east through the county wall: Towson, with its courthouse, its market house and the Towson National Bank.'],
+      ['narrator', 'Act II. Winter came early to the valley that year: snow for rain, white fields, and after dark the roads ice over. Go easy on them.'],
+      ['narrator', 'Chapter 6: The County Seat. On past Loch Raven: Towson, with its courthouse, its market house and the Towson National Bank.'],
       ['otto', 'A bank doesn’t stamp a temperance pledge PAID for the good of its soul. I want to know who signed for that money.'],
     ],
     steps: [
-      { id: 'towson', text: 'Drive to Towson, east through the county wall', at: 'towson', done: (d) => !!d.flags.towson,
+      { id: 'towson', text: 'Drive to Towson, on past Loch Raven', at: 'towson', done: (d) => !!d.flags.towson,
         lines: [
           ['narrator', 'Towson. The courthouse on its green, the Towson National Bank across the square in granite, and on the corner a tavern with the blinds down.'],
           ['dalton', 'You look like a man who’s lost something, honey. The Courthouse Tavern has a back room, and I don’t ask questions in it. Bring me something worth pouring.'],
@@ -225,7 +226,7 @@ export const CHAPTERS = [
       ['orourke', 'Vail’s bank bought the schooner, Otto. My dockers unload her launch twice a week and the Bureau looks the other way. You want to know who he pays? Work the Row with me.'],
     ],
     steps: [
-      { id: 'mags-row', text: 'Earn Mags O’Rourke’s full trust (★★★)', who: 'orourke', done: (d) => trustLevel(d.trust.orourke) >= 3,
+      { id: 'mags-row', text: 'Earn Mags O’Rourke’s trust (★★★)', who: 'orourke', done: (d) => trustLevel(d.trust.orourke) >= 3,
         lines: [['orourke', 'The Canton pier, after eleven. Watch the water for her lamps: twice, then once. And keep your own lamps off.']] },
       { id: 'launch', text: 'Meet the launch at the Canton pier (23:00–03:00)', site: 'pier', window: [23, 3], gives: ['scotch', 'scotch', 'rum'], got: 'Off the launch: two cases of Imported Scotch and a crate of Nassau rum', sets: 'launch', done: (d) => !!d.flags.launch,
         lines: [
@@ -290,7 +291,7 @@ export const CHAPTERS = [
     id: 'king', title: 'King of York Road', place: 'York Road, end to end',
     open: [
       ['narrator', 'Chapter 9: King of York Road. Black sedans with no sirens work the valley roads by night now, Vail’s own men, and they don’t arrest anybody. They take the load.'],
-      ['dalton', 'Otto, honey. The county’s auctioning every foreclosed brewery on the courthouse steps, the minute Repeal is law, and Mr. Vail means to buy the lot. Come and see me.'],
+      ['dalton', 'Otto, honey. The county’s auctioning every foreclosed brewery on the courthouse steps, the morning Repeal is law, and Mr. Vail means to buy the lot. Come and see me.'],
     ],
     steps: [
       { id: 'ruby-tip', text: 'Call on Ruby Dalton at the Courthouse Tavern in Towson, after dark', order: { who: 'dalton', at: 'dalton', wants: {}, night: true, pay: 0 }, done: (d) => !!d.flags['order:ruby-tip'],
@@ -304,11 +305,11 @@ export const CHAPTERS = [
         lines: [
           ['vail', 'Mr. Braun. Sit down. You’ve cost me a schooner’s worth of trouble and a Prohibition agent’s good name. I’ll pay you for your father’s recipes and your routes, and you’ll leave Maryland a rich man.'],
           ['otto', 'You burned my father’s brewery for a bank’s balance sheet.'],
-          ['vail', 'I bought a building that burned, Mr. Braun. Prove otherwise. The auction is Saturday. Make your choice before it.'],
+          ['vail', 'I bought a building that burned, Mr. Braun. Prove otherwise. The auction is the morning Repeal is law. Make your choice before it.'],
           ['narrator', 'Outside, the black sedans pull away from the kerb and don’t come back. Whatever Vail does now, he’ll do it at the auction.'],
         ] },
     ],
-    clue: { id: 'auction', title: 'The auction notice', text: 'PUBLIC AUCTION of Braun & Sons and twelve other Baltimore breweries, on the courthouse steps at Towson, on the day Repeal is law. Every note held by the Towson National Bank. C. Vail, President.' },
+    clue: { id: 'auction', title: 'The auction notice', text: 'PUBLIC AUCTION of Braun & Sons and twelve other Baltimore breweries, on the courthouse steps at Towson, the morning Repeal is law. Every note held by the Towson National Bank. C. Vail, President.' },
     tool: null,
     close: [
       ['otto', 'The Jockey’s letters, Vail’s ledgers, Draper’s warrant, and the roads from the harbour to the Pennsylvania line. Enough for a deed, a headline, or a crown.'],
@@ -323,29 +324,29 @@ export const CHAPTERS = [
 export const CITY = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
 export const crownReady = (d) => !!d.flags?.hollowStill && !!d.flags?.brauns && CITY.filter((w) => trustLevel(d.trust?.[w]) >= 3).length >= CITY.length / 2;
 
-// The two endings, chosen once the last chapter is done (main._end): the deed bought back
-// at Lexington Market, or the letters taken to the Sun. `lines` play, then the ending screen
+// The three endings, chosen once the last chapter is done (main._end): the deed bought
+// back at Lexington Market, the letters taken to the Sun, or (crownReady) the crown. `lines` play, then the ending screen
 // shows `title`, `sub` and the `epilogue`; `after` is the title screen's line from then on.
 export const ENDINGS = {
   deed: {
     title: 'The Deed', sub: 'Braun & Sons, Highlandtown', after: 'Braun & Sons is yours again', ledger: 'The Braun & Sons deed',
     lines: [
-      ['narrator', 'Highlandtown. A bank clerk slides a folded paper across the counter.'],
-      ['otto', 'Braun & Sons. Mine again.'],
-      ['otto', 'The letters can stay in Father’s strongbox. Let the Jockey keep his saddle and the Reverend his pulpit. I have a brewery to wait for.'],
+      ['narrator', 'Lexington Market. A clerk from the Towson National Bank counts the money twice, then slides the note across the counter, paid in full.'],
+      ['otto', 'Braun & Sons. Mine again, and off Vail’s auction block.'],
+      ['otto', 'The letters can stay where they are. Let the Jockey keep his saddle, the Reverend his pulpit and Vail his bank. I have a brewery to wait for.'],
       ['pruitt', 'Lager and shine under one roof. The Reverend will have a fit.'],
     ],
-    epilogue: 'Otto Braun bought back Braun & Sons and went legit, as near as a man could in 1922. The brewery stood shuttered for eleven years. The day Repeal came, the first barrel of Highlandtown Lager rolled out of its doors, and Gus Kessler drew the first glass. The Jockey rode on, the Reverend preached on, and Otto never told anyone what was in the letters.',
+    epilogue: 'Otto Braun bought back Braun & Sons and went legit, as near as a man could in 1922. The brewery stood shuttered for eleven years. The day Repeal came, the first barrel of Highlandtown Lager rolled out of its doors, and Gus Kessler drew the first glass. The Jockey rode on, the Reverend preached on, Cyrus Vail bought every other brewery in Baltimore at his auction, and Otto never told anyone what was in the letters.',
   },
   paper: {
-    title: 'The Paper', sub: 'The Baltimore Sun', after: 'The Alliance has fallen; York Road is yours', ledger: 'The Jockey’s letters, to the Baltimore Sun',
+    title: 'The Paper', sub: 'The Baltimore Sun', after: 'The Alliance and Vail have fallen', ledger: 'The Jockey’s letters, to the Baltimore Sun',
     lines: [
       ['narrator', 'The Baltimore Sun, after midnight. The night editor reads the letters twice, then the bank’s ledgers, then reaches for the telephone.'],
       ['editor', 'This runs on the front page, Mr. Braun. The Alliance won’t last the week, and neither will the Towson National Bank.'],
       ['narrator', 'BANK PRESIDENT AND TEMPERANCE CHIEF PAID FOR BREWERY FIRE, says the morning edition. By noon the Jockey has gone from Harrow Stables. By Friday the Reverend Coombs has resigned, and Agent Draper is answering questions in Washington.'],
       ['otto', 'The Alliance wanted a headline. They got one.'],
     ],
-    epilogue: 'The Temperance Alliance of Maryland was finished within the week, the Towson National Bank within the year, and the Jockey was never seen at a steeplechase again. The auction never happened. Braun & Sons stayed a ruin, but the roads were Otto’s: from the harbour to the Pennsylvania line, nothing moved on York Road without the King of York Road knowing.',
+    epilogue: 'The Temperance Alliance of Maryland was finished within the week, the Towson National Bank within the year, and the Jockey was never seen at a steeplechase again. The auction never happened. The bank’s receivers sold its notes back for the back taxes, and Braun & Sons was Otto’s again: a ruin, and a free man to rebuild it.',
   },
   crown: {
     title: 'The Crown', sub: 'King of York Road', after: 'The routes are yours; Vail’s are gone', ledger: 'Vail’s routes, on the courthouse steps',
@@ -355,7 +356,7 @@ export const ENDINGS = {
       ['vail', 'Name your price for the schooner and the routes, Mr. Braun.'],
       ['otto', 'No price. They’re mine. You can keep the buildings, and wait for a Repeal that sells my beer.'],
     ],
-    epilogue: 'Cyrus Vail bought every brewery in Baltimore at the auction, and not one of them ever poured a glass: the routes, the drivers and the speakeasies all answered to Otto Braun. His hidden still ran until Repeal, Braun’s in the old cellar became the most famous bar in Highlandtown, and on the day the law changed, Otto bought Braun & Sons from a ruined bank for a dollar.',
+    epilogue: 'Cyrus Vail bought every brewery in Baltimore at the auction, and not one of them ever poured a glass: the routes, the drivers and the speakeasies all answered to Otto Braun. Within the year his bank was broke. Otto bought Braun & Sons from its receivers for a dollar, his hidden still ran on, and Braun’s in the old cellar became the most famous bar in Highlandtown.',
   },
 };
 

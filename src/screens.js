@@ -5,7 +5,7 @@ import { RECIPES, missing, newBatch, stepBatch, pressBatch, quality, isBad, grad
 import { progress, wantsText } from './contracts.js';
 import { kindColors, KINDS } from './trunk.js';
 import { CAST, TRUSTED } from './story.js';
-import { CHAPTERS, choiceOpen } from './chapters.js';
+import { CHAPTERS, CITY, choiceOpen, crownReady } from './chapters.js';
 import { ARCS, arcStep } from './arcs.js';
 import { SITE_KINDS, setOf, ODDS } from './codex.js';
 import { LORE } from './lore.js';
@@ -125,7 +125,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       buy.disabled = career.cash < deed.cost;
       buy.addEventListener('click', () => deed.onBuy());
       body.append(el('div', { class: 'upgrade deed' }, el('div', {}, el('b', {}, 'Braun & Sons, Highlandtown'),
-        el('small', {}, 'The bank will sell the brewery back: go legit, and wait for Repeal. Or take the letters to the Sun instead.')), buy));
+        el('small', {}, 'Pay off the Towson National Bank’s note and the brewery is yours again: go legit, and wait for Repeal. (The paper and the crown are the other ways to end it: see the notebook.)')), buy));
     }
     contractRows(body, jobs, trunk, render);
     // Upgrades for the truck, paid from the same cash.
@@ -730,9 +730,18 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
       body.append(note(el('span', { class: done ? 'done' : now ? 'now' : 'later' }, `${done ? '✓' : now ? '▸' : '·'} ${now || done ? `${st.text}${st.night ? ', after dark' : ''}` : '…'}`)));
     }
   } else if (choiceOpen(d)) {
-    body.append(note(el('span', { class: 'now' }, `▸ The deed: buy back Braun & Sons at Lexington Market (${money(CONFIG.dredge.deed.cost)}). Go legit, and wait for Repeal.`)));
-    body.append(note(el('span', { class: 'now' }, '▸ The paper: take the Jockey’s letters to the Baltimore Sun. Bring the Alliance down, and stay King of York Road.')));
-  } else body.append(note(el('span', {}, d.ending === 'deed' ? 'The deed: Braun & Sons is Otto’s again.' : 'The paper: the Alliance has fallen, and York Road is Otto’s.')));
+    body.append(note(el('span', { class: 'now' }, `▸ The deed: pay off the bank’s note on Braun & Sons at Lexington Market (${money(CONFIG.dredge.deed.cost)}). Go legit, and wait for Repeal.`)));
+    body.append(note(el('span', { class: 'now' }, '▸ The paper: take the Jockey’s letters and the bank’s ledgers to the Baltimore Sun. Bring the Alliance and Vail down together.')));
+    // The crown (chapters.js crownReady): what's still wanting, until it's there to take.
+    const trusted = CITY.filter((w) => level(w) >= 3).length, need = Math.ceil(CITY.length / 2);
+    const short = [!d.flags.hollowStill && 'the hidden still', !d.flags.brauns && 'Braun’s', trusted < need && `★★★ with ${need - trusted} more of the city’s speakeasy contacts (${trusted}/${need})`].filter(Boolean);
+    body.append(note(el('span', { class: crownReady(d) ? 'now' : 'later' }, crownReady(d)
+      ? '▸ The crown: take Vail’s routes for your own on the courthouse steps at Towson.'
+      : `· The crown: Vail’s routes, on the courthouse steps at Towson. Still wanting: ${short.join(', ')}.`)));
+  } else {
+    const ENDED = { deed: 'The deed: Braun & Sons is Otto’s again.', paper: 'The paper: the Alliance and Vail have fallen together.', crown: 'The crown: the routes are Otto’s, and Vail’s are gone.' };
+    body.append(note(el('span', {}, ENDED[d.ending] || ENDED.paper)));
+  }
   body.append(el('h3', {}, 'CLUES'));
   const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
   if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
