@@ -359,7 +359,7 @@ for (const ending of ['deed', 'paper']) {
     await page.click('#confirm-yes');
     const seen = [];
     for (let k = 0; k < 12 && await page.locator('#dialog').isVisible(); k++) { seen.push(await page.locator('#dialog-text').textContent()); await page.click('#dialog-next'); }
-    expect(seen.join(' ')).toContain(ending === 'deed' ? 'Braun & Sons. Mine again.' : 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE');
+    expect(seen.join(' ')).toContain(ending === 'deed' ? 'Braun & Sons. Mine again, and off Vail’s auction block.' : 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE');
     await expect(page.locator('#ending')).toBeVisible();
     await expect(page.locator('#ending-title')).toHaveText(ending === 'deed' ? 'THE DEED' : 'THE PAPER');
     await expect(page.locator('#ending-stats')).toContainText('Clues found9/9');
