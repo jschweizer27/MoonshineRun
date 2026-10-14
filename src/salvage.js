@@ -136,6 +136,10 @@ export function placeStory(world, regular = []) {
   // the city's east edge, both away from the speakeasies.
   sidewalk('pier', 'pier', 200, 215, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 30));
   sidewalk('warehouse', 'warehouse', 215, 20, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 30));
+  // Chapter 8: the hidden still in the woods past Frog Hollow, and Braun's along the street
+  // from the ruins.
+  field('hollow', 'hollow', -372, -918, [1, 0]);
+  sidewalk('brauns', 'brauns', 176, 44, 30, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 20));
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }

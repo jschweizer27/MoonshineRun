@@ -4,7 +4,7 @@ import { openGame, startRun, KIT, past } from './helpers.js';
 // Stage 11: chapter 7, Rum Row. The launch at the Canton pier, imported Scotch and rum, Vail's
 // warehouse, the harbour patrol, the schooner at anchor, and Mags's launch after it.
 
-test('chapter 7, Rum Row: Mags O’Rourke’s full trust, the launch at the Canton pier after eleven, Scotch for Abernathy, the manifests in Vail’s warehouse; then the choice', async ({ page }) => {
+test('chapter 7, Rum Row: Mags O’Rourke’s full trust, the launch at the Canton pier after eleven, Scotch for Abernathy, the manifests in Vail’s warehouse; then the Crackdown', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   await past(page, 6);
@@ -44,7 +44,7 @@ test('chapter 7, Rum Row: Mags O’Rourke’s full trust, the launch at the Cant
   expect(r.crates).toEqual({ scotch: 2, rum: 1, contraband: 3 });
   expect(r.order).toEqual({ wants: { scotch: 2 }, night: true });
   expect(r.hotel).toBe(true);
-  expect(r.done).toEqual({ clue: true, tool: true, chapter: 7, objective: 'The choice: buy back the deed at Lexington Market, or take the letters to the Sun' });
+  expect(r.done).toEqual({ clue: true, tool: true, chapter: 7, objective: 'Call on Gus Kessler at Highlandtown Speakeasy · tonight' });
   expect(problems).toEqual([]);
 });
 

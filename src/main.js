@@ -53,6 +53,10 @@ const $ = (id) => document.getElementById(id);
 // built-in procedural models only), &story / &hints (the story cards and first-run tips,
 // off under ?test).
 const params = new URLSearchParams(location.search);
+// A trap's flags (main._ambush): chapter 5's are 'ambush' / 'escaped', a keyed one's
+// 'ambush:<key>' / 'escaped:<key>'.
+const trapFlags = (key) => (key && key !== true ? [`ambush:${key}`, `escaped:${key}`] : ['ambush', 'escaped']);
+
 export const OPTIONS = {
   debug: params.has('debug'),
   test: params.has('test'),
@@ -580,8 +584,11 @@ class Game {
     this._siteLeft = true;
     this._pending = [];
     this._jobWhy = this._siteWhy = this._dropWhy = '';
-    // A run cut short mid-ambush (quit, reload): Otto got away with the letters.
-    if (this.dredge.data.flags.ambush && !this.dredge.data.flags.escaped) { this.dredge.data.flags.escaped = true; this.dredge.save(); }
+    // A run cut short mid-ambush (quit, reload): Otto got away.
+    for (const key of ['', 'raid']) {
+      const [a, e] = trapFlags(key), f = this.dredge.data.flags;
+      if (f[a] && !f[e]) { f[e] = true; this.dredge.save(); }
+    }
     this._ambushOn = false;
     this._updatePassenger();
     this._nightFrom = this._tally();
@@ -717,12 +724,13 @@ class Game {
     }
     this._updateObjective();
     this._updateGuide();
-    // The trap at Warren springs once its cards are read (or at once without them).
-    const trap = events.some((e) => e.type === 'step' && e.step.ambush);
-    if (!OPTIONS.story || !lines.length) { if (trap) this._ambush(); return false; }
+    // A trap (Warren's, the raid on the barn) springs once its cards are read (or at once
+    // without them).
+    const sprung = events.find((e) => e.type === 'step' && e.step.ambush), trap = sprung && (() => this._ambush(sprung.step.ambush));
+    if (!OPTIONS.story || !lines.length) { if (trap) trap(); return false; }
     this.pause({ showMenu: false });
     playDialog(this.ui, lines, { reducedMotion: !!this.settings.reducedMotion })
-      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); if (trap) this._ambush(); });
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); if (trap) trap(); });
     return true;
   }
 
@@ -837,13 +845,16 @@ class Game {
     this.hud.toast(`${CAST[o.passenger].name}: ${lines[this._knocks % lines.length]} ${CAST[vouch].name}’s trust slips.`, 'red', 3500);
   }
 
-  // Chapter 5's trap at Warren: the Bureau comes at once, every car (police.alert), and
-  // getting away with the letters is the chapter's last step. With the agents off (?test
-  // without &police) there's nobody to get away from.
-  _ambush() {
-    const d = this.dredge.data, A = CONFIG.dredge.story.ambush;
-    if (!d.flags.ambush || d.flags.escaped || this._ambushOn) return;
-    if (!this.police.enabled) { d.flags.escaped = true; this.dredge.save(); return; }
+  // A trap: chapter 5's at Warren (a step's `ambush: true`) or chapter 8's raid on the barn
+  // (`ambush: 'raid'`). The Bureau comes at once, every car (police.alert), and getting away
+  // is the chapter's next step. With the agents off (?test without &police) there's nobody
+  // to get away from. Its flags: trapFlags(key).
+  _ambush(key = true) {
+    const d = this.dredge.data, A = CONFIG.dredge.story.ambush, [a, e] = trapFlags(key);
+    d.flags[a] = true;
+    if (d.flags[e] || this._ambushOn) return;
+    this._trapKey = key;
+    if (!this.police.enabled) { d.flags[e] = true; this.dredge.save(); return; }
     this._ambushOn = true;
     for (const e of this.police.alert(this.player.position, A.tier, { hold: A.hold, range: A.range })) this._onPolice(e);
     this._updateHeat();
@@ -851,9 +862,9 @@ class Game {
 
   // Away from the ambush: lost them, or busted (the letters were in Otto's coat).
   _escaped() {
-    const d = this.dredge.data;
-    if (!d.flags.ambush || d.flags.escaped) return;
-    d.flags.escaped = true;
+    const d = this.dredge.data, [a, e] = trapFlags(this._trapKey ?? true);
+    if (!d.flags[a] || d.flags[e]) return;
+    d.flags[e] = true;
     this._ambushOn = false;
     this.dredge.save();
   }
@@ -1363,6 +1374,29 @@ class Game {
     this.salvage.refresh(day);
     // Widow Carroll's still (her side story): a crate of Corn Shine in the stash every dawn.
     if (OPTIONS.time) this._setNerves((d.nerves ?? 1) + CONFIG.dredge.nerves.dawn);
+    // The operation (chapter 8 on): the hidden still's crates, Braun's night's takings, and
+    // Barrel Rye ageing in the stash.
+    const O = CONFIG.dredge.operation;
+    if (d.flags.hollowStill && d.once.hollow !== day) { d.once.hollow = day; d.hollow = Math.min(O.hollow.cap, (d.hollow || 0) + O.hollow.perDay); }
+    let takings = 0, sold = 0;
+    if (d.flags.brauns && d.once.brauns !== day) {
+      d.once.brauns = day;
+      for (const k of Object.keys(d.brauns)) {
+        while (d.brauns[k] > 0 && sold < O.brauns.nightly) { takings += Math.round(priceOf('drop:0', k, d.market) * O.brauns.cut); d.brauns[k]--; sold++; }
+        if (!d.brauns[k]) delete d.brauns[k];
+      }
+      if (takings) {
+        d.cash += takings; d.stats.earned += takings;
+        d.ledger.unshift({ t: Date.now(), text: `Braun’s: ${sold} crate${sold === 1 ? '' : 's'} sold last night`, amount: takings });
+        d.ledger.length = Math.min(d.ledger.length, 40);
+        this.hud.setCash(this.dredge.cash, true);
+      }
+    }
+    const rye = d.market.blend.rye;
+    if (d.stash.rye && rye && !rye.bad && d.once.aging !== day) {
+      d.once.aging = day;
+      rye.q = Math.min(O.aging.max, rye.q + O.aging.rye * (d.stash.rye / (onHand(this.trunk, d.stash).rye || 1)));
+    }
     const farm = d.tools.farmstill && d.once.farmstill !== day;
     if (farm) {
       d.once.farmstill = day;
@@ -1372,7 +1406,7 @@ class Game {
     this.dredge.save();
     const earned = now.earned - was.earned, jobs = now.contracts - was.contracts, sites = now.salvaged - was.salvaged;
     const n = (k, one) => `${k} ${one}${k === 1 ? '' : 's'}`;
-    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}`;
+    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}${takings ? ` Braun’s sold ${n(sold, 'crate')} for ${money(takings)}.` : ''}`;
     const otto = earned > 0 ? 'A night’s work. Sleep, then do it again.' : 'Nothing to show for the night. Tonight, then.';
     this.dawns = (this.dawns || 0) + 1;
     if (this.state !== STATE.PLAYING) { this.hud.toast(take, 'gold', 4000); return; }
@@ -1406,6 +1440,8 @@ class Game {
     if (this.state !== STATE.PAUSED) return;
     const game = CONFIG.dredge.salvage.kinds[site.kind].game;
     if (site.story === 'pier' && !this._siteStep(site)) { this._launchDeal(); return; }   // Mags's launch (chapter 7's tool)
+    if (site.story === 'hollow' && !this._siteStep(site)) { this._collectHollow(); return; }   // the operation (chapter 8 on)
+    if (site.story === 'brauns' && !this._siteStep(site)) { this._stockBrauns(); return; }
     if (game === 'none') { this._storySalvaged(site, 1); return; }
     if (game === 'pay' || game === 'give') { this._storyDeal(site, game); return; }
     if (game === 'lager') { this.openBrewery(); return; }
@@ -1535,10 +1571,20 @@ class Game {
       if (!this.ui.anyOpen) this.resume();
       return;
     }
+    // What the step takes from the trunk (chapter 8's still and Braun's first stock): short of
+    // it, it says what to bring.
+    if (job.takes) {
+      const short = this._short(job.takes);
+      if (short) { this.hud.toast(`Bring ${short}.`, '', 3500); if (!this.ui.anyOpen) this.resume(); return; }
+      const took = this._take(job.takes);
+      if (job.stock) for (const [k, n] of Object.entries(took)) d.brauns[k] = (d.brauns[k] || 0) + n;
+      this.dredge.saveTrunk(this.trunk);
+      this._updateTrunkPill();
+    }
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
     if (job.sets) d.flags[job.sets] = true;
     if (job.finds) d.clues[job.finds] = true;
-    if (job.ambush) d.flags.ambush = true;
+    if (job.ambush) d.flags[trapFlags(job.ambush)[0]] = true;
     if (job.gives) {
       const kind = job.gives[0];
       if (KINDS[kind].brewed && !KINDS[kind].imported) blend(d.market.blend, kind, onHand(this.trunk, d.stash)[kind] || 0, job.gives.length, CONFIG.dredge.story.consignment.q, false);
@@ -1552,6 +1598,56 @@ class Game {
     this.dredge.save();
     this.audio.fanfare?.('rare');
     this.hud.toast(job.got || 'Found something. A clue for the notebook.', 'gold', 3000);
+    if (!this.ui.anyOpen) this.resume();
+  }
+
+  // What's missing aboard for `takes` ({ kind: n }; 'shine' is any of Otto's own brews), as
+  // text, or '' when it's all there.
+  _short(takes) {
+    const have = onHand(this.trunk, {}), shine = Object.entries(have).filter(([k]) => KINDS[k].brewed && !KINDS[k].imported).reduce((a, [, n]) => a + n, 0);
+    const lack = Object.entries(takes).filter(([k, n]) => (k === 'shine' ? shine : have[k] || 0) < n);
+    return lack.map(([k, n]) => (k === 'shine' ? `${n} crates of your own shine` : wantsText({ [k]: n }))).join(' and ');
+  }
+
+  // Take `takes` out of the trunk; returns { kind: count } of what was taken.
+  _take(takes) {
+    const out = {};
+    for (const [k, n] of Object.entries(takes)) {
+      let left = n;
+      for (const p of [...this.trunk.pieces.values()]) {
+        if (!left) break;
+        if (k === 'shine' ? !(KINDS[p.kind].brewed && !KINDS[p.kind].imported) : p.kind !== k) continue;
+        this.trunk.remove(p.id);
+        out[p.kind] = (out[p.kind] || 0) + 1;
+        left--;
+      }
+    }
+    return out;
+  }
+
+  // The operation (chapter 8 on): the hidden still's crates, collected into the trunk.
+  _collectHollow() {
+    const d = this.dredge.data, n = d.hollow || 0;
+    if (!n) { this.hud.toast('Nothing ready at the hollow yet. It brews two crates a day.', '', 3000); if (!this.ui.anyOpen) this.resume(); return; }
+    blend(d.market.blend, 'corn-shine', onHand(this.trunk, d.stash)['corn-shine'] || 0, n, CONFIG.dredge.operation.hollow.q, false);
+    d.hollow = 0;
+    this.dredge.save();
+    this.hud.toast(`${n} crate${n === 1 ? '' : 's'} of Corn Shine from the hidden still.`, 'gold', 3000);
+    this.audio.pickup?.();
+    const pieces = Array.from({ length: n }, () => 'corn-shine');
+    this._pending = pieces.slice(1);
+    this.openTrunk(pieces[0]);
+  }
+
+  // Braun's: every crate of Otto's own shine aboard goes into its cellar, to sell nightly.
+  _stockBrauns() {
+    const d = this.dredge.data, took = this._take({ shine: Infinity }), n = Object.values(took).reduce((a, b) => a + b, 0);
+    for (const [k, c] of Object.entries(took)) d.brauns[k] = (d.brauns[k] || 0) + c;
+    const stock = Object.values(d.brauns).reduce((a, b) => a + b, 0);
+    this.dredge.saveTrunk(this.trunk);
+    this.dredge.save();
+    this._updateTrunkPill();
+    this.hud.toast(n ? `Braun’s cellar takes ${n} crate${n === 1 ? '' : 's'}: ${stock} in stock. It sells a few every night.` : `Braun’s has ${stock} crate${stock === 1 ? '' : 's'} in the cellar. Bring your own shine to stock it.`, n ? 'gold' : '', 3500);
     if (!this.ui.anyOpen) this.resume();
   }
 
@@ -1635,6 +1731,9 @@ class Game {
     if (Math.hypot(p.x - h.stopX, p.z - h.stopZ) > CONFIG.dredge.barn.radius) { this._barnLeft = true; return; }
     if (!this._barnLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed) return;
     this._barnLeft = false;
+    // Chapter 8: the Bureau is waiting at the barn after dark (the raid; main._ambush).
+    const d = this.dredge.data;
+    if (current(d).step?.id === 'raid' && this._night()) { d.flags.raidHome = true; this.dredge.save(); return; }
     this.openBarn();
   }
 
@@ -2311,7 +2410,9 @@ class Game {
       const pr = progress(c, this.trunk, this.dredge.market.blend), ready = pr.ready && pr.gradeOk, near = Math.hypot(dx, dz) < 40;
       const at = c.place ? ` at ${c.place}` : '';
       const dark = (c.window && !inWindow(this.env.hour, c.window) ? ((c.freight ?? !c.contact) ? ' · when the freight is in' : ` · ${hoursText(c.window)}`) : this._waitsDark(c) ? ' · after dark' : '') + (c.fragile ? ' · fragile' : '');
-      this.hud.setObjective(ready && near && !dark ? `Pull up at ${c.name}’s door and stop` : ready ? `Deliver to ${c.name}${at}${dark} · ${left}`
+      // (a story order wanting nothing is a call: chapter 8's warning)
+      const call = !Object.keys(c.wants).length;
+      this.hud.setObjective(ready && near && !dark ? `Pull up at ${c.name}’s door and stop` : ready ? `${call ? 'Call on' : 'Deliver to'} ${c.name}${at}${dark} · ${left}`
         : `Order: ${wantsText(c.wants)}${c.grade ? ` (grade ${c.grade}+)` : ''} for ${c.name} · ${left}`,
         `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(bearing), Math.cos(bearing)));
       return;

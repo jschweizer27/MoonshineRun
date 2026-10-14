@@ -110,6 +110,14 @@ Enter, the D-pad and A/B, or touch.
    and Nassau rum) sells at the speakeasies as the genuine article, and after the chapter
    Mags's launch sells you a load any night after eleven.
 
+   **Chapter 8, The Crackdown:** Agent Draper's Bureau goes down Otto's list. Warn Gus Kessler,
+   set up a **hidden still** in the woods past Frog Hollow (a copper coil and a barrel), open
+   **Braun's** in the old Braun & Sons cellar with four crates of your own shine, then get
+   home to the barn, where the Bureau is waiting, and get away. After it Otto runs an
+   **operation**: the hidden still brews two crates a day (collect them at the hollow), Braun's
+   sells a few crates of whatever you stock it with every night, and Barrel Rye kept in the
+   barn's stash ages a little better each day.
+
    Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
    - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
    - the **false bottom** hides two crates from a search;
@@ -130,7 +138,7 @@ Enter, the D-pad and A/B, or touch.
 
    The notebook lists them; **FOLLOW** one to point the banner and the route at it.
 
-   **The endings.** After chapter 7 the choice is yours, and it ends the story:
+   **The endings.** After chapter 8 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
    - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
 

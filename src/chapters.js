@@ -20,6 +20,9 @@ import { activeArcs } from './arcs.js';
 //    `spot` sends it to a place in a region instead of a contact's door (world.towson's).
 //    A `passenger` (`who`, picked up at the door of the contact `from`) rides along to it;
 //    a `fragile` load breaks a crate on any hard knock.
+//  - `takes`: what a story site's step needs aboard and takes from the trunk ({ kind: n };
+//    'shine' is any of Otto's own brews); `stock` puts what it took in Braun's cellar.
+//  - `ambush`: a trap springs when the step is done (true: Warren's; a key: main._ambush).
 //  - `learn`: a recipe the step teaches (CONFIG.dredge.brew recipes with `learn`); `flag`: a
 //    save flag it sets once done.
 //  - `lost`: what the step needs that the player can lose (sell, leave behind) before it's
@@ -241,6 +244,42 @@ export const CHAPTERS = [
     tool: { id: 'launch', name: 'Mags’s launch', text: 'Any night after eleven, buy off the launch at the Canton pier: two cases of Scotch and a crate of rum, cash on the pier.' },
     close: [
       ['otto', 'Vail’s money burned the brewery, Vail’s schooner fills the city’s glasses, and Vail’s agent clears the road for it.'],
+      ['orourke', 'Careful, Otto. A man who pays the Bureau can point it, too.'],
+      ['narrator', 'Chapter 7 complete. Somewhere in Towson, a copy of the manifests is missing, and Agent Draper has been told whose truck to look for.'],
+    ],
+  },
+  {
+    id: 'crackdown', title: 'The Crackdown', place: 'the whole county',
+    open: [
+      ['narrator', 'Chapter 8: The Crackdown. By Monday Agent Draper has a list of every speakeasy that buys from Otto Braun, and the Bureau starts at the top.'],
+      ['romano', 'They hit my club last night, Otto, and the Belvedere the night before. Draper has a list. Your name is on the top of it.'],
+      ['otto', 'Then they’ll go for the barn next, and the still. I need a still they don’t know about, and money coming in while I lie low.'],
+    ],
+    steps: [
+      { id: 'warn', text: 'Warn Gus Kessler before the Bureau gets to him: stop at his door after dark', order: { who: 'kessler', at: 'kessler', wants: {}, night: true, pay: 0 }, done: (d) => !!d.flags['order:warn'],
+        lines: [
+          ['kessler', 'I’ll clear the cellar tonight. Otto, listen: Ma Pruitt says there’s a hollow in the woods past Frog Hollow where her husband ran a still in the war. Nobody’s been in there since.'],
+          ['kessler', 'And the old Braun & Sons cellar. The Bureau searched it twice and found nothing. A place they’ve already searched is the last place they’ll look.'],
+        ] },
+      { id: 'hollow', text: 'Set up a hidden still in the woods past Frog Hollow, after dark (bring a copper coil and a barrel)', site: 'hollow', night: true, takes: { coil: 1, barrel: 1 }, sets: 'hollowStill', got: 'The hidden still is up in the hollow: it’ll brew on its own now, two crates a day.', done: (d) => !!d.flags.hollowStill,
+        lines: [['narrator', 'Copper on a stone hearth, a spring for the worm and a tarpaulin over all of it. By morning the first run is dripping, and nobody in the county knows it’s there.']] },
+      { id: 'brauns', text: 'Open Braun’s in the old Braun & Sons cellar: stock it with 4 crates of shine', site: 'brauns', takes: { shine: 4 }, stock: true, sets: 'brauns', got: 'Braun’s is open: the old cellar sells what you stock it with, every night.', done: (d) => !!d.flags.brauns,
+        lines: [
+          ['kessler', 'Braun’s. Your father’s name over the door again, even if the door’s in a cellar. I’ll send the regulars round.'],
+          ['narrator', 'Braun’s sells what’s in its cellar every night, at a speakeasy’s price. Stock it whenever you’re in Highlandtown.'],
+        ] },
+      { id: 'raid', text: 'Get back to the barn after dark: the Bureau is watching it', at: 'barn', night: true, ambush: 'raid', done: (d) => !!d.flags.raidHome,
+        lines: [
+          ['narrator', 'Headlights in the lane. Every one of them is the Bureau’s, and they were waiting.'],
+          ['draper', 'Otto Braun! Federal agents. Out of the truck, and keep your hands where I can see them.'],
+        ] },
+      { id: 'lose', text: 'Lose Agent Draper’s raid', done: (d) => !!d.flags['escaped:raid'],
+        lines: [['otto', 'Draper knew the barn, knew my nights, knew the lane. Somebody in Towson reads his reports before he files them.']] },
+    ],
+    clue: { id: 'warrant', title: 'Draper’s warrant', text: 'Dropped in the lane in the chase: a federal warrant for Otto Braun, sworn by Agent R. Draper. Clipped to it, a note on the Towson National Bank’s paper: “Before the auction. C.V.”' },
+    tool: { id: 'hollow', name: 'The hidden still and Braun’s', text: 'The hollow brews on its own, two crates of Corn Shine a day for you to collect, and Braun’s sells what you stock its cellar with, every night.' },
+    close: [
+      ['otto', 'Before the auction. Vail means to buy every brewery in Baltimore the day Repeal comes, and he wants me in a cell when he does.'],
       ['narrator', 'The end is yours to choose. Buy back the Braun & Sons deed at Lexington Market and go legit, waiting for Repeal. Or take the letters to the Baltimore Sun and bring the Alliance down.'],
     ],
   },
@@ -298,6 +337,8 @@ export function lostNow(d, have) {
 export function openSites(d, have = null) {
   const out = d.flags?.['learned:lager'] ? { brewery: { night: false, window: null } } : {};
   if (d.tools?.launch) out.pier = { night: false, window: CONFIG.dredge.rumrow.window };   // Mags's launch, any night
+  if (d.flags?.hollowStill) out.hollow = { night: false, window: null };                  // the operation: the hidden still
+  if (d.flags?.brauns) out.brauns = { night: false, window: null };                      // and Braun's
   if (d.arcs) for (const { step } of activeArcs(d)) if (step.site) out[step.site] = { night: !!step.night, window: step.window || null };
   if (choiceOpen(d)) return { ...out, sun: { night: false, window: null } };
   const { step } = current(d), lost = lostNow(d, have);

@@ -344,7 +344,7 @@ for (const ending of ['deed', 'paper']) {
     // The save is past every chapter before the drive starts (and only window.shine.step
     // moves the game on), so no chapter's card opens under the test.
     await page.evaluate(() => { const g = window.shine.game; g.dredge.data.started = true; g.dredge.data.story = { prologue: true, valley: true, rare: true, temperance: true, still: true, contacts: true, quarry: true, sheriff: true }; });
-    await past(page, 7);
+    await past(page, 8);
     await page.evaluate(() => { const g = window.shine.game, d = g.dredge.data; d.flags.betrayed = true; d.cash = 25000; g.settings.reducedMotion = true; });
     await page.click('#start-btn');
     const sun = await page.evaluate(() => { const g = window.shine.game; return g.salvage.sites.find((s) => s.story === 'sun'); });
@@ -362,7 +362,7 @@ for (const ending of ['deed', 'paper']) {
     expect(seen.join(' ')).toContain(ending === 'deed' ? 'Braun & Sons. Mine again.' : 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE');
     await expect(page.locator('#ending')).toBeVisible();
     await expect(page.locator('#ending-title')).toHaveText(ending === 'deed' ? 'THE DEED' : 'THE PAPER');
-    await expect(page.locator('#ending-stats')).toContainText('Clues found7/7');
+    await expect(page.locator('#ending-stats')).toContainText('Clues found8/8');
     const after = await page.evaluate(() => { const d = window.shine.game.dredge.data; return { ending: d.ending, cash: d.cash, deed: !!d.flags.deed }; });
     expect(after).toEqual(ending === 'deed' ? { ending: 'deed', cash: 13000, deed: true } : { ending: 'paper', cash: 25000, deed: false });
     if (ending === 'deed') {
