@@ -78,7 +78,7 @@ export class RoadEvents {
       ev.car = this.traffic.park(a.id, b.id, 'cart');
       const near = this._landmark(ev.x, ev.z);
       ev.text = type === 'washout'
-        ? `The rain has washed out the road near ${near}, and a cart's stuck in it. Go around`
+        ? (env?.winter ? `Snow has drifted across the road near ${near}, and a cart's stuck in it. Go around` : `The rain has washed out the road near ${near}, and a cart's stuck in it. Go around`)
         : `A farm cart's broken down across the road near ${near}. Go around`;
     } else if (type === 'fog') {
       env.setWeather('fog');

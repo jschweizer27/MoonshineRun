@@ -135,13 +135,16 @@ Enter, the D-pad and A/B, or touch.
    you got there. On the barest nerves, out in the county at night, there's sometimes a black
    car with its lights off right behind you, and then there isn't.
 
-   Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
+   Each chapter ends in a **clue** to who paid for the fire, and most in a tool:
    - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
    - the **false bottom** hides two crates from a search;
-   - the **police-band radio** shows every Bureau car on the radar, and which way it's looking.
+   - the **police-band radio** shows every Bureau car on the radar, and which way it's looking;
+   - in Act II, **Mags's launch** (Scotch and rum off Rum Row, any night after eleven) and the
+     **hidden still and Braun's**, an operation that runs while you drive.
 
    While a step waits on someone, they post an order every day. Some steps put a **story order**
-   in the book: no deadline, but it can't be dropped. The notebook keeps the steps and the clues.
+   in the book: no deadline, but it can't be dropped (some are just a call in person). The
+   notebook keeps the steps and the clues.
 
    **Side stories.** Win a contact's trust (★ to ★★★) and six of them ask for more
    than an order: a story of their own, run alongside the chapters, each with a reward of its own.
@@ -196,7 +199,8 @@ Enter, the D-pad and A/B, or touch.
    **Monkton General Store** at the crossroads up York Road, or the **Glyndon Depot** out west
    in the valley. Out east, the quarry town of **Cockeysville** has a company store that pays
    best for copper, kegs and barrels, but it only deals with Otto from chapter 3;
-   until then its mark on the radar is barred. Each town pays differently,
+   until then its mark on the radar is barred. In Act II, the **Towson Market House** deals
+   too. Each town pays differently,
    prices drift day to day, and selling a lot of one thing in one place drives its price down.
    From the second day on, one town each day pays **double** for one kind of loot: the
    banner and the market say which.
@@ -288,7 +292,7 @@ Enter, the D-pad and A/B, or touch.
    (`3`, d-pad right: the next sale or job pays 20% more). **Highlandtown Lager** is brewed
    only in Gus's cellar, from chapter 5. Upgrade levels 4 and 5 and the later upgrades open as
    the story goes on.
-12. The story ends with **the deed or the paper** (above). The roads stay open after it.
+12. The story ends with **the deed**, **the paper** or **the crown** (above). The roads stay open after it.
 13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books, and how long each chapter
    took you. Everything is saved: your
@@ -405,17 +409,20 @@ src/
   world.js      seeded 1920s city: cobbles, rails, instanced buildings + lamps, named corners
   atlas.js      the painted building atlas (facades, trims, roofs, awnings, barns)
   county.js     Green Spring Valley: farm roads, barns, woods, fences, Monkton, Glyndon and
-                Cockeysville (with its quarry yard)
+                Cockeysville (with its quarry yard); loch.js, towson.js, railway.js its regions
   environment.js  day/night cycle and weather
   loot.js       loot along the roads (pooled, one instanced mesh for every kind)
   traffic.js    cars, vans and carts on the roads near the view (pooled, one instanced mesh)
   roadevents.js washouts, broken-down carts, fog banks and market days
   trunk.js, trunkscreen.js   the trunk grid and its screen
-  market.js     prices and selling (drift, gluts)
+  market.js     prices and selling (drift, gluts), the calendar
+  salvage.js    the salvage sites and the story sites; codex.js, lore.js the finds and letters
+  contracts.js  the contacts and their orders; brew.js the still; police.js the Bureau
+  story.js      the cast and the story cards
   dredgecareer.js  the save: cash, the trunk, upgrades, stats, ledger
   chapters.js, arcs.js  the story's chapters, and the contacts' side stories
   marker.js     the market markers
-  screens.js    the market and ledger screens
+  screens.js    the market, barn, notebook, ledger and ending screens
   particles.js  exhaust, dust, sparks and smoke
   music.js      generated ragtime soundtrack
   collision.js  2D colliders, bounds, line of sight (for the camera)

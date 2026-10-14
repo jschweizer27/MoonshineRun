@@ -1,6 +1,8 @@
 # Shine: game design (v4)
 
-*Status: approved direction. The numbers are targets to test, not promises.*
+*Status: built as v4 (five chapters, two endings, about 5 hours). v5 grew it into the 10–15 hour
+game: nine chapters in two acts, side stories, the night-and-nerve loop and a third ending.
+For those, `docs/EXPANSION.md` supersedes this document; what's here still describes Act I.*
 
 ## Why this rewrite
 

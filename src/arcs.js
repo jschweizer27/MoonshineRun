@@ -96,7 +96,7 @@ export const ARCS = [
       { id: 'band-ride', text: 'Bring the band from Big Tom Healy’s to Lulu Banks’s before the first set (19:30–21:00)', order: { who: 'band', at: 'banks', wants: {}, window: [19.5, 21], pay: 150, passenger: { who: 'band', from: 'healy' } }, done: ordered('band-ride'),
         lines: [['band', 'Five, six, seven, eight!'], ['banks', 'Listen to that room, sugar. You did that.']] },
     ],
-    reward: { tool: 'belvedere', name: 'The Belvedere', text: 'The Belvedere is yours on Saturdays: Lulu Banks pays double for shine every Saturday night.' },
+    reward: { tool: 'belvedere', name: 'The Belvedere', text: 'Lulu Banks runs the bar at the Belvedere’s Saturday dances now: every Saturday night she pays double for shine at the Station North Jazz Club.' },
   },
 ];
 

@@ -18,7 +18,7 @@ import { Police } from './police.js';
 import { Railway, RAILWAY, inWindow } from './railway.js';
 import { LOCH_NODES, WARREN } from './loch.js';
 import { TOWSON_NODES } from './towson.js';
-import { advance, current, openSites, lostNow, choiceOpen, ENDINGS } from './chapters.js';
+import { advance, current, openSites, lostNow, choiceOpen, crownReady, ENDINGS } from './chapters.js';
 import { advanceArcs, activeArcs, arcById, arcStep } from './arcs.js';
 import { consume, onHand, blend, missing, RECIPES, blendGrade } from './brew.js';
 import { contacts, offersFor, progress, handOver, wantsText, trustLevel, nextDawn } from './contracts.js';
@@ -729,7 +729,7 @@ class Game {
     const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
     if (events.some((e) => e.type === 'clue')) this.hud.toast('A clue for the notebook (B)', 'gold', 4000);
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
-    else if (done && choiceOpen(d)) this.hud.toast('The choice is yours: the deed, or the paper', 'gold', 4000);
+    else if (done && choiceOpen(d)) this.hud.toast(`The choice is yours: the deed or the paper${crownReady(d) ? ', or the crown' : ''}. The notebook has them.`, 'gold', 4000);
     for (const e of arcs) {
       const next = arcStep(d, e.arc);
       if (e.type === 'open') this.hud.toast(`A side story: ${e.arc.title}, for ${CAST[e.arc.who].name}. The notebook (B) has it.`, 'gold', 4500);
@@ -1268,8 +1268,9 @@ class Game {
     this.hud.toast('Black sedans behind you, and no sirens: Vail’s men. Lose them or lose the load.', 'red', 4500);
   }
 
-  // Whether Vail's men are about: from chapter 6 until Otto faces Vail.
-  _rivalsOn() { const d = this.dredge.data; return (d.chapter || 0) >= CONFIG.dredge.rivals.from && !d.flags.rivalsGone && !d.ending; }
+  // Whether Vail's men are about: from chapter 6, once Vail is named (the bank's records),
+  // until Otto faces him.
+  _rivalsOn() { const d = this.dredge.data; return (d.chapter || 0) >= CONFIG.dredge.rivals.from && !!d.clues.mortgages && !d.flags.rivalsGone && !d.ending; }
 
   // Hijacked: Vail's men take part of the shine and drive off. No fine, no cell: just gone.
   _hijack() {
@@ -1595,7 +1596,7 @@ class Game {
     if (game === 'crown') {
       if (await this.ui.confirm('THE CROWN?', 'Take Vail’s routes for your own on the courthouse steps? Otto stays outside the law, and runs York Road from the harbour to the Pennsylvania line. This ends the story; the roads stay open after it.', 'TAKE THEM')) { this._end('crown'); return; }
     } else if (game === 'give') {
-      if (await this.ui.confirm('THE PAPER?', 'Give the Jockey’s letters to the Baltimore Sun? The Alliance falls, and Otto stays a bootlegger. This ends the story; the roads stay open after it.', 'TAKE THEM IN')) { this._end('paper'); return; }
+      if (await this.ui.confirm('THE PAPER?', 'Give the Jockey’s letters and the bank’s ledgers to the Baltimore Sun? The Alliance and Vail fall together. This ends the story; the roads stay open after it.', 'TAKE THEM IN')) { this._end('paper'); return; }
     } else {
       // The step's `price` and `deal` (a side story's), else Sheriff Hale's report.
       const job = this._siteStep(site), price = job?.price ?? CONFIG.dredge.story.report;
@@ -2175,7 +2176,7 @@ class Game {
     }
   }
 
-  // One of the two endings: buy back the brewery deed at Lexington Market, once the story's
+  // One of the three endings: buy back the brewery deed at Lexington Market, once the story's
   // last chapter is done (free for a save that bought it before the endings came).
   _deed(town) {
     const D = CONFIG.dredge.deed, d = this.dredge.data;
@@ -2185,7 +2186,7 @@ class Game {
       cost,
       onBuy: async () => {
         if (d.cash < cost) return;
-        if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(cost)} for the Braun & Sons deed and go legit? The letters stay in Father’s strongbox. This ends the story; the roads stay open after it.`, 'BUY IT BACK'))) return;
+        if (!(await this.ui.confirm('BUY THE DEED?', `Pay ${money(cost)} on the Towson National Bank’s note, take back the Braun & Sons deed and go legit? The letters stay in a drawer. This ends the story; the roads stay open after it.`, 'BUY IT BACK'))) return;
         d.cash -= cost;
         this.hud.setCash(this.dredge.cash, true);
         if (cost) this.hud.cashPop(`−${money(cost)}`);
@@ -2544,7 +2545,7 @@ class Game {
   // the day's market event if there is one.
   _updateObjective() {
     if (this.police.tier > 0) {
-      this.hud.setObjective(`${'★'.repeat(this.police.tier)} The Bureau is after you: get out of sight to lose them`, null, 'roam');
+      this.hud.setObjective(this._hijackOn ? `${'★'.repeat(this.police.tier)} Vail’s men are after you: lose them, or lose the load` : `${'★'.repeat(this.police.tier)} The Bureau is after you: get out of sight to lose them`, null, 'roam');
       return;
     }
     const c = this._focusOrder(), cur = current(this.dredge.data);
