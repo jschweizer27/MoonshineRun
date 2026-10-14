@@ -310,6 +310,9 @@ export const CONFIG = {
     // The notebook's finds (DREDGE's encyclopedia): every kind a site kind gives up found
     // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
     codex: { set: 250 },
+    // Winter comes with Act II (from chapter index `from`): snow for rain, the county frosted,
+    // and on winter nights the roads ice over (`ice` off the grip at full dark).
+    winter: { from: 5, ice: 0.12 },
     // Rivals (Act II, chapter 6 until Vail is faced in chapter 9; DREDGE's hunters): by night
     // in the county, with `min` crates of shine aboard, Vail's black sedans may come for the
     // load (`chance` a game hour): boxed in, they take `take` of the shine (a hijack, not a

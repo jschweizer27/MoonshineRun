@@ -272,7 +272,7 @@ const TAUGHT = {
   applejack: 'Ma Pruitt at Old Mill Barn knows it.',
   rye: 'Gus Kessler will teach it to a man he trusts (★★★).',
   lager: 'Father’s own recipe; it needs a brewery, not a still.',
-  kummel: 'Father’s recipe book is somewhere. Izzy Feld has a key (★★★).',
+  kummel: 'Father’s recipe book is somewhere. Izzy Feld has a key (★★).',
 };
 
 // A blend's grade as shown: A, B or C, and "C, tainted" for a bad one.
@@ -739,9 +739,9 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
   for (const c of found) body.append(note(el('div', {}, el('b', {}, c.title), el('small', { class: 'says' }, c.text))));
   // The side stories (arcs.js): open ones with their step and FOLLOW (the banner and the
   // route follow it), done ones with what they gave, and a hint at the next to open.
-  const open = ARCS.filter((a) => d.arcs?.[a.id]?.open), next = ARCS.find((a) => !d.arcs?.[a.id]?.open);
+  const open = ARCS.filter((a) => d.arcs?.[a.id]?.open);
   body.append(el('h3', {}, `SIDE STORIES · ${ARCS.filter((a) => d.arcs?.[a.id]?.done).length}/${ARCS.length}`));
-  if (!open.length) body.append(note(el('span', {}, 'Win a contact’s trust (★★ or ★★★) and they’ll ask for more than an order.')));
+  if (!open.length) body.append(note(el('span', {}, 'Win a contact’s trust and they’ll ask for more than an order. COURT one below and their orders come at your pace.')));
   for (const a of open) {
     const st = arcStep(d, a), on = d.follow === a.id;
     const btn = st ? el('button', { type: 'button', class: `btn small-btn follow${on ? ' on' : ''}`, 'data-arc': a.id, 'aria-pressed': String(on) }, on ? 'FOLLOWING' : 'FOLLOW') : '';
@@ -749,7 +749,19 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     body.append(note(face(a.who), el('div', {}, el('b', {}, `${a.title} · ${CAST[a.who].name}`),
       el('small', { class: st ? '' : 'says' }, st ? `▸ ${st.text}${st.night ? ', after dark' : ''}` : `✓ ${a.reward.text}`)), btn));
   }
-  if (next && open.length < ARCS.length) body.append(note(el('span', { class: 'later' }, `· ${CAST[next.who].name} has something on their mind. (${'★'.repeat(next.at)}${next.chapter > (d.chapter || 0) ? `, from chapter ${next.chapter + 1}` : ''})`)));
+  // Those whose chapter has come but whose contact's trust falls short: COURT one (the save's
+  // `follow`, main._courted) and that contact posts an order at the player's pace; it's
+  // followed once it opens. The rest, a hint at the next.
+  const ready = (a) => (d.chapter || 0) >= (a.chapter || 0) && (!a.also || a.also(d));
+  for (const a of ARCS.filter((x) => !d.arcs?.[x.id]?.open && ready(x))) {
+    const on = d.follow === a.id, have = level(a.who);
+    const btn = el('button', { type: 'button', class: `btn small-btn follow${on ? ' on' : ''}`, 'data-court': a.id, 'aria-pressed': String(on) }, on ? 'COURTING' : 'COURT');
+    btn.addEventListener('click', () => { d.follow = on ? null : a.id; career.save(); onFollow?.(); render(a.id); });
+    body.append(note(face(a.who), el('div', {}, el('b', {}, `${CAST[a.who].name} has something on their mind`),
+      el('small', { class: 'later' }, `Trust ${'★'.repeat(have)}${'☆'.repeat(Math.max(0, a.at - have))} of ${'★'.repeat(a.at)}${on ? ': their orders come at your pace' : ''}`)), btn));
+  }
+  const later = ARCS.find((a) => !d.arcs?.[a.id]?.open && !ready(a));
+  if (later) body.append(note(el('span', { class: 'later' }, `· ${CAST[later.who].name} has something on their mind. (${'★'.repeat(later.at)}${later.chapter > (d.chapter || 0) ? `, from chapter ${later.chapter + 1}` : ''})`)));
   // What the story has given Otto to work with: the chapters' tools and the side stories'.
   const tools = [...CHAPTERS.filter((c) => c.tool && d.tools[c.tool.id]).map((c) => c.tool), ...ARCS.filter((a) => a.reward.tool && d.tools[a.reward.tool]).map((a) => a.reward)];
   if (tools.length) {
@@ -796,7 +808,7 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     body.append(note(el('div', {}, el('b', {}, r.name),
       el('small', {}, unlearned ? `Not learned yet. ${TAUGHT[r.id] || ''} Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${r.brewery ? ' Brewed at the brewery in Gus’s cellar.' : ''}${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
   }
-  const again = focusArc && body.querySelector(`[data-arc="${focusArc}"]`);
+  const again = focusArc && body.querySelector(`[data-arc="${focusArc}"], [data-court="${focusArc}"]`);
   if (again) again.focus();
   };
   render();

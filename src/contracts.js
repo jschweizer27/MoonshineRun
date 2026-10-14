@@ -52,9 +52,10 @@ function roll(salt, day) {
 // `focus`: the contact a chapter step waits on (chapters.js `who`): one more offer is
 // theirs, whatever the chapter, a fresh one after each order delivered to them (`focusN`, the
 // count so far: id `<day>-f<focusN>`), so a trust step moves at the player's pace, not a
-// day's. `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
+// day's. `tag`: the focus offer's id letter ('f'; 'c' for a contact Otto courts for a side
+// story, main._courted, so the two never share an id). `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
 // that lands on one goes to someone else. Without either, the offers are as they always were.
-export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [], bounty = false } = {}) {
+export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, tag = 'f', exclude = [], bounty = false } = {}) {
   // Recipes he can brew: the plain one, and those he's been taught.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
@@ -103,7 +104,7 @@ export function offersFor(day, list, { brewing = false, chapter = 0, trust = {},
     out.push(offer(i, contact));
   }
   const wanted = focus && !exclude.includes(focus) && list.find((c) => c.who === focus);
-  if (wanted) out.push(offer(`f${focusN}`, wanted));
+  if (wanted) out.push(offer(`${tag}${focusN}`, wanted));
   // A bounty (once Otto knows odd finds): someone wants a particular odd one, by a day or so,
   // at a collector's price. Last, so the day's other offers stay as they were.
   if (bounty) {

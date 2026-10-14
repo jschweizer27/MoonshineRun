@@ -599,6 +599,7 @@ class Game {
     }
     this._ambushOn = false;
     this._hijackOn = false;
+    this._applyWinter();
     this._updatePassenger();
     this._nightFrom = this._tally();
     this.salvage.state = this.dredge.data.sites;
@@ -718,6 +719,7 @@ class Game {
     }
     this.salvage.story = this._openSites();
     this.salvage.refresh(dayOf(this.dredge.market));
+    this._applyWinter();
     if (tool) this._applyPerks();
     this._storyOrders();
     this.dredge.save();
@@ -769,6 +771,19 @@ class Game {
   _activeSteps() {
     const d = this.dredge.data, { step } = current(d);
     return [...(step ? [{ step, arc: null }] : []), ...activeArcs(d)];
+  }
+
+  // The contact whose offers come at the player's pace (contracts.offersFor `focus`): the
+  // chapter step's, else the one Otto courts: a side story followed from the notebook before
+  // it opens (its chapter reached, its contact's trust short).
+  _courted() {
+    const d = this.dredge.data, arc = d.follow && arcById(d.follow);
+    return arc && !d.arcs?.[arc.id]?.open && (d.chapter || 0) >= (arc.chapter || 0) && (!arc.also || arc.also(d)) ? arc.who : null;
+  }
+
+  _focus() {
+    const d = this.dredge.data, who = current(d).step?.who, court = !who && this._courted();
+    return court ? { focus: court, focusN: d.delivered[court] || 0, tag: 'c' } : { focus: who, focusN: d.delivered[who] || 0 };
   }
 
   // The step the banner and the route follow: the side story the notebook follows (d.follow),
@@ -1078,9 +1093,17 @@ class Game {
     this._updateAudio();
   }
 
+  // Act II's winter (CONFIG.dredge.winter): snow for rain, the county frosted, icy nights.
+  _applyWinter() {
+    const on = (this.dredge.data.chapter || 0) >= CONFIG.dredge.winter.from;
+    if (on === this.env.winter) return;
+    this.env.setWinter(on);
+    this.world.setWinter(on);
+  }
+
   // The HUD's clock: sun or moon, the time, the weather.
   _clockText() {
-    const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
+    const weather = { rain: this.env.winter ? ' · Snow' : ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
     const nerves = this._nerveWord();
     return `${this.env.daylight > 0.5 ? '☀' : '☾'} ${weekday(dayOf(this.dredge.market))} ${this.env.clock}${weather}${nerves ? ` · ${nerves}` : ''}`;
   }
@@ -2171,7 +2194,7 @@ class Game {
       full: () => d.orders.filter((o) => !o.story).length >= CONFIG.dredge.contracts.book,
       offers: () => offersFor(day, this.contactList, {
         brewing: (d.still || 0) > 0 || d.stats.brews > 0, chapter: d.chapter || 0, trust: d.trust, home: { x: h.stopX, z: h.stopZ }, learned: d.flags,
-        focus: current(d).step?.who, focusN: d.delivered[current(d).step?.who] || 0, exclude: d.flags.betrayed ? ['jockey'] : [],
+        ...this._focus(), exclude: d.flags.betrayed ? ['jockey'] : [],
         bounty: ODDS.some((k) => d.codex?.[k]?.n),
       }).filter((o) => !d.taken[o.id]),
       hoursLeft: (o) => (o.due == null ? null : o.due - this.dredge.market.clock),
