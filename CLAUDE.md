@@ -110,12 +110,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   radar's wedges). Save: `chapter`, `steps`, `opened`, `clues`, `tools`, `ending`,
   `stepTimes`.
 - Side stories (v5, `src/arcs.js`, design in `docs/EXPANSION.md`): six contacts' own arcs
-  (`ARCS`), opened at a contact's trust (★★ or ★★★) from a chapter (`at`, `chapter`, `also`), on the same step fields
+  (`ARCS`), opened at a contact's trust (★ to ★★★) from a chapter (`at`, `chapter`, `also`), on the same step fields
   (plus `price` / `deal` for a 'pay' site, `got`, `order.place`, a passenger's `vouch`), run
   alongside the chapters: `advanceArcs` (from `main._chapters`), `activeArcs` (their sites
   join `openSites`; their orders `_storyOrders`; `main._activeSteps` / `_siteStep`). Step ids
   are unique across chapters and arcs. Save: `arcs` ({ open, done }), `follow` (the arc the
-  banner, route and focus order follow: `main._followed`, the notebook's FOLLOW) and `once`
+  banner, route and focus order follow: `main._followed`, the notebook's FOLLOW; an arc not
+  open yet is COURTED: `main._courted` / `_focus` give its contact the offers' `focus`, with
+  `tag: 'c'` so its ids never meet the chapter's) and `once`
   (a tool's once-a-night/day use). Rewards: Kümmel (a recipe) and the tools `prescriptions`
   (`main._byDay`: Wexler deals by day), `labels` (`_searched`, once a night: `nightOf`),
   `farmstill` (`_dawn`), `family` (`_bust` in the city, once a day), `belvedere`
@@ -168,6 +170,13 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   half the shine, no fine); each dawn they pick salvage sites clean (seeded by the day). The
   Black Car (`CONFIG.dredge.nerves.blackCar`): a phantom behind the truck on the barest nerves.
   A story order's `spot` can be any `world.towson` place (`bankfront`).
+- Winter (v5 stage 14, from `CONFIG.dredge.winter.from`, Act II): `main._applyWinter` (on
+  load and in `_chapters`) sets `env.setWinter` (the rain's colour and fall: snow; grip:
+  `effects` takes `winter.ice` at full dark, rain half as slick) and `world.setWinter` (the
+  county's roof and tree-crown materials' colours, `world.frost`, and the grass texture's
+  canvas swapped for `world.snowField.snow`, painted once at boot). Colours and one texture
+  upload only: nothing compiles. `scripts/progress.mjs` models the pacing (side stories
+  included; `ARCS=1`, `STEPS=1` for the split): tune arcs' `at` and steps against it.
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

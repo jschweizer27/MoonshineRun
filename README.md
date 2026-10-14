@@ -4,7 +4,8 @@ Baltimore, 1922. You are **Otto Braun**, and last night the Temperance Alliance 
 Highlandtown brewery to the ground. The roads out of the city are littered with what other
 people lost: crates, kegs, copper. Work the roads between Baltimore and the Green Spring
 Valley, pack what you find into the truck, sell it where it pays best, and buy back what was
-yours. The story plays out in short dialogue cards as you go (skip any with Esc).
+yours. The story plays out in short dialogue cards as you go (skip any with Esc): nine
+chapters in two acts, six side stories and three endings, about 10–15 hours for most players.
 
 This repository has two parts:
 
@@ -103,6 +104,10 @@ Enter, the D-pad and A/B, or touch.
    Tavern, get into the bank's records room after dark, and drive Ruby to the courthouse with
    a copy before the bank opens.
 
+   Act II comes in **winter**: the rain falls as snow, the fields and roofs are white, and
+   after dark the roads ice over (a little less grip, all night; snow itself is less slippery
+   than rain).
+
    **Chapter 7, Rum Row:** win Mags O'Rourke's full trust and work the Canton waterfront with
    her. Meet the launch at the Canton pier after eleven (a schooner rides at anchor off the
    docks, and the **harbour patrol** is out by night), take **Imported Scotch** to Mr.
@@ -138,7 +143,7 @@ Enter, the D-pad and A/B, or touch.
    While a step waits on someone, they post an order every day. Some steps put a **story order**
    in the book: no deadline, but it can't be dropped. The notebook keeps the steps and the clues.
 
-   **Side stories.** Win a contact's trust (★★, or ★★★ for most) and six of them ask for more
+   **Side stories.** Win a contact's trust (★ to ★★★) and six of them ask for more
    than an order: a story of their own, run alongside the chapters, each with a reward of its own.
    - **Izzy Feld, The Brass Key:** Father's vault under the ruins, and his **Kümmel** recipe.
    - **Doc Wexler, The Prescription Pad:** his licence, and then his dispensary deals by day.
@@ -148,7 +153,10 @@ Enter, the D-pad and A/B, or touch.
    - **Lulu Banks, The Band's Night:** the Belvedere pays double on Saturday nights (the clock
      shows the day of the week).
 
-   The notebook lists them; **FOLLOW** one to point the banner and the route at it.
+   The notebook lists them; **FOLLOW** one to point the banner and the route at it. One whose
+   chapter has come but whose contact doesn't trust you enough yet can be **COURTED**: that
+   contact then posts an order at your pace, a fresh one after each you deliver, and the
+   banner follows the story once it opens.
 
    **The endings.** After chapter 9 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
@@ -379,8 +387,9 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   site at a score of 0.85) and prints what salvage earns a real minute and the still's makings
   it finds (`node scripts/economy.mjs 20 0.5 0 7`: a fair job, city seed 7; compare a few
   seeds). `node scripts/progress.mjs` models the story's pacing from the tuning: each
-  chapter's minutes, the hours to the ending's choice and the cash then, for a rusher, a
-  steady player and a casual one.
+  chapter's minutes, the hours to the ending's choice and the cash then, then the side
+  stories' hours, for a rusher, a steady player and a casual one (`ARCS=1` or `STEPS=1` for
+  where the side stories' time goes).
 - URL flags: `?debug` (stats overlay + `window.shine` API), `?test` (deterministic: the
   clock stands still), `?seed=123` (a different city layout).
 - Project conventions and architecture notes for AI-assisted work are in

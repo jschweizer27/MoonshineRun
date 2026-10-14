@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { loadJSON, saveJSON, removeKey } from './save.js';
 import { Trunk, KINDS } from './trunk.js';
 import { CHAPTERS, ENDINGS } from './chapters.js';
+import { arcById } from './arcs.js';
 
 // Otto's saved progress: cash, what's in the trunk, upgrade levels, the markets' memory
 // (gluts and the in-game clock), stats and a ledger. There are three save slots; slot 1
@@ -39,7 +40,8 @@ const DEFAULT = {
   brauns: {},                // Braun's cellar stock: kind -> crates (it sells some each dawn)
   codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
-  follow: null,              // the side story the banner and the route follow (null: the chapter)
+  follow: null,              // the side story the banner and the route follow (null: the chapter);
+                             // one not open yet: its contact courted (main._courted)
   once: {},                  // a tool's once-a-night/day use: tool id -> the game day it was used
   ending: null,              // 'deed' or 'paper' once an ending is chosen (chapters.js ENDINGS)
   sites: {},                 // salvage site id -> the game day it was worked (it refills a day or two on)
@@ -111,7 +113,7 @@ export class DredgeCareer {
     d.hollow = Math.max(0, Math.floor(Number(d.hollow) || 0));
     d.damage = { lamp: !!d.damage?.lamp };
     d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
-    if (typeof d.follow !== 'string' || !d.arcs[d.follow] || d.arcs[d.follow].done) d.follow = null;
+    if (typeof d.follow !== 'string' || !arcById(d.follow) || d.arcs[d.follow]?.done) d.follow = null;
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };

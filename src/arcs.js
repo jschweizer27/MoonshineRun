@@ -43,7 +43,7 @@ export const ARCS = [
     reward: { tool: 'prescriptions', name: 'Doc Wexler’s licence', text: 'Doc Wexler’s dispensary buys shine by day now: medicinal, at a pharmacy’s price.' },
   },
   {
-    id: 'labels', who: 'pryor', title: 'The Tomato Crates', at: 3, chapter: 2,
+    id: 'labels', who: 'pryor', title: 'The Tomato Crates', at: 2, chapter: 2,
     open: [
       ['pryor', 'You’ve seen my trucks: tomato crates, front to back, and not a revenue man in Maryland looks inside. Ride my route once and I’ll show you how it’s done.'],
       ['pryor', 'Bring me two good wooden crates. Then take a load to Dutch Hummel at the mill, packed my way.'],
@@ -56,7 +56,7 @@ export const ARCS = [
     reward: { tool: 'labels', name: 'Cannery labels', text: 'Earned: Nell Pryor’s cannery labels. Once a night, a checkpoint search reads the label and waves you through.' },
   },
   {
-    id: 'note', who: 'carroll', title: 'The Widow’s Note', at: 2, chapter: 1,
+    id: 'note', who: 'carroll', title: 'The Widow’s Note', at: 1, chapter: 1,
     open: [
       ['carroll', 'The bank wrote again, Otto. The Harrow estate bought my note, and if I miss the payment they’ll have the farm by spring.'],
       ['carroll', 'I can pay the next one if somebody pays this one. And I need seed and feed for the winter.'],
@@ -70,7 +70,7 @@ export const ARCS = [
     reward: { tool: 'farmstill', name: 'Stone Hollow’s still', text: 'Widow Carroll runs Father’s friend’s old still at Stone Hollow: a crate of Corn Shine in your stash every dawn.' },
   },
   {
-    id: 'wedding', who: 'romano', title: 'The Wedding', at: 3, chapter: 2,
+    id: 'wedding', who: 'romano', title: 'The Wedding', at: 2, chapter: 2,
     open: [
       ['romano', 'My niece marries Saturday. Two hundred guests, Otto, and Uncle Vito comes in from Highlandtown, and he don’t ride the streetcar.'],
       ['romano', 'Wine for the tables first. Then Vito, then the good stuff. Do this right and you’re family.'],

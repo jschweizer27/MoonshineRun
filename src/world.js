@@ -276,6 +276,14 @@ export class World {
     this.lochGroup.visible = Math.hypot(dx, dz) < 480;
   }
 
+  // Act II's winter: the county's fields, roofs and woods frosted (colours only, so nothing
+  // compiles).
+  setWinter(on) {
+    for (const f of this.frost || []) f.m.color.copy(on ? f.snow : f.base);
+    const F = this.snowField;
+    if (F && F.tex.image !== (on ? F.snow : F.grass)) { F.tex.image = on ? F.snow : F.grass; F.tex.needsUpdate = true; }
+  }
+
   // Nothing solid between two points on the ground (an agent's view of the truck).
   lineOfSight(a, b) { return !this.collision.segmentBlocked(a.x, a.z, b.x, b.z); }
 

@@ -13,7 +13,9 @@
 //  - casual: plays fairly, drives slower, one more order a night, upgrades, and through
 //    the days sleeps half the time and salvages the rest.
 // Places are the default layout's (seed 1922), measured; road distance is about 1.3x
-// straight. Targets (docs/GAME_DESIGN.md): chapter 1 in 45-60 minutes, 5-7 hours in all.
+// straight. Targets (docs/EXPANSION.md): chapter 1 in 45-60 minutes; the story 9-14 hours
+// and, with the side stories, 10-15 for a steady player. `ARCS=1` adds the side stories'
+// split (trust, then steps); `STEPS=1` each contact's trust and each step's minutes.
 import { CONFIG } from '../src/config.js';
 import { CHAPTERS, advance, current, choiceOpen } from '../src/chapters.js';
 import { offersFor, trustLevel } from '../src/contracts.js';
@@ -152,7 +154,7 @@ function play(P) {
     if (!P.side || !d.still || !night(s.clock) || s.nightDone === day()) return;
     s.nightDone = day();
     const list = offers(null).filter((o) => o.night).sort((a, b) => a.km - b.km).slice(0, P.side);
-    for (const o of list) { taken.add(o.id); deliver({ ...o, who: null }, o.who); }
+    for (const o of list) { taken.add(o.id); deliver(o, o.who); }      // (trust grows with them too)
   };
   // Spare cash into upgrades: the cheapest level open, while it's under the player's share.
   const upgrade = () => {
@@ -242,12 +244,19 @@ function play(P) {
   if (P.side) {
     // Every contact's trust to their arc's stars, then the arcs' steps side by side, a step of
     // each in turn (as a player works them all at once: one night serves several).
-    for (const arc of ARCS) for (let k = 0; k < 20 && trustLevel(d.trust[arc.who]) < arc.at; k++) focusOrder(arc.who);
+    // (the game's notebook COURTs the contact: main._courted, an offer at the player's pace)
+    for (const arc of ARCS) {
+      const t0 = s.t, p0 = d.trust[arc.who] || 0;
+      let k = 0;
+      for (; k < 20 && trustLevel(d.trust[arc.who]) < arc.at; k++) focusOrder(arc.who);
+      if (process.env.STEPS) console.log(`    trust ${arc.who.padEnd(10)} from ${p0} points, ${k} orders, ${Math.round(s.t - t0)} min`);
+    }
     const trust = s.t;
     for (let i = 0; ARCS.some((a) => a.steps[i]); i++) {
       for (const arc of ARCS) {
         const st = arc.steps[i];
         if (!st) continue;
+        const t0 = s.t, sp0 = { ...s.spend };
         side();
         const O = st.order;
         if (O?.passenger || O?.window) {
@@ -258,6 +267,7 @@ function play(P) {
           s.cash += O.pay; s.orders++;
         } else if (O) deliver({ wants: O.wants, night: O.night, pay: O.pay, who: null }, O.at);
         else { site(st.site, { night: st.night }); s.cash -= st.price || 0; }
+        if (process.env.STEPS) console.log(`    ${st.id.padEnd(16)} ${m(s.t - t0)} min: driving ${m(s.spend.drive - sp0.drive)}, salvaging ${m(s.spend.salvage - sp0.salvage)}, screens ${m(s.spend.screens - sp0.screens)}`);
       }
     }
     if (process.env.ARCS) console.log(`  side stories: trust ${Math.round(trust - story.t)} min, steps ${Math.round(s.t - trust)} min`);

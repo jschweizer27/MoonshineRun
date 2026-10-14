@@ -8,10 +8,12 @@ Otto runs an operation instead of a truck.
 ## What it adds
 
 ### 1. Side stories: the contacts' own arcs (about +3 h)
-Every contact already has a voice, trust and a "trusted" line. At ★★ or ★★★, six of them open a
+Every contact already has a voice, trust and a "trusted" line. At ★ to ★★★, six of them open a
 story of their own: three or four steps on the chapter engine (orders, story sites, cards,
 passengers, fragile loads). Each ends in a reward the main story doesn't give. They run
 alongside the chapters; the notebook lists them, and you choose which one the banner follows.
+One whose chapter has come but whose contact's trust falls short can be courted from the
+notebook: that contact posts an order at the player's pace until it opens.
 - **Izzy Feld, the pawned key.** A brass key stamped "Braun & Sons". It opens Father's sealed
   vault under the ruins: his recipe book, and a new recipe, **Braun's Kümmel**.
 - **Doc Wexler, the prescription pad.** Medicinal whiskey is legal with a doctor's
@@ -64,8 +66,9 @@ box him in and take the cargo (a hijack, not a bust). Losing them is like losing
 and they're gone for good in chapter 9.
 
 ### 5. Winter (Act II)
-The calendar turns to winter in Act II: snow on the roofs and fields, ice on the roads at
-night (less grip), shorter days and longer nights.
+The calendar turns to winter in Act II: snow on the roofs and fields, snow for rain, and ice
+on the roads at night (less grip). (Built without shorter days: the night is 19:30–06:00
+all year, because the Bureau's checkpoint, the night sites and the night orders all keep it.)
 
 ### 6. Night and nerve: the core loop, after DREDGE (the whole game, from the first night)
 DREDGE (Black Salt Games) is a design touchstone for Shine's salvage-and-sell loop. These are
@@ -115,6 +118,27 @@ More from the same touchstone, in the same spirit:
 13. **Rivals and chapter 9:** hijackers, the auction and the three endings.
 14. **Winter, balance and polish:** the pacing model extended and tuned to 10–15 hours, docs,
     and phone checks.
+
+## Status: built (stages 8–14, PRs #22–#29)
+All of the above is in the game, plus the courting of a side story's contact (stage 14). The
+pacing model (`node scripts/progress.mjs`, which plays the real chapters, offers and side
+stories over a save) gives:
+
+| Player | The story (9 chapters) | With the side stories |
+|---|---|---|
+| Rusher (plays well, story only, sleeps through the days) | 2.2 h | (none) |
+| Steady (plays well, salvages by day, two more orders a night) | 8.6 h | 14.0 h |
+| Casual (plays fairly, drives slower, one more order a night) | 14.2 h | 24.8 h |
+
+So the game is 10–15 hours for most players: a steady player who does everything, or a
+casual one who plays the story. Stage 14 lowered three side stories' trust (Widow Carroll
+★, Nell Pryor and Sal Romano ★★), counted the night's side orders toward trust as the game
+does, and added courting, which the model's trust-building assumed.
+
+Left out, for later: shorter winter days (above); DREDGE's tool for each kind of site,
+drop boxes that fill over days, and charged late-game abilities (the pacing has no room
+for more time). The UE5 project (`ue5/`) keeps the first design and is frozen, so none of
+v5 is mirrored there.
 
 **Constraints, as before:**
 - 12 lights, and under 60 draw calls.

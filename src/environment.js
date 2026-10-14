@@ -21,6 +21,7 @@ export class Environment {
     this.wet = 0;
     this.fog = 0;
     this.rainDetail = 1;
+    this.winter = false;          // Act II's winter (main._applyWinter): snow for rain, ice at night
     this._col = new THREE.Color();
     this._buildRain(world.scene);
     this.update(0, new THREE.Vector3());
@@ -57,8 +58,15 @@ export class Environment {
   }
 
   // Multipliers the physics uses.
+  // Grip: the rain takes some (snow less), and a winter's night ices the roads.
   get effects() {
-    return { grip: 1 - 0.2 * this.wet };
+    return { grip: 1 - 0.2 * this.wet * (this.winter ? 0.5 : 1) - (this.winter ? CONFIG.dredge.winter.ice * (1 - this.daylight) : 0) };
+  }
+
+  // Winter (Act II): the rain comes down as snow.
+  setWinter(on) {
+    this.winter = on;
+    this.rain.material.color.set(on ? 0xeef3f8 : 0xa8bccf);
   }
 
   setWeather(w) { this.weather = w; this._weatherTimer = 180 + Math.random() * 120; }
@@ -127,10 +135,10 @@ export class Environment {
     const on = this.wet > 0.05 && this.rainDetail > 0;
     this.rain.visible = on;
     if (!on || !dt) return;
-    this.rain.material.opacity = 0.35 * this.wet;
-    const d = this.drops, n = Math.floor(this._dropSpeed.length * this.rainDetail);
+    this.rain.material.opacity = (this.winter ? 0.6 : 0.35) * this.wet;
+    const d = this.drops, n = Math.floor(this._dropSpeed.length * this.rainDetail), slow = this.winter ? 0.12 : 1;   // (snow drifts down)
     for (let i = 0; i < n; i++) {
-      const o = i * 6, v = this._dropSpeed[i] * dt;
+      const o = i * 6, v = this._dropSpeed[i] * dt * slow;
       d[o + 1] -= v; d[o + 4] -= v;
       if (d[o + 1] < 0 || Math.abs(d[o] - cam.x) > 40 || Math.abs(d[o + 2] - cam.z) > 40) this._resetDrop(i, cam.x, cam.z, false);
     }
