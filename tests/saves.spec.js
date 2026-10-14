@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot } from './helpers.js';
+import { openGame, reloadGame } from './helpers.js';
 
 const toTitle = (page) => page.evaluate(() => window.shine.game.quitToTitle());
 const slotRow = (page, n) => page.locator('#slots-body .slot').nth(n - 1);
@@ -30,8 +30,7 @@ test('save slots: CONTINUE once played, three slots to play, start over or erase
   await page.evaluate(() => { const g = window.shine.game; g.dredge.data.cash = 70; g.dredge.save(); });
 
   // A new visit opens the slot played last.
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   r = await page.evaluate(() => { const g = window.shine.game; return { slot: g.dredge.slot, cash: g.dredge.cash, label: document.getElementById('start-btn').textContent }; });
   expect(r).toEqual({ slot: 2, cash: 70, label: 'CONTINUE' });
 
