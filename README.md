@@ -218,7 +218,7 @@ Enter, the D-pad and A/B, or touch.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, mend the truck in its garage, and **sleep**. Otto's **nerves** wear
    down on the night roads (faster with the headlamps off, slower with spotlamps), and the
-   clock says when he's Uneasy, Rattled or Frayed. Rattled, the radar shows Bureau cars that
+   clock says (and colours) when he's Uneasy, Rattled or Frayed. Rattled, the radar shows Bureau cars that
    aren't there; frayed, he hears sirens and the wheel won't sit still. Daylight and dawn
    give some back; a sleep at the barn all of it. A really hard crash can smash a headlamp
    or crack the trunk's floor (nothing packs in a cracked cell, and what was there bounces
@@ -285,7 +285,10 @@ Enter, the D-pad and A/B, or touch.
      you, a bust out in the county goes away for a price; in the city, the Bureau answers to no
      sheriff.
    - **Otto's notebook** (`B`, or the pause menu) keeps the order book, every contact and their
-     trust, what they've told you, the recipes with your best batches, and the clues.
+     trust, what they've told you, the recipes with your best batches, and the clues; the
+     buttons along its top jump to each section (and, from chapter 8, THE OPERATION: the
+     hidden still's crates, Braun's stock and the Rye ageing in the barn). News that comes
+     while a screen is open (a find, a letter, a dawn) comes again when you close it.
 11. **Trust and tools:** what Otto earns comes from the people who trust him. At three stars
    Gus Kessler teaches **Barrel Rye**, Mags O'Rourke's dockers tune the engine for **Lead Foot**
    (`2`, d-pad up, or its chip: a burst of speed) and Mr. Abernathy shows Otto **Sweet Talk**

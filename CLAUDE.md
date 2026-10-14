@@ -173,10 +173,21 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
 - Winter (v5 stage 14, from `CONFIG.dredge.winter.from`, Act II): `main._applyWinter` (on
   load and in `_chapters`) sets `env.setWinter` (the rain's colour and fall: snow; grip:
   `effects` takes `winter.ice` at full dark, rain half as slick) and `world.setWinter` (the
-  county's roof and tree-crown materials' colours, `world.frost`, and the grass texture's
-  canvas swapped for `world.snowField.snow`, painted once at boot). Colours and one texture
-  upload only: nothing compiles. `scripts/progress.mjs` models the pacing (side stories
+  county's roof material colour, `world.frost`; the tree crowns' instance colours swapped
+  for a frosted copy, `world.crownFrost`; and the grass texture's canvas swapped for
+  `world.snowField.snow`, painted once at boot). Snow is flecks (`env._resetDrop`), quiet
+  (`audio.update`'s `snow01`: no rain hiss or crickets, a wind bed) and dry (no wet-road look,
+  spray or dust: powder). Colours and one texture upload only: nothing compiles. `scripts/progress.mjs` models the pacing (side stories
   included; `ARCS=1`, `STEPS=1` for the split): tune arcs' `at` and steps against it.
+- Polish (stage 15): gold/red toasts that come while a screen is open (`hud.covered`) come
+  again when the screens close (`ui.onEmpty` → `hud.release`, the latest first; a held cash
+  pop too). Vail's men are `police.alert({ quiet })`: no roadblock, no roof lamps, no Bureau
+  radio. The radar's `op` marker (copper, nearby only) is a story site Otto's own business
+  runs from (`OPS` in main.js) once no step needs it. The notebook's jump buttons
+  (`#notebook-tabs`, one per `head(id)` section) are focusable, so a pad reaches every
+  section. `world.blinkSchooner` flashes her masthead lamp (the street bulbs' geometry and
+  material, so nothing compiles). The clock's `data-nerves` colours it. Call orders (story
+  orders wanting nothing, `o.call`) have no pay line or handoff card.
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

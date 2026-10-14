@@ -150,8 +150,10 @@ export class Audio {
     this.engineGain.gain.setTargetAtTime(0.045 + s.speed01 * 0.05 + load * 0.035, t, 0.08);
     this.putterDepth.gain.setTargetAtTime(0.03 * (1 - Math.min(1, s.speed01 * 4)), t, 0.1);
     this.screechGain.gain.setTargetAtTime(0.09 * s.slip01 * (juice('audio', 'squeal') || 1), t, 0.05);
+    this.last = s;                     // (what it was told last: tests)
     this.rainGain.gain.setTargetAtTime(0.05 * (s.rain01 || 0), t, 0.5);
-    this.windGain.gain.setTargetAtTime(0.07 * s.speed01 * s.speed01 * juice('audio', 'wind'), t, 0.3);
+    // The wind: with the speed, and a low bed of its own while it snows.
+    this.windGain.gain.setTargetAtTime((0.07 * s.speed01 * s.speed01 + 0.025 * (s.snow01 || 0)) * juice('audio', 'wind'), t, 0.3);
     // Jazz from a club down the street (only plays while you're near one).
     const jazz = (s.jazz01 || 0) * juice('audio', 'nightBed');
     if (jazz > 0.02 !== this.jazz.on) this.jazz.setOn(jazz > 0.02);

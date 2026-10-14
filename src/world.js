@@ -280,6 +280,8 @@ export class World {
   // compiles).
   setWinter(on) {
     for (const f of this.frost || []) f.m.color.copy(on ? f.snow : f.base);
+    const C = this.crownFrost;
+    if (C) { C.attr.array.set(on ? C.snow : C.base); C.attr.needsUpdate = true; }
     const F = this.snowField;
     if (F && F.tex.image !== (on ? F.snow : F.grass)) { F.tex.image = on ? F.snow : F.grass; F.tex.needsUpdate = true; }
   }
@@ -633,6 +635,7 @@ export class World {
     this.lampColor = new THREE.Color(L.lampColor);
     this.bulbMaterial = new THREE.MeshBasicMaterial({ color: this.lampColor.clone() });
     const bulbs = new THREE.InstancedMesh(arc ? arc.glow : new THREE.BoxGeometry(0.42, 0.58, 0.42), this.bulbMaterial, n);
+    this._bulbGeo = bulbs.geometry;          // (the schooner's signal lamp borrows it: nothing new to upload)
     // The model is scaled so its globe hangs where the lantern was (5.3 m), arm toward the road.
     const head = arc ? new THREE.Vector3(...arc.extras.head) : null;
     const scale = arc ? 5.3 / head.y : 1;
@@ -960,6 +963,25 @@ export class World {
     schooner.name = 'schooner';
     this.scene.add(schooner);
     this.schooner = schooner;
+    // Her signal lamp at the masthead, lamps twice, then once (blinkSchooner): the street
+    // bulbs' own geometry and material, instanced like theirs, so nothing compiles or uploads.
+    if (this._bulbGeo) {
+      const g = this._bulbGeo, box = g.boundingBox || (g.computeBoundingBox(), g.boundingBox), c = box.getCenter(new THREE.Vector3());
+      const k = 0.9 / Math.max(0.01, box.max.y - box.min.y), lamp = new THREE.InstancedMesh(g, this.bulbMaterial, 1);
+      lamp.setMatrixAt(0, new THREE.Matrix4().compose(new THREE.Vector3(5 - c.x * k, 14.6 - c.y * k, -c.z * k), new THREE.Quaternion(), new THREE.Vector3(k, k, k)));
+      lamp.visible = false;
+      lamp.name = 'schooner-lamp';
+      schooner.add(lamp);
+      this.schoonerLamp = lamp;
+    }
+  }
+
+  // The schooner's signal at night, out on the water: twice, then once, every four seconds.
+  blinkSchooner(t, night) {
+    const L = this.schoonerLamp;
+    if (!L) return;
+    const k = t % 4, on = night > 0.5 && this.schooner.visible && (k < 0.35 || (k > 0.7 && k < 1.05) || (k > 2 && k < 2.6));
+    if (on !== L.visible) L.visible = on;
   }
 
   _buildBounds() {

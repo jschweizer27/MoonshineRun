@@ -17,6 +17,8 @@ export class HUD {
     this._toastTimer = null;
     this._toastNow = null;
     this._queue = [];
+    this._held = [];                 // gold/red news that came while a screen covered the HUD
+    this.covered = () => false;      // (main: a screen is open)
     this.log = [];
     this._last = {};
     this._cashShown = 0;
@@ -64,6 +66,7 @@ export class HUD {
   // It goes again after its animation (with reduced motion there's no animation to end it).
   cashPop(text) {
     if (!juice('ui', 'floatText')) return;
+    if (this.covered()) this._heldPop = text;          // (and again once the screen closes)
     const p = this.el.cashPop;
     p.textContent = text;
     p.classList.remove('show');
@@ -78,7 +81,21 @@ export class HUD {
     this._set('cargo', text, () => { this.el.cargo.textContent = text; });
   }
 
-  setClock(text) { this._set('clock', text, () => { $('clock').textContent = text; }); }
+  // The time, then the weather and nerves after a dot (a short landscape phone shows the
+  // time alone: styles.css hides .clock-extra there; the clock's colour still has the nerves).
+  setClock(text) {
+    this._set('clock', text, () => {
+      const el = $('clock'), i = text.indexOf(' · ');
+      if (i < 0) { el.textContent = text; return; }
+      el.textContent = text.slice(0, i);
+      const x = document.createElement('span');
+      x.className = 'clock-extra';
+      x.textContent = text.slice(i);
+      el.append(x);
+    });
+  }
+  // The clock takes the colour of Otto's nerves ('' steady, or uneasy / rattled / frayed).
+  setNerves(word) { this._set('nerves', word, () => { $('clock').dataset.nerves = word; }); }
 
   // The speedometer eases toward the real speed instead of snapping (JUICE.ui.speedEase).
   setSpeed(mph, dt = 0) {
@@ -106,19 +123,34 @@ export class HUD {
   // A toast shows at once. One it cuts short that mattered (gold or red news) waits and
   // comes back after it, so nothing important is lost under the next; the same text is never
   // queued twice, and the queue keeps the latest few. `log` is the last toasts (tests).
+  // News that comes while a screen covers the HUD (the trunk, a market, a card) is shown
+  // again when it closes (`release`), so it's never missed.
   toast(text, tone = '', ms = 2200) {
+    if ((tone === 'gold' || tone === 'red') && this.covered()) this._held = this._held.filter((h) => h.text !== text).concat({ text, tone, ms: Math.max(ms, 2500) }).slice(-4);
     const cur = this._toastNow, left = cur ? cur.until - performance.now() : 0;
     if (cur && cur.text !== text && (cur.tone === 'gold' || cur.tone === 'red') && left > 600) this._queue.unshift({ text: cur.text, tone: cur.tone, ms: Math.max(1500, left) });
     this._queue = this._queue.filter((q, i, all) => q.text !== text && all.findIndex((r) => r.text === q.text) === i).slice(0, 4);
     this._showToast({ text, tone, ms });
   }
 
-  _showToast(t) {
+  // The screens are closed: what came under them again, the latest first (the rest after
+  // it), and a cash pop that played unseen.
+  release() {
+    const held = this._held;
+    this._held = [];
+    if (this._heldPop) { const p = this._heldPop; this._heldPop = null; this.cashPop(p); }
+    if (!held.length) return;
+    const latest = held.pop();
+    this._queue = [...held, ...this._queue.filter((q) => !held.some((h) => h.text === q.text) && q.text !== latest.text)].slice(0, 4);
+    this._showToast(latest, false);
+  }
+
+  _showToast(t, log = true) {
     const el = this.el.toast;
     el.textContent = t.text;
     el.className = `show ${t.tone}`;
     this._toastNow = { ...t, until: performance.now() + t.ms };
-    this.log.push(t.text);
+    if (log) this.log.push(t.text);
     if (this.log.length > 30) this.log.shift();
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => {
