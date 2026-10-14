@@ -53,6 +53,14 @@ const $ = (id) => document.getElementById(id);
 // built-in procedural models only), &story / &hints (the story cards and first-run tips,
 // off under ?test).
 const params = new URLSearchParams(location.search);
+// A repeatable 0..1 for a salt and a day (the rivals' picks at dawn).
+function roll01(salt, day) {
+  let h = 2166136261;
+  for (const c of `${salt}:${day}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
 // A trap's flags (main._ambush): chapter 5's are 'ambush' / 'escaped', a keyed one's
 // 'ambush:<key>' / 'escaped:<key>'.
 const trapFlags = (key) => (key && key !== true ? [`ambush:${key}`, `escaped:${key}`] : ['ambush', 'escaped']);
@@ -590,6 +598,7 @@ class Game {
       if (f[a] && !f[e]) { f[e] = true; this.dredge.save(); }
     }
     this._ambushOn = false;
+    this._hijackOn = false;
     this._updatePassenger();
     this._nightFrom = this._tally();
     this.salvage.state = this.dredge.data.sites;
@@ -1005,6 +1014,7 @@ class Game {
     const night = this._night(), d = this.dredge.data;
     this._nerves(dt, night);
     this._spoil(dt);
+    this._rivals(dt, night);
     const law = this.police.update(dt, this.player, this.camera, this.time, {
       contraband: this._contraband() > 0, night, lightsOff: this.lightsOff && night, route: this.minimap.route,
       checkpoint: (d.chapter || 0) >= CONFIG.dredge.police.checkpoint.chapter,
@@ -1174,7 +1184,8 @@ class Game {
     el.querySelector('b').textContent = `${'★'.repeat(t)}${'☆'.repeat(CONFIG.dredge.police.max - t)}`;
     el.querySelector('i').style.width = `${Math.round(pol.bust * 100)}%`;
     el.classList.toggle('bad', pol.bust > 0.01);
-    this.audio.setSiren?.(t > 0 ? Math.max(0.15, 1 - pol.chaseDistance() / 150) : this.time < (this._sirenUntil ?? 0) ? CONFIG.dredge.nerves.siren.level : 0);
+    // (Vail's men run silent; frayed nerves hear one anyway)
+    this.audio.setSiren?.(t > 0 && !this._hijackOn ? Math.max(0.15, 1 - pol.chaseDistance() / 150) : this.time < (this._sirenUntil ?? 0) ? CONFIG.dredge.nerves.siren.level : 0);
   }
 
   // What the agents did. Returns true when the step should stop (a bust).
@@ -1183,10 +1194,12 @@ class Game {
     if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; this._jolt(CONFIG.dredge.nerves.spotted); }
     else if (e.type === 'tier' && e.up && e.tier >= 2) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
     else if (e.type === 'tier' && !e.up) this.hud.toast('Fewer of them now. Keep out of sight.', '', 2500);
+    else if (e.type === 'clear' && this._hijackOn) { this._hijackOn = false; this.hud.toast('You shook Vail’s men. The load is still yours.', 'gold', 3500); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; }
     else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; if (this._ambushOn) this._escaped(); }
     else if (e.type === 'roadblock' && this.dredge.data.tools.policeband) this.hud.toast(`Police band: a roadblock going up near ${this._landmark(e.x, e.z)}`, 'red', 3500);
     else if (e.type === 'ran') this.hud.toast('You ran the checkpoint! They’re coming.', 'red', 3500);
     else if (e.type === 'search') return this._searched();
+    else if (e.type === 'bust' && this._hijackOn) { this._hijack(); return true; }
     else if (e.type === 'bust') { this._bust('The Bureau boxed you in.'); return true; }
     this._updateObjective();
     return false;
@@ -1206,6 +1219,44 @@ class Game {
     if (n > hidden) { this._bust('The checkpoint searched the truck and found the shine.'); return true; }
     this.hud.toast(n ? 'They poke around the bed and find nothing. “Drive on.”' : '“Evening. Drive on.”', 'gold', 3000);
     return false;
+  }
+
+  // Rivals (Act II until Vail is faced in chapter 9): by night in the county with a load of
+  // shine aboard, Vail's black sedans may come for it (the Bureau's pooled cars, no siren).
+  // With the agents off (?test without &police) they never come.
+  _rivals(dt, night) {
+    const d = this.dredge.data, R = CONFIG.dredge.rivals;
+    if (!this._rivalsOn() || !night || !this.police.enabled || this.police.tier || this._hijackOn || this._ambushOn) return;
+    if (!this.world.inCounty(this.player.position) || this._contraband() < R.min) return;
+    if ((this._rivalRng || Math.random)() >= R.chance * dt * this.env.hoursPerSecond) return;
+    this._hijackOn = true;
+    d.stats.hijackTries = (d.stats.hijackTries || 0) + 1;
+    for (const e of this.police.alert(this.player.position, R.tier, { hold: R.hold, range: R.range })) this._onPolice(e);
+    this._updateHeat();
+    this.hud.toast('Black sedans behind you, and no sirens: Vail’s men. Lose them or lose the load.', 'red', 4500);
+  }
+
+  // Whether Vail's men are about: from chapter 6 until Otto faces Vail.
+  _rivalsOn() { const d = this.dredge.data; return (d.chapter || 0) >= CONFIG.dredge.rivals.from && !d.flags.rivalsGone && !d.ending; }
+
+  // Hijacked: Vail's men take part of the shine and drive off. No fine, no cell: just gone.
+  _hijack() {
+    const d = this.dredge.data, shine = [...this.trunk.pieces.values()].filter((p) => KINDS[p.kind].brewed);
+    const n = Math.ceil(shine.length * CONFIG.dredge.rivals.take);
+    for (const p of shine.slice(0, n)) this.trunk.remove(p.id);
+    this._hijackOn = false;
+    d.stats.hijacked = (d.stats.hijacked || 0) + n;
+    d.ledger.unshift({ t: Date.now(), text: `Hijacked by Vail’s men: ${n} crate${n === 1 ? '' : 's'} taken`, amount: 0 });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.police.reset();
+    this.audio.setSiren?.(0);
+    this.dredge.saveTrunk(this.trunk);
+    this.dredge.save();
+    this._updateTrunkPill();
+    this._updateHeat();
+    this._updateObjective();
+    this.lastBust = { taken: n, fine: 0, hijack: true };
+    this.hud.toast(`Vail’s men boxed you in and took ${n} crate${n === 1 ? '' : 's'} of shine. They didn’t bother with the rest.`, 'red', 5000);
   }
 
   // Busted: the shine is taken, a fine paid, and Otto wakes at the barn.
@@ -1337,6 +1388,16 @@ class Game {
       this._phantoms.push({ x: p.x + Math.sin(a) * r, z: p.z - Math.cos(a) * r, until: this.time + P.lasts });
       this._phantomAt = this.time + rng.range(...P.every);
     }
+    // The Black Car: on the barest nerves, at night in the county, headlights off and right
+    // behind on the radar, a siren, a word from Otto, and then nothing.
+    const B = N.blackCar;
+    if (n < B.below && night && this.world.inCounty(this.player.position) && this.time >= (this._blackAt ?? 0)) {
+      const p = this.player.position;
+      this._phantoms.push({ x: p.x - this.player.forwardX * 30, z: p.z - this.player.forwardZ * 30, until: this.time + B.lasts });
+      this._sirenUntil = this.time + B.lasts;
+      this._blackAt = this.time + rng.range(...B.every);
+      this.hud.toast('A black car, no lights, right on your tail. Then nothing. Was it ever there?', 'red', 4000);
+    }
     if (n < N.frayed && this.time >= (this._sirenAt ?? 0)) {
       this._sirenUntil = this.time + N.siren.lasts;
       this._sirenAt = this.time + rng.range(...N.siren.every);
@@ -1397,6 +1458,18 @@ class Game {
       d.once.aging = day;
       rye.q = Math.min(O.aging.max, rye.q + O.aging.rye * (d.stash.rye / (onHand(this.trunk, d.stash).rye || 1)));
     }
+    // Vail's trucks were out in the night: a few sites picked clean before Otto got there.
+    const cleared = [];
+    if (this._rivalsOn() && d.once.rivals !== day) {
+      d.once.rivals = day;
+      const open = this.salvage.sites.filter((x) => !x.story && this.salvage.status(x, day, 12) === 'ok');
+      for (let k = 0; k < CONFIG.dredge.rivals.sites && open.length; k++) {
+        const x = open.splice(Math.floor(roll01(`rivals:${k}`, day) * open.length), 1)[0];
+        this.salvage.worked(x, day);
+        cleared.push(x.name.toLowerCase());
+      }
+      this.salvage.refresh(day);
+    }
     const farm = d.tools.farmstill && d.once.farmstill !== day;
     if (farm) {
       d.once.farmstill = day;
@@ -1406,7 +1479,7 @@ class Game {
     this.dredge.save();
     const earned = now.earned - was.earned, jobs = now.contracts - was.contracts, sites = now.salvaged - was.salvaged;
     const n = (k, one) => `${k} ${one}${k === 1 ? '' : 's'}`;
-    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}${takings ? ` Braun’s sold ${n(sold, 'crate')} for ${money(takings)}.` : ''}`;
+    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}${takings ? ` Braun’s sold ${n(sold, 'crate')} for ${money(takings)}.` : ''}${cleared.length ? ` Vail’s trucks were out: the ${cleared.join(' and the ')} picked clean.` : ''}`;
     const otto = earned > 0 ? 'A night’s work. Sleep, then do it again.' : 'Nothing to show for the night. Tonight, then.';
     this.dawns = (this.dawns || 0) + 1;
     if (this.state !== STATE.PLAYING) { this.hud.toast(take, 'gold', 4000); return; }
@@ -1443,7 +1516,7 @@ class Game {
     if (site.story === 'hollow' && !this._siteStep(site)) { this._collectHollow(); return; }   // the operation (chapter 8 on)
     if (site.story === 'brauns' && !this._siteStep(site)) { this._stockBrauns(); return; }
     if (game === 'none') { this._storySalvaged(site, 1); return; }
-    if (game === 'pay' || game === 'give') { this._storyDeal(site, game); return; }
+    if (game === 'pay' || game === 'give' || game === 'crown') { this._storyDeal(site, game); return; }
     if (game === 'lager') { this.openBrewery(); return; }
     this.salvageScreen = showSalvage(this.ui, { site, free: this._gear('crowbar') ? CONFIG.dredge.gear.crowbar.strikes : 0, onDone: (sc) => this._onSalvaged(site, sc) });
   }
@@ -1482,7 +1555,9 @@ class Game {
   // letters to the Sun (one of the endings). A confirm, then on.
   async _storyDeal(site, game) {
     const d = this.dredge.data;
-    if (game === 'give') {
+    if (game === 'crown') {
+      if (await this.ui.confirm('THE CROWN?', 'Take Vail’s routes for your own on the courthouse steps? Otto stays outside the law, and runs York Road from the harbour to the Pennsylvania line. This ends the story; the roads stay open after it.', 'TAKE THEM')) { this._end('crown'); return; }
+    } else if (game === 'give') {
       if (await this.ui.confirm('THE PAPER?', 'Give the Jockey’s letters to the Baltimore Sun? The Alliance falls, and Otto stays a bootlegger. This ends the story; the roads stay open after it.', 'TAKE THEM IN')) { this._end('paper'); return; }
     } else {
       // The step's `price` and `deal` (a side story's), else Sheriff Hale's report.
@@ -2433,7 +2508,7 @@ class Game {
       if (step) { this.hud.setObjective(stepText, null, 'roam'); return; }
       if (choiceOpen(this.dredge.data)) {
         const g = this._choiceGoal();
-        this.hud.setObjective('The choice: buy back the deed at Lexington Market, or take the letters to the Sun', ...arrow(g.x, g.z));
+        this.hud.setObjective(`The choice: buy back the deed at Lexington Market, or take the letters to the Sun${this.salvage.story.crown ? ', or take the crown at Towson' : ''}`, ...arrow(g.x, g.z));
         return;
       }
       const ev = eventFor(dayOf(this.dredge.market));
@@ -2456,9 +2531,11 @@ class Game {
   }
 
   // The ending's choice: whichever is nearer, Lexington Market (the deed) or the Sun.
+  // (and the courthouse steps at Towson, when the crown is Otto's to take)
   _choiceGoal(p = this.player.position) {
-    const market = CONFIG.dredge.towns.find((t) => t.id === CONFIG.dredge.deed.town), sun = this.salvage.sites.find((x) => x.story === 'sun');
-    return !sun || Math.hypot(market.x - p.x, market.z - p.z) < Math.hypot(sun.x - p.x, sun.z - p.z) ? market : sun;
+    const market = CONFIG.dredge.towns.find((t) => t.id === CONFIG.dredge.deed.town), open = this.salvage.story;
+    const places = [market, ...this.salvage.sites.filter((x) => (x.story === 'sun' || x.story === 'crown') && open[x.story])];
+    return places.reduce((a, b) => (Math.hypot(b.x - p.x, b.z - p.z) < Math.hypot(a.x - p.x, a.z - p.z) ? b : a));
   }
 
   // The radar's gold route: to an order ready to hand over (or the chapter's story order,

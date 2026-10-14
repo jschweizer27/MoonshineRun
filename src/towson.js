@@ -30,6 +30,7 @@ export const PLACES = {
   courthouse: { x: 608, z: -375, place: 'the Towson courthouse' },
   tavern: { x: 608, z: -446, name: 'Courthouse Tavern', who: 'dalton' },
   records: { x: 532, z: -380 },
+  bankfront: { x: 593, z: -375, place: 'the Towson National Bank' },
 };
 const ROAD_W = 10;
 // Where the road in crosses Loch Raven's south wall (z = -515) and the town's north wall.
@@ -101,7 +102,7 @@ export const LOCH_GATE = { x: GATE_X, w: 8 };
 export function addTowsonZones(world) {
   world.collision.addZone(TOWSON.minX + 6, TOWSON.minZ, TOWSON.maxX, TOWSON.maxZ);
   world.collision.addZone(GATE_X - 22, -535, GATE_X + 22, -480);
-  world.towson = { ...TOWSON, courthouse: PLACES.courthouse, tavern: PLACES.tavern, records: PLACES.records, bank: BANK };
+  world.towson = { ...TOWSON, ...PLACES, bank: BANK };
 }
 
 function segDist(x, z, ax, az, bx, bz) {

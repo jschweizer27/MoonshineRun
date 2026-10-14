@@ -280,10 +280,45 @@ export const CHAPTERS = [
     tool: { id: 'hollow', name: 'The hidden still and Braun’s', text: 'The hollow brews on its own, two crates of Corn Shine a day for you to collect, and Braun’s sells what you stock its cellar with, every night.' },
     close: [
       ['otto', 'Before the auction. Vail means to buy every brewery in Baltimore the day Repeal comes, and he wants me in a cell when he does.'],
-      ['narrator', 'The end is yours to choose. Buy back the Braun & Sons deed at Lexington Market and go legit, waiting for Repeal. Or take the letters to the Baltimore Sun and bring the Alliance down.'],
+      ['narrator', 'Chapter 8 complete. Vail’s men have stopped waiting for the Bureau. Black sedans, no sirens, on the valley roads at night.'],
+    ],
+  },
+  {
+    id: 'king', title: 'King of York Road', place: 'York Road, end to end',
+    open: [
+      ['narrator', 'Chapter 9: King of York Road. Black sedans with no sirens work the valley roads by night now, Vail’s own men, and they don’t arrest anybody. They take the load.'],
+      ['dalton', 'Otto, honey. The county’s auctioning every foreclosed brewery on the courthouse steps, the minute Repeal is law, and Mr. Vail means to buy the lot. Come and see me.'],
+    ],
+    steps: [
+      { id: 'ruby-tip', text: 'Call on Ruby Dalton at the Courthouse Tavern in Towson, after dark', order: { who: 'dalton', at: 'dalton', wants: {}, night: true, pay: 0 }, done: (d) => !!d.flags['order:ruby-tip'],
+        lines: [
+          ['dalton', 'The auction’s fixed: the judge, the clerk and the auctioneer all bank with Vail. But Vail wants one thing he can’t buy at auction. Your father’s recipes, and your routes.'],
+          ['dalton', 'He’ll see you at the bank in daylight, like a gentleman. Bring a load to my back room first, though. If you can get one past his sedans, the county will hear about it.'],
+        ] },
+      { id: 'convoy', text: 'Get 4 crates of your own Corn Shine past Vail’s men to Ruby Dalton’s back room, after dark', order: { who: 'dalton', at: 'dalton', wants: { 'corn-shine': 4 }, night: true, pay: 900 }, done: (d) => !!d.flags['order:convoy'],
+        lines: [['dalton', 'Past his sedans, all four. By breakfast every tavern from here to the Pennsylvania line will know Otto Braun runs York Road, not Cyrus Vail.']] },
+      { id: 'vail', text: 'Call on Cyrus Vail at the Towson National Bank, by day (10:00–15:00)', order: { who: 'vail', at: 'dalton', spot: 'bankfront', place: 'the Towson National Bank', wants: {}, window: [10, 15], pay: 0 }, flag: 'rivalsGone', done: (d) => !!d.flags['order:vail'],
+        lines: [
+          ['vail', 'Mr. Braun. Sit down. You’ve cost me a schooner’s worth of trouble and a Prohibition agent’s good name. I’ll pay you for your father’s recipes and your routes, and you’ll leave Maryland a rich man.'],
+          ['otto', 'You burned my father’s brewery for a bank’s balance sheet.'],
+          ['vail', 'I bought a building that burned, Mr. Braun. Prove otherwise. The auction is Saturday. Make your choice before it.'],
+          ['narrator', 'Outside, the black sedans pull away from the kerb and don’t come back. Whatever Vail does now, he’ll do it at the auction.'],
+        ] },
+    ],
+    clue: { id: 'auction', title: 'The auction notice', text: 'PUBLIC AUCTION of Braun & Sons and twelve other Baltimore breweries, on the courthouse steps at Towson, on the day Repeal is law. Every note held by the Towson National Bank. C. Vail, President.' },
+    tool: null,
+    close: [
+      ['otto', 'The Jockey’s letters, Vail’s ledgers, Draper’s warrant, and the roads from the harbour to the Pennsylvania line. Enough for a deed, a headline, or a crown.'],
+      ['narrator', 'The end is yours to choose. Buy back the Braun & Sons deed at Lexington Market and go legit. Take the letters and the ledgers to the Baltimore Sun and bring them all down. Or, with your own operation running and half the city behind you, take Vail’s routes for your own on the courthouse steps at Towson.'],
     ],
   },
 ];
+
+// The crown (the third ending): Otto's own operation running (the hidden still and Braun's,
+// chapter 8) and half the city's speakeasies trusting him (★★★; `CITY` are their contacts,
+// world.js DROPS).
+export const CITY = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
+export const crownReady = (d) => !!d.flags?.hollowStill && !!d.flags?.brauns && CITY.filter((w) => trustLevel(d.trust?.[w]) >= 3).length >= CITY.length / 2;
 
 // The two endings, chosen once the last chapter is done (main._end): the deed bought back
 // at Lexington Market, or the letters taken to the Sun. `lines` play, then the ending screen
@@ -302,12 +337,22 @@ export const ENDINGS = {
   paper: {
     title: 'The Paper', sub: 'The Baltimore Sun', after: 'The Alliance has fallen; York Road is yours', ledger: 'The Jockey’s letters, to the Baltimore Sun',
     lines: [
-      ['narrator', 'The Baltimore Sun, after midnight. The night editor reads the letters twice, then reaches for the telephone.'],
-      ['editor', 'This runs on the front page, Mr. Braun. The Alliance won’t last the week.'],
-      ['narrator', 'TEMPERANCE CHIEF PAID FOR BREWERY FIRE, says the morning edition. By noon the Jockey has gone from Harrow Stables. By Friday the Reverend Coombs has resigned.'],
+      ['narrator', 'The Baltimore Sun, after midnight. The night editor reads the letters twice, then the bank’s ledgers, then reaches for the telephone.'],
+      ['editor', 'This runs on the front page, Mr. Braun. The Alliance won’t last the week, and neither will the Towson National Bank.'],
+      ['narrator', 'BANK PRESIDENT AND TEMPERANCE CHIEF PAID FOR BREWERY FIRE, says the morning edition. By noon the Jockey has gone from Harrow Stables. By Friday the Reverend Coombs has resigned, and Agent Draper is answering questions in Washington.'],
       ['otto', 'The Alliance wanted a headline. They got one.'],
     ],
-    epilogue: 'The Temperance Alliance of Maryland was finished within the week, and the Jockey was never seen at a steeplechase again. Braun & Sons stayed a ruin, but the roads were Otto’s: from the harbour to the Pennsylvania line, nothing moved on York Road without the King of York Road knowing.',
+    epilogue: 'The Temperance Alliance of Maryland was finished within the week, the Towson National Bank within the year, and the Jockey was never seen at a steeplechase again. The auction never happened. Braun & Sons stayed a ruin, but the roads were Otto’s: from the harbour to the Pennsylvania line, nothing moved on York Road without the King of York Road knowing.',
+  },
+  crown: {
+    title: 'The Crown', sub: 'King of York Road', after: 'The routes are yours; Vail’s are gone', ledger: 'Vail’s routes, on the courthouse steps',
+    lines: [
+      ['narrator', 'The courthouse steps at Towson, the morning of the auction. Cyrus Vail’s bidders stand on the lawn, and nobody on York Road will sell them a drink.'],
+      ['dalton', 'Every tavern, every speakeasy and every farm in the county has your bottles, honey. His don’t move. You’re the market now.'],
+      ['vail', 'Name your price for the schooner and the routes, Mr. Braun.'],
+      ['otto', 'No price. They’re mine. You can keep the buildings, and wait for a Repeal that sells my beer.'],
+    ],
+    epilogue: 'Cyrus Vail bought every brewery in Baltimore at the auction, and not one of them ever poured a glass: the routes, the drivers and the speakeasies all answered to Otto Braun. His hidden still ran until Repeal, Braun’s in the old cellar became the most famous bar in Highlandtown, and on the day the law changed, Otto bought Braun & Sons from a ruined bank for a dollar.',
   },
 };
 
@@ -319,7 +364,7 @@ export function current(d) {
   return { chapter, step: chapter.steps.find((s) => !d.steps[s.id]) || null, index: d.chapter || 0 };
 }
 
-// Every chapter done and no ending chosen yet: the deed or the paper.
+// Every chapter done and no ending chosen yet: the deed, the paper, or (crownReady) the crown.
 export const choiceOpen = (d) => (d.chapter || 0) >= CHAPTERS.length && !d.ending;
 
 // What the current step needs and the player has lost (its `lost`, see above), or null.
@@ -340,7 +385,7 @@ export function openSites(d, have = null) {
   if (d.flags?.hollowStill) out.hollow = { night: false, window: null };                  // the operation: the hidden still
   if (d.flags?.brauns) out.brauns = { night: false, window: null };                      // and Braun's
   if (d.arcs) for (const { step } of activeArcs(d)) if (step.site) out[step.site] = { night: !!step.night, window: step.window || null };
-  if (choiceOpen(d)) return { ...out, sun: { night: false, window: null } };
+  if (choiceOpen(d)) return { ...out, sun: { night: false, window: null }, ...(crownReady(d) ? { crown: { night: false, window: null } } : {}) };
   const { step } = current(d), lost = lostNow(d, have);
   if (lost) return { ...out, [lost.site]: { night: false, window: null } };
   return step?.site ? { ...out, [step.site]: { night: !!step.night, window: step.window || null } } : out;

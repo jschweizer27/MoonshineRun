@@ -118,6 +118,18 @@ Enter, the D-pad and A/B, or touch.
    sells a few crates of whatever you stock it with every night, and Barrel Rye kept in the
    barn's stash ages a little better each day.
 
+   **Chapter 9, King of York Road:** the county will auction every foreclosed brewery on the
+   courthouse steps the day Repeal comes, and Cyrus Vail means to buy the lot. Take Ruby
+   Dalton's tip, get a load of your shine past Vail's men to her back room, and call on Vail
+   himself at the bank, by day.
+
+   **Vail's men** work the roads through Act II, from chapter 6 until you face Vail: by night
+   in the county, with a load of shine aboard, black sedans with no sirens may come for it.
+   Lose them and they're gone; let them box you in and they take half the load (no fine,
+   no cell). And some mornings his trucks have picked a couple of salvage sites clean before
+   you got there. On the barest nerves, out in the county at night, there's sometimes a black
+   car with its lights off right behind you, and then there isn't.
+
    Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
    - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
    - the **false bottom** hides two crates from a search;
@@ -138,11 +150,15 @@ Enter, the D-pad and A/B, or touch.
 
    The notebook lists them; **FOLLOW** one to point the banner and the route at it.
 
-   **The endings.** After chapter 8 the choice is yours, and it ends the story:
+   **The endings.** After chapter 9 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
-   - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
+   - **the paper:** take the letters and the bank's ledgers to the Baltimore Sun and bring the
+     Alliance and Vail down;
+   - **the crown:** with your own operation running (the hidden still and Braun's) and half
+     the city's speakeasy contacts at ★★★, take Vail's routes for your own on the courthouse
+     steps at Towson.
 
-   Either way the roads stay open afterwards.
+   Whichever you choose, the roads stay open afterwards.
 2. Find **salvage**. Wrecked trucks in the ditch, abandoned farmhouses and rail sidings out in
    the county, and back-alley cellars in the city hold crates, bottle cases, sacks, barrels,
    jugs, kegs, copper and more. A **SALVAGE** sign marks the nearest one, and ⊗ marks them
