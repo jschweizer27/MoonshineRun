@@ -233,6 +233,9 @@ export const CHAPTERS = [
           ['orourke', 'Scotch for the swells uptown. Abernathy’s hotel will pay what it’s worth, and he hears things.'],
         ] },
       { id: 'hotel', text: 'Take 2 cases of Imported Scotch to Mr. Abernathy at the Mount Vernon Hotel, after dark', order: { who: 'abernathy', at: 'abernathy', wants: { scotch: 2 }, night: true, pay: 520 }, done: (d) => !!d.flags['order:hotel'],
+        // (the launch comes once in the chapter: Scotch lost on the way, Mags's dockers kept some back)
+        lost: { site: 'pier', gives: ['scotch', 'scotch'], got: 'Mags’s dockers kept two cases of Scotch back for you', text: 'The Scotch is gone. Mags’s dockers at the Canton pier kept two cases back',
+          when: (d, have) => (have.scotch || 0) < 2 },
         lines: [['abernathy', 'The genuine article. Mr. Vail drinks this very label in our private dining room, Mr. Braun, every Thursday. With a gentleman from the Prohibition Bureau.']] },
       { id: 'warehouse', text: 'Search Vail’s bonded warehouse on the Lazaretto pier, after dark', site: 'warehouse', night: true, finds: 'manifests', done: (d) => !!d.clues.manifests,
         lines: [

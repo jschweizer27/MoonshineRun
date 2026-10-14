@@ -80,7 +80,7 @@ test('the raid springs a trap with the agents on: every car comes, and losing th
 test('the operation at dawn: the hollow brews two crates (collected there), Braun’s sells three of its stock, and Barrel Rye ages in the stash, once a day', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
-  const r = await page.evaluate((KIT) => {
+  const r = await page.evaluate(async (KIT) => {
     const { g, d, clear, pack } = eval(KIT);
     Object.assign(d.flags, { hollowStill: true, brauns: true });
     d.brauns = { 'corn-shine': 5 }; d.stash = { rye: 2 }; d.market.blend.rye = { q: 0.7, bad: false }; d.market.blend['corn-shine'] = { q: 0.8, bad: false };
@@ -94,8 +94,12 @@ test('the operation at dawn: the hollow brews two crates (collected there), Brau
     out.sites = [!!g.salvage.story.hollow, !!g.salvage.story.brauns];
     g.pause({ showMenu: false }); g._collectHollow(); pack(); clear();
     out.collected = { trunk: g.trunk.count, left: d.hollow };
-    // Stocked at Braun's from the trunk.
-    g.pause({ showMenu: false }); g._stockBrauns(); clear();
+    // Stocked at Braun's from the trunk (it asks first).
+    g.pause({ showMenu: false });
+    const asked = g._stockBrauns();
+    await new Promise((res) => setTimeout(res, 50));
+    document.getElementById('confirm-yes').click();
+    await asked; clear();
     out.restocked = { stock: d.brauns['corn-shine'], trunk: g.trunk.count };
     return out;
   }, KIT);

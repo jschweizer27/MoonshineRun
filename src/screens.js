@@ -28,7 +28,7 @@ function face(who) {
 
 const stars = (n) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
 // "2 corn shines (grade B+) · after dark"
-const orderText = (o) => (o.passenger ? `a ride from ${o.pickup.place} to ${o.drop.place}` : `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}${o.fragile ? ', fragile' : ''}`);
+const orderText = (o) => (o.passenger ? `a ride from ${o.pickup.place} to ${o.drop.place}` : o.call ? 'call in person' : `${wantsText(o.wants)}${o.grade ? ` (grade ${o.grade}+)` : ''}${o.fragile ? ', fragile' : ''}`);
 // A window of game hours as a clock reads it: "23:00–01:30".
 const clock = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 // When an order in the book is due: hours left, or for a story order (no deadline) when it
@@ -50,7 +50,7 @@ function contractRows(body, jobs, trunk, render) {
     const status = pr.ready && pr.gradeOk ? ' · ready to deliver' : pr.ready ? ` · the blend is grade ${pr.grade}` : '';
     body.append(el('div', { class: 'upgrade job active' },
       el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
-        el('small', {}, `${o.place ? `${o.place} · ` : ''}pays ${money(o.pay)} · ${dueText(o, left)} · ${o.passenger ? (o.aboard ? 'aboard' : 'waiting to be picked up') : `aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`}`)),
+        el('small', {}, `${o.place ? `${o.place} · ` : ''}${o.call ? '' : `pays ${money(o.pay)} · `}${dueText(o, left)}${o.call ? '' : ` · ${o.passenger ? (o.aboard ? 'aboard' : 'waiting to be picked up') : `aboard: ${Object.entries(pr.rows).map(([k, [h, n]]) => `${h}/${n} ${KINDS[k].short.toLowerCase()}`).join(', ')}${status}`}`}`)),
       drop));
   }
   const offers = jobs.offers();
@@ -791,7 +791,7 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
   for (const o of d.orders) {
     const left = o.due == null ? 0 : Math.max(0, Math.ceil(o.due - clock));
     body.append(note(face(o.who), el('div', {}, el('b', {}, `${o.name}: ${orderText(o)}`),
-      el('small', {}, `${o.place} · pays ${money(o.pay)} · ${dueText(o, left)}`))));
+      el('small', {}, `${o.place} · ${o.call ? '' : `pays ${money(o.pay)} · `}${dueText(o, left)}`))));
   }
   body.append(el('h3', {}, 'CONTACTS'));
   for (const c of contacts) {

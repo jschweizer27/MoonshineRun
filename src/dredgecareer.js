@@ -113,6 +113,7 @@ export class DredgeCareer {
     d.hollow = Math.max(0, Math.floor(Number(d.hollow) || 0));
     d.damage = { lamp: !!d.damage?.lamp };
     d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
+    d.iceLeft = Number.isFinite(d.iceLeft) ? Math.max(0, d.iceLeft) : null;
     if (typeof d.follow !== 'string' || !arcById(d.follow) || d.arcs[d.follow]?.done) d.follow = null;
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));

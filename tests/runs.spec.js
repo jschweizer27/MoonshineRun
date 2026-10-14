@@ -137,6 +137,6 @@ test('Delaney’s crates are fragile: any hard knock breaks one for certain, the
   expect(r.objective).toContain('fragile');
   expect(r.bump).toBe(2);
   expect(r.knock.shine).toBe(1);
-  expect(r.knock.toast).toContain('Delaney’s crates jump');
+  expect(r.knock.toast).toContain('The fragile load jumps');
   expect(problems).toEqual([]);
 });
