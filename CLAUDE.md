@@ -2,7 +2,7 @@
 
 SHINE is a 1920s Baltimore bootlegging game (Otto Braun, Baltimore/Green Spring Valley): free
 roam, salvage sites to work, a Tetris-style trunk to pack, four market towns, a still, night
-runs past the Bureau and a story in eight chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
+runs past the Bureau and a story in nine chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
@@ -159,6 +159,15 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `brauns` open (`main._collectHollow`, `_stockBrauns`); `_dawn` brews the hollow (`d.hollow`),
   sells Braun's nightly and ages stashed Rye (`CONFIG.dredge.operation`, once a day via
   `d.once`). A story order wanting nothing is a call ("Call on ..." on the banner).
+- King of York Road (v5 stage 13, chapter 9) and the endings: three (`ENDINGS` deed / paper /
+  crown); the crown needs `crownReady` (the operation, and ★★★ with half of `CITY`, the
+  speakeasy contacts) and opens the `crown` story site at the Towson courthouse (game
+  'crown' in `_storyDeal`). Rivals (`CONFIG.dredge.rivals`, `main._rivals` / `_rivalsOn` /
+  `_hijack`): from chapter 6 until `flags.rivalsGone` (facing Vail), at night in the county
+  with a load, a hijack may spring through `police.alert` (silent; a bust becomes `_hijack`,
+  half the shine, no fine); each dawn they pick salvage sites clean (seeded by the day). The
+  Black Car (`CONFIG.dredge.nerves.blackCar`): a phantom behind the truck on the barest nerves.
+  A story order's `spot` can be any `world.towson` place (`bankfront`).
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

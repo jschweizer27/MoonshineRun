@@ -4,7 +4,7 @@ import { openGame, startRun, KIT, past } from './helpers.js';
 // Stage 12: chapter 8, The Crackdown, and the operation it leaves Otto with: the hidden still,
 // Braun's, and Barrel Rye ageing in the stash.
 
-test('chapter 8, The Crackdown: warn Gus, a hidden still in the hollow, Braun’s in the old cellar, the raid at the barn and away; then the choice', async ({ page }) => {
+test('chapter 8, The Crackdown: warn Gus, a hidden still in the hollow, Braun’s in the old cellar, the raid at the barn and away; then King of York Road', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   await past(page, 7);
@@ -45,7 +45,7 @@ test('chapter 8, The Crackdown: warn Gus, a hidden still in the hollow, Braun’
   expect(r.hollow).toEqual({ flag: true, left: 0 });
   expect(r.brauns).toEqual({ flag: true, stock: { 'corn-shine': 3, applejack: 1 }, trunk: 0 });
   expect(r.barnOpen).toBe(false);                              // the Bureau, not the barn
-  expect(r.done).toEqual({ raid: true, away: true, tool: true, clue: true, chapter: 8, objective: 'The choice: buy back the deed at Lexington Market, or take the letters to the Sun' });
+  expect(r.done).toEqual({ raid: true, away: true, tool: true, clue: true, chapter: 8, objective: 'Call on Ruby Dalton at Courthouse Tavern · tonight' });
   expect(problems).toEqual([]);
 });
 

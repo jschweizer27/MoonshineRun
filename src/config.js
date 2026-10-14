@@ -303,10 +303,18 @@ export const CONFIG = {
       words: [[0.3, 'Frayed'], [0.5, 'Rattled'], [0.7, 'Uneasy']],
       phantoms: { below: 0.5, every: [6, 14], range: [110, 240], lasts: 3 }, frayed: 0.3,
       siren: { every: [25, 50], lasts: 1.6, level: 0.25 }, wobble: 0.08,
+      // The Black Car (below `below`, at night in the county): headlights off, right behind on
+      // the radar, a siren, and then nothing. Rival or nerves, nobody can say.
+      blackCar: { below: 0.15, every: [60, 120], lasts: 4 },
     },
     // The notebook's finds (DREDGE's encyclopedia): every kind a site kind gives up found
     // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
     codex: { set: 250 },
+    // Rivals (Act II, chapter 6 until Vail is faced in chapter 9; DREDGE's hunters): by night
+    // in the county, with `min` crates of shine aboard, Vail's black sedans may come for the
+    // load (`chance` a game hour): boxed in, they take `take` of the shine (a hijack, not a
+    // bust); lost, they're gone. And each dawn his trucks pick `sites` salvage sites clean.
+    rivals: { from: 5, chance: 0.12, min: 3, take: 0.5, sites: 2, tier: 2, hold: 6, range: [70, 140] },
     // The operation (chapter 8 on): the hidden still in the hollow brews `perDay` crates of
     // Corn Shine at quality `q` each dawn, up to `cap` waiting; Braun's (the old cellar) sells
     // up to `nightly` crates of what it's stocked with each dawn at `cut` x a speakeasy's
@@ -509,6 +517,8 @@ export const CONFIG = {
         // main._stockBrauns).
         hollow: { name: 'The hidden still', game: 'none', color: '#3a4a2c', yields: { crate: 1 } },
         brauns: { name: 'Braun’s', game: 'none', color: '#8a5a2c', yields: { crate: 1 } },
+        // The crown (the third ending, chapters.js crownReady): the courthouse steps at Towson.
+        crown: { name: 'The courthouse steps', game: 'crown', color: '#d8d2c4', yields: { crate: 1 } },
         // Chapter 6 (towson.js): the Towson National Bank's records room, round the back.
         bank: { name: 'Towson National Bank', game: 'search', color: '#8a8a84', yields: { crate: 1 } },
         // The side stories' deals (arcs.js `price`).

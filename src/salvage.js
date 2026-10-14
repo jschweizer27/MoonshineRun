@@ -140,6 +140,8 @@ export function placeStory(world, regular = []) {
   // from the ruins.
   field('hollow', 'hollow', -372, -918, [1, 0]);
   sidewalk('brauns', 'brauns', 176, 44, 30, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 20));
+  // The crown (the third ending): the courthouse steps at Towson.
+  if (world.towson) field('crown', 'crown', 622, -398, [-1, 0]);
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }
