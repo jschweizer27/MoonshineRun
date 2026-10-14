@@ -307,6 +307,9 @@ export const CONFIG = {
     // The notebook's finds (DREDGE's encyclopedia): every kind a site kind gives up found
     // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
     codex: { set: 250 },
+    // Rum Row (chapter 7's tool, Mags's launch): once a night in its `window`, at the Canton
+    // pier, `gives` for `price`.
+    rumrow: { window: [23, 3], gives: ['scotch', 'scotch', 'rum'], price: 300 },
     // The side stories' rewards (arcs.js): the quality of Widow Carroll's dawn crate, and
     // what the Belvedere pays on a Saturday night (a multiple).
     arcs: { farmstill: { q: 0.6 }, belvedere: 2 },
@@ -418,6 +421,9 @@ export const CONFIG = {
     // PLACEHOLDERS: tune after playtesting.
     police: {
       pool: 4, patrols: { day: { city: 1, county: 0 }, night: { city: 2, county: 2 } },
+      // The harbour patrol (from chapter 7): one more car by night on the waterfront (the
+      // city east of `minX` and south of `minZ`).
+      harbour: { minX: 40, minZ: 90, extra: 1 },
       cone: 0.75, sight: 70, nightSight: 0.8, darkSight: 0.4, closeSight: 12,
       buildRate: 0.12, evadeTime: [0, 6, 8, 10], max: 3,
       pinRadius: 7.5, pinSpeed: 4, bustTime: 2.2, bustRecover: 0.8,
@@ -488,6 +494,10 @@ export const CONFIG = {
         sun: { name: 'The Baltimore Sun', game: 'give', color: '#d8d2c4', yields: { crate: 1 } },
         // Gus's cellar (chapter 5 on): the brewery mini-game (`lager`, screens.js showBrewery).
         brewery: { name: 'Gus’s cellar', game: 'lager', color: '#b8733a', yields: { crate: 1 } },
+        // Chapter 7: the Canton pier where the launch comes in (and after it, Mags's launch any
+        // night: main._launchDeal), and Vail's bonded warehouse on the Lazaretto pier.
+        pier: { name: 'The Canton pier', game: 'none', color: '#5a4a36', yields: { crate: 1 }, wait: 'The launch comes in after eleven. Keep your lights off.' },
+        warehouse: { name: 'The Lazaretto warehouse', game: 'search', color: '#6a5a4a', yields: { crate: 1 } },
         // Chapter 6 (towson.js): the Towson National Bank's records room, round the back.
         bank: { name: 'Towson National Bank', game: 'search', color: '#8a8a84', yields: { crate: 1 } },
         // The side stories' deals (arcs.js `price`).
@@ -570,6 +580,10 @@ export const CONFIG = {
         { id: 'crowbar', name: 'Crowbar', short: 'Bar', tier: 'low', gear: true, value: 35, weight: 0, cells: [[0, 0], [1, 0], [2, 0]] },
         { id: 'toolbox', name: 'Toolbox', short: 'Tools', tier: 'mid', gear: true, value: 70, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
         { id: 'ice', name: 'Block of ice', short: 'Ice', tier: 'low', gear: true, color: 'cream', accent: 'slate', value: 15, weight: 0, cells: [[0, 0]] },
+        // Imported off Rum Row (chapter 7): contraband like shine, sold at the speakeasies,
+        // always the genuine article (no blend: they sell as grade A).
+        { id: 'scotch', name: 'Imported Scotch', short: 'Scotch', tier: 'brewed', brewed: true, imported: true, accent: 'amber', value: 160, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'rum', name: 'Nassau rum', short: 'Rum', tier: 'brewed', brewed: true, imported: true, accent: 'brick', value: 120, weight: 0, cells: [[0, 0], [1, 0]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {

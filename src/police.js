@@ -215,7 +215,9 @@ export class Police {
 
   // Keep the patrols near the truck that the hour calls for; send the far ones home.
   _patrols(p, night) {
-    const want = P.patrols[night ? 'night' : 'day'][this.world.inCounty(p) ? 'county' : 'city'];
+    // (the harbour patrol: one more by night on the waterfront, from chapter 7)
+    const H = P.harbour, harbour = this._harbour && night && !this.world.inCounty(p) && p.x > H.minX && p.z > H.minZ;
+    const want = P.patrols[night ? 'night' : 'day'][this.world.inCounty(p) ? 'county' : 'city'] + (harbour ? H.extra : 0);
     let have = 0;
     for (const u of this.units) {
       if (!u.active || u.mode !== 'patrol') continue;
@@ -264,6 +266,7 @@ export class Police {
     const p = player.position;
     if (!this.enabled) { this._write(time); return { events, seen: false, nearest: Infinity }; }
     this._updateFrustum(camera);
+    this._harbour = !!ctx.harbour;
     this._patrols(p, ctx.night);
     const range = P.sight * (ctx.night ? (ctx.lightsOff ? P.darkSight : P.nightSight) : 1);
     const boost = this.tier >= 3 ? P.boost : 1;

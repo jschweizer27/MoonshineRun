@@ -15,6 +15,8 @@ import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtil
 // Where Towson's side of the east wall begins, going south from Loch Raven (between Loch
 // Raven's southmost node, R4 at z -538, and Towson's northmost, T1 at -480).
 const TOWSON_SPLIT = -508;
+// Where the Rum Row schooner rides at anchor, off the Canton piers (chapter 7).
+export const SCHOONER = { x: 230, z: 335 };
 
 // Named corners around the city, each with its sign over the door (at night there's jazz
 // from the speakeasies among them). `who` is the contact there who posts jobs (story.js CAST).
@@ -268,6 +270,7 @@ export class World {
   // Loch Raven's meshes hide when the camera is far off (the fog has them by then), so the
   // city's views draw nothing more.
   updateFar(cam) {
+    if (this.schooner) this.schooner.visible = Math.hypot(cam.x - SCHOONER.x, cam.z - SCHOONER.z) < 520;
     if (!this.lochGroup) return;
     const dx = Math.max(0, LOCH.minX - cam.x, cam.x - LOCH.maxX), dz = Math.max(0, LOCH.minZ - cam.z, cam.z - LOCH.maxZ);
     this.lochGroup.visible = Math.hypot(dx, dz) < 480;
@@ -925,6 +928,30 @@ export class World {
     lake.userData.noShadow = true;
     (this.lochGroup || this.scene).add(lake);
     this.lake = lake;
+    // Rum Row (chapter 7): the schooner at anchor off Canton, one merged mesh with its colours
+    // in the vertices (hull, deckhouse, masts, furled sails and the lamps she signals with).
+    const parts = [];
+    const part = (geo, color, x, y, z) => {
+      geo.translate(x, y, z);
+      const c = new THREE.Color(color), n = geo.attributes.position.count, col = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) col.set([c.r, c.g, c.b], k * 3);
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      parts.push(geo.index ? geo.toNonIndexed() : geo);
+    };
+    part(new THREE.BoxGeometry(22, 2.6, 6), 0x2a1e16, 0, 0.6, 0);
+    part(new THREE.BoxGeometry(18, 0.4, 5.4), 0x6b5a44, 0, 2.0, 0);
+    part(new THREE.BoxGeometry(5, 1.8, 3.4), 0x4a3a2c, -4, 3.1, 0);
+    for (const x of [-3, 5]) {
+      part(new THREE.CylinderGeometry(0.22, 0.3, 16, 6), 0x3a2a1c, x, 10, 0);
+      part(new THREE.BoxGeometry(5, 0.8, 0.8), 0xc9bfa6, x - 2.6, 4.2, 0);
+    }
+    for (const y of [11.5, 13]) part(new THREE.BoxGeometry(0.5, 0.5, 0.5), 0xffc86a, 5, y, 0.4);
+    const schooner = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+    schooner.position.set(SCHOONER.x, 0, SCHOONER.z);
+    schooner.rotation.y = 0.35;
+    schooner.name = 'schooner';
+    this.scene.add(schooner);
+    this.schooner = schooner;
   }
 
   _buildBounds() {

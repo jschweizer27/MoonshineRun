@@ -73,7 +73,8 @@ export function priceOf(town, kind, state, extraSold = 0) {
   const sold = (state.sold[`${town}:${kind}`] || 0) + extraSold;
   const glut = Math.max(M.glutFloor, 1 - M.glut * sold);
   // Shine sells by its blend's grade (state.blend, brew.js).
-  const grade = KINDS[kind].brewed ? CONFIG.dredge.brew.gradePrice[blendGrade(state.blend?.[kind])] : 1;
+  // (imported liquor is the genuine article: grade A)
+  const grade = KINDS[kind].brewed ? CONFIG.dredge.brew.gradePrice[KINDS[kind].imported ? 'A' : blendGrade(state.blend?.[kind])] : 1;
   return Math.max(1, Math.round(base * drift * glut * event * marketDay * grade));
 }
 

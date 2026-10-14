@@ -211,6 +211,36 @@ export const CHAPTERS = [
     tool: null,
     close: [
       ['otto', 'The Jockey wanted Father’s land and the Alliance wanted a headline. But Cyrus Vail wanted the brewery, and every brewery like it, for the day the law changes.'],
+      ['dalton', 'A bank that size doesn’t live on mortgages, honey. Mr. Vail’s money comes in by water. Ask the dockers at Canton.'],
+      ['narrator', 'Chapter 6 complete. Mags O’Rourke knows every pier from Fells Point to Canton.'],
+    ],
+  },
+  {
+    id: 'rumrow', title: 'Rum Row', place: 'the Canton waterfront',
+    open: [
+      ['narrator', 'Chapter 7: Rum Row. Past the three-mile line the schooners ride at anchor with Scotch from Glasgow and rum from Nassau, and by night the launches run it in to the Canton piers.'],
+      ['orourke', 'Vail’s bank bought the schooner, Otto. My dockers unload her launch twice a week and the Bureau looks the other way. You want to know who he pays? Work the Row with me.'],
+    ],
+    steps: [
+      { id: 'mags-row', text: 'Earn Mags O’Rourke’s full trust (★★★)', who: 'orourke', done: (d) => trustLevel(d.trust.orourke) >= 3,
+        lines: [['orourke', 'The Canton pier, after eleven. Watch the water for her lamps: twice, then once. And keep your own lamps off.']] },
+      { id: 'launch', text: 'Meet the launch at the Canton pier (23:00–03:00)', site: 'pier', window: [23, 3], gives: ['scotch', 'scotch', 'rum'], got: 'Off the launch: two cases of Imported Scotch and a crate of Nassau rum', sets: 'launch', done: (d) => !!d.flags.launch,
+        lines: [
+          ['narrator', 'Lamps twice, then once, out on the black water. The launch noses in under the pier, and three crates come up the ladder hand over hand.'],
+          ['orourke', 'Scotch for the swells uptown. Abernathy’s hotel will pay what it’s worth, and he hears things.'],
+        ] },
+      { id: 'hotel', text: 'Take 2 cases of Imported Scotch to Mr. Abernathy at the Mount Vernon Hotel, after dark', order: { who: 'abernathy', at: 'abernathy', wants: { scotch: 2 }, night: true, pay: 520 }, done: (d) => !!d.flags['order:hotel'],
+        lines: [['abernathy', 'The genuine article. Mr. Vail drinks this very label in our private dining room, Mr. Braun, every Thursday. With a gentleman from the Prohibition Bureau.']] },
+      { id: 'warehouse', text: 'Search Vail’s bonded warehouse on the Lazaretto pier, after dark', site: 'warehouse', night: true, finds: 'manifests', done: (d) => !!d.clues.manifests,
+        lines: [
+          ['narrator', 'A tin cabinet of manifests: the schooner Mary Vail, owned by a Towson holding company. And under them, a payroll. R. Draper, two hundred dollars a week.'],
+          ['otto', 'Vail pays the Bureau to clear the Row for his liquor, and to run the rest of us off the roads.'],
+        ] },
+    ],
+    clue: { id: 'manifests', title: 'The Rum Row manifests', text: 'The schooner Mary Vail, owned by a Towson holding company, runs Scotch and rum to the Canton piers twice a week. On the payroll: R. Draper, Prohibition Bureau, two hundred dollars a week.' },
+    tool: { id: 'launch', name: 'Mags’s launch', text: 'Any night after eleven, buy off the launch at the Canton pier: two cases of Scotch and a crate of rum, cash on the pier.' },
+    close: [
+      ['otto', 'Vail’s money burned the brewery, Vail’s schooner fills the city’s glasses, and Vail’s agent clears the road for it.'],
       ['narrator', 'The end is yours to choose. Buy back the Braun & Sons deed at Lexington Market and go legit, waiting for Repeal. Or take the letters to the Baltimore Sun and bring the Alliance down.'],
     ],
   },
@@ -262,10 +292,12 @@ export function lostNow(d, have) {
 
 // The story sites open now: { [site]: { night, window } } for the current step, if it has
 // one (or the site that gives back what it needs, if that's lost); the Sun while the
-// ending's choice is open; Gus's cellar (the brewery) for good once Lager is learned; and
-// the sites of the side stories' current steps (arcs.js).
+// ending's choice is open; Gus's cellar (the brewery) for good once Lager is learned; the
+// Canton pier once Mags's launch is Otto's; and the sites of the side stories' current
+// steps (arcs.js).
 export function openSites(d, have = null) {
   const out = d.flags?.['learned:lager'] ? { brewery: { night: false, window: null } } : {};
+  if (d.tools?.launch) out.pier = { night: false, window: CONFIG.dredge.rumrow.window };   // Mags's launch, any night
   if (d.arcs) for (const { step } of activeArcs(d)) if (step.site) out[step.site] = { night: !!step.night, window: step.window || null };
   if (choiceOpen(d)) return { ...out, sun: { night: false, window: null } };
   const { step } = current(d), lost = lostNow(d, have);

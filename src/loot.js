@@ -124,6 +124,8 @@ const MODELS = {
   'corn-shine': (add, c) => shineCrate(add, c),
   applejack: (add, c) => shineCrate(add, c),
   kummel: (add, c) => shineCrate(add, c),
+  scotch: (add, c) => shineCrate(add, c),
+  rum: (add, c) => shineCrate(add, c),
   // The odd variants: the usual piece, in the premium tier's amber.
   'odd-coil': (add, c) => MODELS.coil(add, c),
   'odd-radio': (add, c) => MODELS.radio(add, c),

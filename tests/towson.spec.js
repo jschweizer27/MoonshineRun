@@ -50,7 +50,7 @@ test('Towson: the road in from Loch Raven, the courthouse green, the bank and th
   expect(problems).toEqual([]);
 });
 
-test('chapter 6, The County Seat: to Towson, Ruby Dalton’s orders and trust, the bank’s records room after dark, Ruby to the courthouse before the bank opens; then the choice', async ({ page }) => {
+test('chapter 6, The County Seat: to Towson, Ruby Dalton’s orders and trust, the bank’s records room after dark, Ruby to the courthouse before the bank opens; then Rum Row', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   await past(page, 5);
@@ -97,7 +97,7 @@ test('chapter 6, The County Seat: to Towson, Ruby Dalton’s orders and trust, t
   expect(r.clue).toBe(true);
   expect(r.order).toEqual({ passenger: 'dalton', window: [6, 9], drop: 'the Towson courthouse' });
   expect(r.aboard).toBe(true);
-  expect(r.done).toEqual({ chapter: 6, objective: 'The choice: buy back the deed at Lexington Market, or take the letters to the Sun' });
+  expect(r.done).toEqual({ chapter: 6, objective: 'Rum Row: Earn Mags O’Rourke’s full trust (★★★)' });
   expect(problems).toEqual([]);
 });
 
@@ -108,8 +108,9 @@ test('a save that chose its ending before Act II came has finished the story', a
     d.started = true; d.chapter = 5; d.ending = 'deed';
     g.dredge.save();
     const { DredgeCareer } = await import('/src/dredgecareer.js');
-    return new DredgeCareer(g.dredge.slot).data.chapter;
+    const { CHAPTERS } = await import('/src/chapters.js');
+    return new DredgeCareer(g.dredge.slot).data.chapter === CHAPTERS.length;
   });
-  expect(r).toBe(6);
+  expect(r).toBe(true);
   expect(problems).toEqual([]);
 });
