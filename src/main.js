@@ -733,9 +733,10 @@ class Game {
     this.dredge.save();
     const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
     // The story's moments have a sound: the brass for a clue, a tool or a side story's
-    // reward, the chime for a step done or a story opened.
+    // reward, the chime for a step done or a side story opened (a chapter's own opening and
+    // close have their cards).
     if (events.some((e) => e.type === 'clue' || e.type === 'tool') || arcs.some((e) => e.type === 'reward')) this.audio.fanfare?.('rank');
-    else if (events.length || arcs.length) this.audio.chime?.();
+    else if (events.some((e) => e.type === 'step') || arcs.some((e) => e.type === 'step' || e.type === 'open')) this.audio.chime?.();
     if (events.some((e) => e.type === 'clue')) this.hud.toast(`A clue for the notebook (${this._bookKey()})`, 'gold', 4000);
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
     else if (done && choiceOpen(d)) this.hud.toast(`The choice is yours: the deed or the paper${crownReady(d) ? ', or the crown' : ''}. The notebook has them.`, 'gold', 4000);
