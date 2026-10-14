@@ -37,7 +37,7 @@ test('order offers: rolled from the day, from farms and speakeasies, paid over t
       before: before.ready, after: after.ready, left: t.count,
     };
   });
-  expect(r.contacts).toEqual({ n: 17, farms: 6 });           // ten speakeasies, six farms and the Sheriff's lockup
+  expect(r.contacts).toEqual({ n: 18, farms: 6 });           // ten speakeasies, six farms, the Sheriff's lockup and Ruby's tavern
   expect(r.same).toBe(true);
   expect(r.perDay).toBe(true);
   expect(r.kinds).toBe(2);
