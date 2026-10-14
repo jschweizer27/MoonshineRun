@@ -3,7 +3,7 @@ import { openGame } from './helpers.js';
 
 // The story sites on other layouts: every one is there, clear of the other sites (its ring
 // never overlaps theirs), with room to stop. Five seeds, the default among them.
-const STORY = ['ruins', 'office', 'van', 'quarry', 'lockup', 'mill', 'sun', 'board', 'note'];
+const STORY = ['ruins', 'office', 'van', 'quarry', 'lockup', 'mill', 'sun', 'board', 'note', 'bank'];
 for (const seed of [1922, 7, 4242, 99, 31337]) {
   test(`seed ${seed}: every story site is placed, apart from the others, with a free stop`, async ({ page }) => {
     const problems = await openGame(page, `&seed=${seed}`);

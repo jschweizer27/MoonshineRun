@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot, startRun, step, snapshot, screenshot } from './helpers.js';
+import { openGame, startRun, step, snapshot, screenshot, reloadGame } from './helpers.js';
 
 // The game: free-roam driving, loot along the roads, a trunk to pack, towns to sell in and
 // upgrades to buy. (It was built as "the dredge run" beside the old bootlegging game, which
@@ -354,8 +354,7 @@ test('Lexington Market: stop there to sell what is in the trunk; prices sag as y
 
   // A piece left aboard and the cash survive a reload.
   await page.evaluate(() => { const g = window.shine.game; g.trunk.place('jugs', 0, 0); g.dredge.saveTrunk(g.trunk); });
-  await page.reload();
-  await page.waitForFunction(() => window.__shineReady === true);
+  await reloadGame(page);
   await startRun(page);
   const reloaded = await page.evaluate(() => ({ cash: window.shine.game.dredge.cash, kinds: [...window.shine.game.trunk.pieces.values()].map((p) => p.kind) }));
   expect(reloaded).toEqual({ cash: shown + allShown, kinds: ['jugs'] });
@@ -605,8 +604,7 @@ test('upgrades bought at the market change the truck, the trunk, the padding and
   expect(padded).toBeCloseTo(0.84, 5);
 
   // A reload keeps the levels and the bigger trunk.
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   await startRun(page);
   const reloaded = await page.evaluate(() => {
     const g = window.shine.game;
@@ -667,7 +665,7 @@ test('two towns: Monkton in the valley has its own market and prices, on the roa
   expect(r.prices.sack[1]).toBeLessThan(r.prices.sack[0]);           // farm goods less
   expect(r.toast).toContain('Monkton');
   expect(r.calls).toBeLessThan(60);
-  expect(r.markers).toBe(4);
+  expect(r.markers).toBe(5);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('MONKTON GENERAL STORE');
   expect(r.programs).toBe(0);
@@ -724,9 +722,9 @@ test('a third town: Glyndon out west has its own depot and prices, and only the 
   expect(r.prices.jugs[2]).toBeLessThan(Math.min(r.prices.jugs[0], r.prices.jugs[1]));      // and little for jugs
   expect(r.toast).toContain('Glyndon');
   expect(r.calls).toBeLessThan(60);
-  expect(r.shown).toEqual([false, false, true, false]);
+  expect(r.shown).toEqual([false, false, true, false, false]);
   expect(r.gap).toBeLessThan(450);
-  expect(r.shownMonkton).toEqual([false, true, false, false]);
+  expect(r.shownMonkton).toEqual([false, true, false, false, false]);
   expect(r.marketOpen).toBe(true);
   expect(r.market).toBe('GLYNDON DEPOT');
   expect(r.programs).toBe(0);

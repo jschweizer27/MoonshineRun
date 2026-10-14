@@ -12,11 +12,12 @@ import { activeArcs } from './arcs.js';
 //  - `site`: the story site this step opens, only after dark (`night`) or in a `window` of
 //    game hours; working it does what `gives` (loot kinds into the trunk, `got` the toast),
 //    `sets` (a save flag) and `finds` (the chapter's clue) say, and `ambush` springs a trap.
-//  - `at`: another place the step leads to ('barn', 'loch').
+//  - `at`: another place the step leads to ('barn', 'loch', 'towson').
 //  - `who`: the contact the step waits on (the day's board adds an offer from them).
 //  - `order`: a story order the step puts in the order book while it's current (main.js
 //    `_storyOrders`): for `who`, at `at` ('load' at the freight, or a contact), wanting
 //    `wants`, after dark (`night`) or in a `window`; delivered, it sets flags['order:<step>'].
+//    `spot` sends it to a place in a region instead of a contact's door (world.towson's).
 //    A `passenger` (`who`, picked up at the door of the contact `from`) rides along to it;
 //    a `fragile` load breaks a crate on any hard knock.
 //  - `learn`: a recipe the step teaches (CONFIG.dredge.brew recipes with `learn`); `flag`: a
@@ -175,6 +176,41 @@ export const CHAPTERS = [
     tool: null,
     close: [
       ['otto', 'The Alliance wanted a headline, and the Jockey wanted Father’s land. Now I have it in his own hand.'],
+      ['otto', 'But the pledge card in the cellar was stamped PAID by a bank in Towson. Somebody paid for the kerosene, and it wasn’t a jockey.'],
+      ['narrator', 'Chapter 5 complete. The trail goes up York Road, past the county wall, to the county seat.'],
+    ],
+  },
+  // Act II (docs/EXPANSION.md): the bank.
+  {
+    id: 'seat', title: 'The County Seat', place: 'Towson',
+    open: [
+      ['narrator', 'Chapter 6: The County Seat. Up York Road and east through the county wall: Towson, with its courthouse, its market house and the Towson National Bank.'],
+      ['otto', 'A bank doesn’t stamp a temperance pledge PAID for the good of its soul. I want to know who signed for that money.'],
+    ],
+    steps: [
+      { id: 'towson', text: 'Drive to Towson, east through the county wall', at: 'towson', done: (d) => !!d.flags.towson,
+        lines: [
+          ['narrator', 'Towson. The courthouse on its green, the Towson National Bank across the square in granite, and on the corner a tavern with the blinds down.'],
+          ['dalton', 'You look like a man who’s lost something, honey. The Courthouse Tavern has a back room, and I don’t ask questions in it. Bring me something worth pouring.'],
+        ] },
+      { id: 'ruby', text: 'Deliver an order to Ruby Dalton at the Courthouse Tavern', who: 'dalton', done: (d) => (d.delivered.dalton || 0) >= 1 },
+      { id: 'ruby-trust', text: 'Earn Ruby Dalton’s trust (★★)', who: 'dalton', done: (d) => trustLevel(d.trust.dalton) >= 2,
+        lines: [
+          ['dalton', 'The bank’s night watchman drinks here, Otto. Tuesdays he drinks a great deal. The records room is round the back, and its window latch has been broken since Easter.'],
+          ['dalton', 'Whatever you find in there, you didn’t hear about it from me.'],
+        ] },
+      { id: 'records', text: 'Get into the Towson National Bank’s records room, after dark', site: 'bank', night: true, finds: 'mortgages', done: (d) => !!d.clues.mortgages,
+        lines: [
+          ['narrator', 'Ledgers, row on row, by a shaded lamp. One is marked Braun & Sons: Father’s note, bought up by the bank the week before the fire. And Pfefferkorn’s, and Gunther’s, and ten breweries more, every one bought for a song.'],
+          ['otto', 'Every page signed by the bank’s president. Cyrus Vail.'],
+        ] },
+      { id: 'copy', text: 'Drive Ruby Dalton to the courthouse with a copy, before the bank opens (06:00–09:00)', order: { who: 'dalton', at: 'dalton', spot: 'courthouse', place: 'the Towson courthouse', wants: {}, window: [6, 9], pay: 80, passenger: { who: 'dalton', from: 'dalton' } }, done: (d) => !!d.flags['order:copy'],
+        lines: [['dalton', 'Filed with the county clerk, stamped and dated. Whatever happens to that ledger now, there’s a copy Mr. Vail can’t buy back.']] },
+    ],
+    clue: { id: 'mortgages', title: 'The Towson National Bank’s mortgage book', text: 'The notes on Braun & Sons and twelve other Baltimore breweries, each bought the week before the brewery closed, burned or went under. Every page signed C. Vail, President. They’re waiting for Repeal.' },
+    tool: null,
+    close: [
+      ['otto', 'The Jockey wanted Father’s land and the Alliance wanted a headline. But Cyrus Vail wanted the brewery, and every brewery like it, for the day the law changes.'],
       ['narrator', 'The end is yours to choose. Buy back the Braun & Sons deed at Lexington Market and go legit, waiting for Repeal. Or take the letters to the Baltimore Sun and bring the Alliance down.'],
     ],
   },

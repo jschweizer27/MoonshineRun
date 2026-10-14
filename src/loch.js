@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createRng } from './rng.js';
+import { LOCH_GATE } from './towson.js';
 
 // Loch Raven, chapter 5's region (chapters.js "Drowned Warren"): east of the county through
 // two gaps in its east wall, where Baltimore has dammed the Gunpowder valley for its water.
@@ -130,7 +131,8 @@ export function buildLoch(world, layout, kit) {
   // Fieldstone: the dam (tall, across the lake's south end) and the low walls round the
   // region's other three sides.
   const { minX, maxX, minZ, maxZ } = LOCH;
-  const walls = [[minX, minZ, maxX, minZ, 1, 1], [maxX, minZ, maxX, maxZ, 1, 1], [minX, maxZ, maxX, maxZ, 1, 1]];
+  // (the south wall opens where the road to Towson goes through, towson.js)
+  const walls = [[minX, minZ, maxX, minZ, 1, 1], [maxX, minZ, maxX, maxZ, 1, 1], [minX, maxZ, LOCH_GATE.x - LOCH_GATE.w, maxZ, 1, 1], [LOCH_GATE.x + LOCH_GATE.w, maxZ, maxX, maxZ, 1, 1]];
   const stone = new THREE.InstancedMesh(kit.wallShape, kit.stone, walls.length + 1);
   walls.forEach(([x0, z0, x1, z1], i) => {
     stone.setMatrixAt(i, m.compose(p.set((x0 + x1) / 2, 0, (z0 + z1) / 2), q.identity(), s.set(Math.max(1, Math.abs(x1 - x0)), 1, Math.max(1, Math.abs(z1 - z0)))));

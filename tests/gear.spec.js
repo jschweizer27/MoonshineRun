@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun, KIT } from './helpers.js';
+import { openGame, startRun, KIT, reloadGame } from './helpers.js';
 
 // Stage 9b, after DREDGE: gear that works only while it's packed, Lager that goes flat in a
 // warm trunk (ice keeps it), damage that bites (a smashed headlamp, a cracked trunk cell)
@@ -108,8 +108,7 @@ test('damage bites: a hard crash smashes a headlamp, the next cracks a trunk cel
   expect(r.json).toBe('[[0,0]]');
   expect(r.cost).toBe(120);
   // Through a reload, and then the barn.
-  await page.reload();
-  await page.waitForFunction(() => window.__shineReady === true);
+  await reloadGame(page);
   await page.click('#start-btn');
   const m = await page.evaluate((KIT) => {
     const { g, d } = eval(KIT);

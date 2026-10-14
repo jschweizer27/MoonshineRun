@@ -125,6 +125,15 @@ export const CAST = {
       'The Grange votes dry every year and drinks wet every Saturday.',
     ],
   },
+  // Act II: Towson (chapter 6 on). Ruby Dalton keeps the Courthouse Tavern on the square
+  // (world.towson, contracts.js); Cyrus Vail is the Towson National Bank's president.
+  dalton: {
+    name: 'Ruby Dalton', initials: 'RD', color: '#c85a7a', asks: [
+      'Lawyers, clerks and the county commissioners, honey. Thirsty men, every one.',
+      'The judge takes his with a little water. The bank takes its without.',
+    ],
+  },
+  vail: { name: 'Cyrus Vail', initials: 'CV', color: '#9a9a8a' },
 };
 
 // What each contact says when the goods are handed over (the handoff card).
@@ -133,6 +142,7 @@ export const THANKS = {
   orourke: 'Right on the tide. The lads will have it below decks in a minute.',
   abernathy: 'Discreet as ever, Mr. Braun. The house thanks you.',
   romano: 'Now it’s a wedding. Here, and take a cannoli for the road.',
+  dalton: 'Through the back, honey, and mind the judge’s motor car.',
   hummel: 'The shift thanks you, Braun. Mind the watchman on the way out.',
   pryor: 'In with the tomatoes. Pleasure doing business.',
   healy: 'Lunch is served! Here’s yours, and a bit over.',
@@ -169,6 +179,7 @@ export const TRUSTED = {
   tolley: 'A big black car comes up the Hollow road some nights. City plates. Goes to the Harrow place.',
   gill: 'The Grange ladies say the Reverend’s new church roof was paid for by a bank in Towson. Funny sort of tithe.',
   sheriff: 'You’re a good customer, Mr. Braun. If the Bureau ever catches you out in my county, you come to me.',
+  dalton: 'Mr. Vail never sets foot in here, but his money does. The commissioners vote dry and drink on his account.',
 };
 
 // `when(data)` reads the save (dredgecareer data): stats, flags and the chapter. Beats for systems

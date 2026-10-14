@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { atlasMaterial } from './atlas.js';
 import { createRng } from './rng.js';
 import { LOCH, lochLayout, buildLoch, addLochRoads } from './loch.js';
+import { towsonLayout, addTowsonRoads, towsonWalls, addTowsonZones } from './towson.js';
 import { RAILWAY } from './railway.js';
 
 // Green Spring Valley: farm roads north of Baltimore up York Road, with red barns (one of
@@ -91,7 +92,9 @@ export function buildCounty(world, rng) {
   // are listed, so the woods and the villages (which read `edges`) never see them and every
   // random draw stays put. The ribbon draws them, and the fields count them as road.
   const lochEdges = addLochRoads(world, ids);
-  world.countyEdges = edges.concat(lochEdges);
+  // Towson (towson.js), off Loch Raven's road: after both, for the same reason.
+  const towsonEdges = addTowsonRoads(world, ids);
+  world.countyEdges = edges.concat(lochEdges, towsonEdges);
   const dirt = new THREE.CanvasTexture(noiseCanvas(rng, 256, ['#5a4a36', '#65543d', '#4f412f', '#6f5d44']));
   dirt.colorSpace = THREE.SRGBColorSpace;
   dirt.wrapS = dirt.wrapT = THREE.RepeatWrapping;
@@ -107,7 +110,9 @@ export function buildCounty(world, rng) {
   const villages = VILLAGES.map((v, i) => villageAround(v.at, edges, createRng((world.seed ?? 0) + 31337 + i), barnSpots.concat(home), v.colors));
   const village = villages.flat();
   const quarry = VILLAGES.filter((v) => v.quarry).flatMap((v) => quarryYard(v.at, v.quarry));
-  const all = [...barnSpots, home, ...village];
+  // Towson's buildings, trees and lamps (its own random stream), drawn in the county's meshes.
+  const town = towsonLayout(world.seed ?? 0, towsonEdges);
+  const all = [...barnSpots, home, ...village, ...town.buildings];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
   const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
@@ -117,13 +122,15 @@ export function buildCounty(world, rng) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
   all.forEach((b, i) => {
     // Barns are 14 x 8 x 20 (deep along the door's axis); village houses carry their own size.
-    const w = b.w ?? 14, h = b.h ?? 8, d = b.d ?? 20;
+    const w = b.w ?? 14, h = b.h ?? 8, d = b.d ?? 20, y = b.y ?? 0;
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.rot);
-    body.setMatrixAt(i, m.compose(p.set(b.x, 0, b.z), q, s.set(w, h, d)));
+    body.setMatrixAt(i, m.compose(p.set(b.x, y, b.z), q, s.set(w, h, d)));
     body.setColorAt(i, new THREE.Color(b.color ?? (b.home ? 0x4a3a2c : 0x7a2a1e)));
-    roof.setMatrixAt(i, m.compose(p.set(b.x, h, b.z), q, s.set(w + 1.5, b.house ? h * 0.5 : 5, d + 1)));
+    roof.setMatrixAt(i, m.compose(p.set(b.x, y + h, b.z), q, s.set(w + 1.5, b.house ? h * 0.5 : 5, d + 1)));
     const dw = b.house ? 1.2 : 6, dh = b.house ? 2.3 : 5.6;
-    door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * (d / 2 + 0.05), dh / 2, b.z + b.fz * (d / 2 + 0.05)), q, s.set(dw, dh, 0.2)));
+    // (a `deco` piece, standing on another building, has no door and no collider)
+    door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * (d / 2 + 0.05), dh / 2, b.z + b.fz * (d / 2 + 0.05)), q, b.deco ? s.set(0, 0, 0) : s.set(dw, dh, 0.2)));
+    if (b.deco) return;
     const half = b.rot === 0 ? [w / 2, d / 2] : [d / 2, w / 2];
     world.collision.addBox(b.x - half[0], b.z - half[1], b.x + half[0], b.z + half[1], { tag: 'barn' });
     world.buildings.push({ minX: b.x - half[0], minZ: b.z - half[1], maxX: b.x + half[0], maxZ: b.z + half[1], h, barn: true });
@@ -156,9 +163,9 @@ export function buildCounty(world, rng) {
     if (clear(x, z, 2)) trees.push([x, z, rng.range(0.8, 1.3)]);
   }
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35, 0.5, 4, 6).translate(0, 2, 0),
-    new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 }), trees.length);
+    new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 }), trees.length + town.trees.length);
   const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(3.2, 0).translate(0, 6.2, 0),
-    new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), trees.length);
+    new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), trees.length + town.trees.length);
   const greens = [0x24381f, 0x2c4424, 0x1f3019, 0x34502a, 0x2a3b1c];
   // A tree standing on a village house, on a road out to Loch Raven or beside the railway
   // along the west edge (railway.js) is left out (scaled to nothing, no collider). It still
@@ -176,9 +183,18 @@ export function buildCounty(world, rng) {
     // Trunks stop the truck; a stand of leafy crowns blocks the camera's view (it pulls in).
     if (k) world.collision.addCircle(x, z, 0.6 * sc, { tag: 'tree', blocksSight: true, sightR: 2.6 * sc });
   });
+  // Towson's green (after the woods, with its own numbers).
+  town.trees.forEach(([x, z, sc, rot, tall, green], k) => {
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+    trunk.setMatrixAt(trees.length + k, m.compose(p.set(x, 0, z), q, s.set(sc, sc, sc)));
+    crown.setMatrixAt(trees.length + k, m.compose(p.set(x, 0, z), q, s.set(sc, sc * tall, sc)));
+    crown.setColorAt(trees.length + k, new THREE.Color(greens[green]));
+    world.collision.addCircle(x, z, 0.6 * sc, { tag: 'tree', blocksSight: true, sightR: 2.6 * sc });
+  });
   for (const im of [trunk, crown]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   crown.instanceColor.needsUpdate = true;
-  world.trees = trees.filter((t) => !onHouse(t));
+  world.trees = trees.filter((t) => !onHouse(t)).concat(town.trees.map(([x, z, sc]) => [x, z, sc]));
+  world.extraLights.push(...town.lamps);
 
   // White post-and-rail fences along the valley roads (steeplechase country).
   const posts = [], rails = [];
@@ -213,7 +229,7 @@ export function buildCounty(world, rng) {
   let from = minZ;
   for (const z of [...world.lochGaps].sort((a, b) => a - b)) { east.push([maxX, from, maxX, z - 8]); from = z + 8; }
   east.push([maxX, from, maxX, maxZ]);
-  const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], ...east, [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ]];
+  const walls = [[minX, minZ, maxX, minZ], [minX, minZ, minX, maxZ], ...east, [minX, maxZ, -12, maxZ], [12, maxZ, maxX, maxZ], ...towsonWalls()];
   const blocks = quarry.flatMap((b) => Array.from({ length: b.layers }, (_, k) => [b, k]));
   const wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.2, 1).translate(0, 0.6, 0),
     atlasMaterial(world.atlas, { side: 'fieldstone', tile: 2.5, color: 0xb8b8b8, roughness: 1 }), walls.length + blocks.length);
@@ -235,11 +251,12 @@ export function buildCounty(world, rng) {
   scene.add(wallMesh);
 
   // Loch Raven (loch.js): its own random stream and meshes, in the county's kit.
-  buildLoch(world, lochLayout(world.seed ?? 0, lochEdges), {
+  buildLoch(world, lochLayout(world.seed ?? 0, lochEdges.concat(towsonEdges)), {
     box: body.geometry, body: body.material, roofShape: roof.geometry, roof: roof.material,
     trunkShape: trunk.geometry, trunk: trunk.material, crownShape: crown.geometry, crown: crown.material,
     wallShape: wallMesh.geometry, stone: wallMesh.material,
   });
+  addTowsonZones(world);
 
   return { barns: barnSpots, home };
 }

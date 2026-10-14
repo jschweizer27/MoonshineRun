@@ -2,7 +2,7 @@
 
 SHINE is a 1920s Baltimore bootlegging game (Otto Braun, Baltimore/Green Spring Valley): free
 roam, salvage sites to work, a Tetris-style trunk to pack, four market towns, a still, night
-runs past the Bureau and a story in five chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
+runs past the Bureau and a story in six chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
@@ -132,6 +132,17 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `priced` (best sale prices); the notebook's FINDS. Upgrades' `parts` per level
   (`dredge.nextParts`, consumed stash first in `main` `onBuy`; the market row says what's
   short).
+- Towson (v5 stage 10, `src/towson.js`, chapter 6): a town south of Loch Raven reached by
+  the road from Loch Raven's R4 (no new road on the county's land, so nothing seeded moves).
+  `addTowsonRoads` (nodes `region: 'towson'`), `towsonLayout` (own random stream:
+  buildings, the green's trees, lamps) drawn in the county's body/roof/door, trunk/crown and
+  wall meshes (no draw call of its own; `deco` pieces stand on a building at `y`),
+  `addTowsonZones` (drivable zone, the gate strip, `world.towson` places). `world.regionOf(x,
+  z)` is 'main' | 'loch' | 'towson' (`nearestNode` keeps to its side). Ruby Dalton (`dalton`)
+  is the last contact (`id: 'tavern'`, chapter 5 index). The Towson market (`chapter: 5`) and
+  the `bank` story site (appended last in `placeStory`). A story order's `spot` sends it to a
+  `world.towson` place. The endings come after the last chapter (CHAPTERS.length); a save that
+  chose one earlier is finished (`dredgecareer` load).
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

@@ -113,6 +113,8 @@ export class DredgeCareer {
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
     d.flags = { ...(d.flags || {}) };
     d.ending = ENDINGS[d.ending] ? d.ending : null;
+    // A save that chose its ending before the later chapters came has finished the story.
+    if (d.ending) d.chapter = CHAPTERS.length;
     // Reputation and ranks are gone (trust and tools now): a recipe brewed under them stays learned.
     delete d.rep; delete d.rank;
     for (const r of ['rye', 'lager']) if (d.best[r]) d.flags[`learned:${r}`] = true;

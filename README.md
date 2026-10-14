@@ -97,6 +97,12 @@ Enter, the D-pad and A/B, or touch.
    mill town of Warren went under the reservoir, and search the drowned mill after dark. Then
    get away.
 
+   **Chapter 6, The County Seat** (Act II): on past Loch Raven to **Towson**, the county seat,
+   with its courthouse green, the Towson National Bank and its own market house (it pays well
+   for sewing machines, radio sets and strongboxes). Win over Ruby Dalton at the Courthouse
+   Tavern, get into the bank's records room after dark, and drive Ruby to the courthouse with
+   a copy before the bank opens.
+
    Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
    - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
    - the **false bottom** hides two crates from a search;
@@ -117,7 +123,7 @@ Enter, the D-pad and A/B, or touch.
 
    The notebook lists them; **FOLLOW** one to point the banner and the route at it.
 
-   **The endings.** After chapter 5 the choice is yours, and it ends the story:
+   **The endings.** After chapter 6 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
    - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
 

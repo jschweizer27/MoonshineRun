@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot } from './helpers.js';
+import { openGame, waitForBoot, reloadGame } from './helpers.js';
 
 const guide = (page) => page.evaluate(() => ({
   shown: !document.getElementById('guide').classList.contains('hidden'),
@@ -50,8 +50,7 @@ test('the first run: tips walk through finding salvage, packing and the sale, th
   await expect(page.locator('#toast')).toContainText('The roads are yours');
 
   // For good: a new visit shows none.
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   await page.click('#start-btn');
   await page.evaluate(() => window.shine.step(0.6));
   expect((await guide(page)).shown).toBe(false);
@@ -86,8 +85,7 @@ test('the tips can be skipped from the card or the pause menu, and ?test shows n
   await page.goto('/?test');
   await waitForBoot(page);
   await page.evaluate(() => { localStorage.clear(); });
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   await page.click('#start-btn');
   await page.evaluate(() => window.shine.step(0.6));
   expect((await guide(page)).shown).toBe(false);

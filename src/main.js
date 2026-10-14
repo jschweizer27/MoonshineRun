@@ -17,6 +17,7 @@ import { createRng } from './rng.js';
 import { Police } from './police.js';
 import { Railway, RAILWAY, inWindow } from './railway.js';
 import { LOCH_NODES, WARREN } from './loch.js';
+import { TOWSON_NODES } from './towson.js';
 import { advance, current, openSites, lostNow, choiceOpen, ENDINGS } from './chapters.js';
 import { advanceArcs, activeArcs, arcById, arcStep } from './arcs.js';
 import { consume, onHand, blend, missing, RECIPES, blendGrade } from './brew.js';
@@ -774,7 +775,8 @@ class Game {
   // ride, lost on a rough one); the chapters' to Mags O'Rourke. `freight`: the order waits on
   // the midnight freight (its window is the train's).
   _storyOrder(step, arc = null) {
-    const O = step.order, c = O.at === 'load' ? { ...RAILWAY.load, place: O.place } : this.contactList.find((x) => x.who === O.at);
+    // (`spot`: a place in a region, world.towson's, instead of the contact's door)
+    const O = step.order, c = O.at === 'load' ? { ...RAILWAY.load, place: O.place } : O.spot ? { ...this.world.towson[O.spot], place: O.place } : this.contactList.find((x) => x.who === O.at);
     const o = {
       id: `story:${step.id}`, story: step.id, contact: c.id || null, who: O.who, name: CAST[O.who].name, place: O.place || c.place, kind: 'speakeasy', x: c.x, z: c.z,
       wants: { ...O.wants }, grade: null, night: !!O.night, window: O.window || null, pay: O.pay, hours: 0, km: 0, line: '', due: null, fragile: !!O.fragile,
@@ -1070,7 +1072,9 @@ class Game {
 
   // The named place nearest a spot in the county: a farm or a village.
   _landmark(x, z) {
-    if (this.world.regionOf(x) === 'loch') return Math.hypot(x - WARREN.x, z - WARREN.z) < 120 ? 'Warren' : 'Loch Raven';
+    const region = this.world.regionOf(x, z);
+    if (region === 'loch') return Math.hypot(x - WARREN.x, z - WARREN.z) < 120 ? 'Warren' : 'Loch Raven';
+    if (region === 'towson') return 'Towson';
     if (!this.world.inCounty({ x, z })) {   // in the city: its nearest named quarter
       let best = 'the city', bd = Infinity;
       for (const l of this.world.mapLabels) if (l.z > -250 && Math.hypot(l.x - x, l.z - z) < bd) { bd = Math.hypot(l.x - x, l.z - z); best = l.text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
@@ -1562,7 +1566,9 @@ class Game {
   // Where the truck is: a town, or the valley between. Arriving somewhere new shows its name.
   _placeName(p = this.player.position) {
     if (!this.world.inCounty(p)) return 'Baltimore';
-    if (this.world.regionOf(p.x) === 'loch') return 'Loch Raven';
+    const region = this.world.regionOf(p.x, p.z);
+    if (region === 'loch') return 'Loch Raven';
+    if (region === 'towson') return 'Towson';
     const t = CONFIG.dredge.towns.find((x) => x.area && Math.hypot(p.x - x.x, p.z - x.z) < x.area);
     return t ? t.town : 'Green Spring Valley';
   }
@@ -1572,9 +1578,11 @@ class Game {
     if (place !== this.place) {
       if (this.place && !this.police.tier) this.hud.toast(place, 'gold', 2200);   // not over a chase's news
       this.place = place;
-      // The first valley town reached (the Jockey's beat); Loch Raven (chapter 5's first step).
+      // The first valley town reached (the Jockey's beat); Loch Raven and Towson (chapter 5's
+      // and chapter 6's first steps).
       if (place !== 'Baltimore' && place !== 'Green Spring Valley') this.dredge.data.flags.valley = true;
       if (place === 'Loch Raven') this.dredge.data.flags.loch = true;
+      if (place === 'Towson') this.dredge.data.flags.towson = true;
     }
   }
 
@@ -2320,6 +2328,7 @@ class Game {
     if (step.site) return this.salvage.sites.find((x) => x.story === step.site) || null;
     if (step.at === 'barn') return { x: this.world.home.stopX, z: this.world.home.stopZ };
     if (step.at === 'loch') return { x: LOCH_NODES.R2[0], z: LOCH_NODES.R2[1] };
+    if (step.at === 'towson') return { x: TOWSON_NODES.T2[0], z: TOWSON_NODES.T2[1] };
     return null;
   }
 
