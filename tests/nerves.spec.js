@@ -13,13 +13,17 @@ test('nerves: the night wears them down (less with spotlamps), the clock says so
     g.renderer.setAnimationLoop(null);
     const night = (n) => { d.nerves = n; g.env.hour = 22; d.market.clock = 22; };
     const out = {};
-    // A game hour and a half of night on the road.
-    night(1); window.shine.step(60);
+    // A game hour and a half of night on the road (the clock run ten times fast, to spare
+    // the frames).
+    const hps = g.env.hoursPerSecond;
+    g.env.hoursPerSecond = hps * 10;
+    night(1); window.shine.step(6);
     out.drained = Math.round((1 - d.nerves) * 1000) / 1000;
-    night(1); d.upgrades.lamps = 3; window.shine.step(60); d.upgrades.lamps = 0;
+    night(1); d.upgrades.lamps = 3; window.shine.step(6); d.upgrades.lamps = 0;
     out.lamps = Math.round((1 - d.nerves) * 1000) / 1000;
     // Past a mark: a word from Otto, and on the clock.
-    night(0.705); window.shine.step(5);
+    night(0.705); window.shine.step(0.5);
+    g.env.hoursPerSecond = hps;
     out.uneasy = { log: g.hud.log.join(' | '), clock: g._clockText() };
     // Rattled: phantom Bureau cars on the radar.
     night(0.45); g._phantomAt = 0; window.shine.step(0.1);
