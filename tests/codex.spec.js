@@ -43,7 +43,7 @@ test('odd variants: a night site worked well gives them up in place of the usual
   await page.evaluate(() => window.shine.game.openNotebook());
   await expect(page.locator('#notebook-body')).toContainText('FINDS');
   await expect(page.locator('#notebook-body')).toContainText('Braun & Sons coil');
-  await expect(page.locator('#notebook-body')).toContainText('? (an odd aged keg)');
+  await expect(page.locator('#notebook-body')).toContainText('? (an odd sewing machine)');   // a siding never gives one up
   expect(problems).toEqual([]);
 });
 
