@@ -155,7 +155,23 @@ export const CONFIG = {
     ],
     // The county stores (a town's `supplies`) sell the still's makings: these kinds, at their
     // base value x `markup` (rounded to $), into the trunk.
-    supplies: { kinds: ['sack', 'jugs', 'small-crate'], markup: 1.3 },
+    supplies: { kinds: ['sack', 'jugs', 'small-crate'], markup: 1.3, gear: ['spotlamp', 'crowbar', 'toolbox', 'ice'] },
+    // Gear (a kind's `gear`; after DREDGE's equipment in the hold): sold at the county stores,
+    // it works only while it's packed in the trunk, taking room from the cargo. A `spotlamp`
+    // adds `light` to the headlamps (two at most); a `crowbar` allows `strikes` more slips at
+    // a pry; a `toolbox` takes `wear` off each knock; an `ice` block keeps Lager cold for
+    // `hours` game hours, then it's melted. Gear never sells and never counts as shine.
+    gear: { spotlamp: { light: 0.2, most: 2 }, crowbar: { strikes: 1 }, toolbox: { wear: 0.4 }, ice: { hours: 10 } },
+    // Lager goes flat in a warm trunk (DREDGE's fish rot): its blend loses `lager` quality a
+    // game hour while it rides without ice, down to `floor` (the barn's stash keeps it cool).
+    spoil: { lager: 0.025, floor: 0.2 },
+    // Damage that bites (DREDGE's hull breaches): a crash at `at` m/s or harder, `chance` of
+    // the time, puts out a headlamp (light x`lamp`) or cracks a trunk cell (nothing packs
+    // there; what was in it bounces out), until it's mended at the barn (`cost` each).
+    damage: { at: 24, chance: 0.5, lamp: 0.55, cost: 60 },
+    // Bounties (DREDGE's collectors): once Otto has found an odd one, a contact a day asks
+    // for an odd kind, by `hours`, paying `pay` x its value.
+    bounty: { pay: 2, hours: 36 },
     // What each town pays, as a multiple of each kind's base value.
     prices: {
       baltimore: {
@@ -537,6 +553,11 @@ export const CONFIG = {
         { id: 'odd-keg', name: 'Pre-war keg', short: 'Keg★', tier: 'premium', odd: 'keg', value: 275, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
         { id: 'odd-sewing-machine', name: 'Gilded sewing machine', short: 'Sewing★', tier: 'premium', odd: 'sewing-machine', value: 260, weight: 0, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
         { id: 'odd-strongbox', name: 'Bank-stamped strongbox', short: 'Box★', tier: 'premium', odd: 'strongbox', value: 380, weight: 0, cells: [[0, 0]] },
+        // Gear (CONFIG.dredge.gear): bought at the county stores, it works while it's packed.
+        { id: 'spotlamp', name: 'Spare spotlamp', short: 'Lamp', tier: 'mid', gear: true, accent: 'cream', value: 60, weight: 0, cells: [[0, 0], [1, 0]] },
+        { id: 'crowbar', name: 'Crowbar', short: 'Bar', tier: 'low', gear: true, value: 35, weight: 0, cells: [[0, 0], [1, 0], [2, 0]] },
+        { id: 'toolbox', name: 'Toolbox', short: 'Tools', tier: 'mid', gear: true, value: 70, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'ice', name: 'Block of ice', short: 'Ice', tier: 'low', gear: true, color: 'cream', accent: 'slate', value: 15, weight: 0, cells: [[0, 0]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {

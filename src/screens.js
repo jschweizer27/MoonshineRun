@@ -8,6 +8,7 @@ import { CAST, TRUSTED } from './story.js';
 import { CHAPTERS, choiceOpen } from './chapters.js';
 import { ARCS, arcStep } from './arcs.js';
 import { SITE_KINDS, setOf, ODDS } from './codex.js';
+import { LORE } from './lore.js';
 import { newPry, stepPry, pressPry, newSearch, stepSearch, pickSearch, searchGlint, score } from './salvage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -69,6 +70,14 @@ function contractRows(body, jobs, trunk, render) {
 // A county store's supplies (CONFIG.dredge.supplies): what a piece of `kind` costs there.
 export const supplyPrice = (kind) => Math.round(KINDS[kind].value * CONFIG.dredge.supplies.markup);
 
+// What each piece of gear does (CONFIG.dredge.gear), while it's packed in the trunk.
+const GEAR = {
+  spotlamp: 'Gear: brighter headlamps while it rides in the trunk (two at most).',
+  crowbar: 'Gear: in the trunk, the first slip at a pry doesn’t count.',
+  toolbox: 'Gear: in the trunk, knocks wear the truck less.',
+  ice: 'Gear: keeps Lager cold in the trunk till it melts (about ten hours).',
+};
+
 export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), have = () => ({}), onSell, onBuy, onSupply = null, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
@@ -84,7 +93,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     for (const k of CONFIG.dredge.loot.kinds) {
       const n = counts[k.id];
       if (!n) continue;
-      if (!buys(town.id, k.id)) { unsold += n; continue; }
+      if (!buys(town.id, k.id)) { if (!k.gear) unsold += n; continue; }
       const each = priceOf(town.id, k.id, career.market);
       const q = quote(town.id, trunk, career.market, k.id);
       const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': k.id, 'data-total': q.total },
@@ -99,14 +108,14 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     // A county store sells the still's makings, straight into the trunk.
     if (town.supplies && onSupply) {
       body.append(el('h3', { class: 'market-head' }, 'SUPPLIES'));
-      for (const kind of CONFIG.dredge.supplies.kinds) {
+      for (const kind of [...CONFIG.dredge.supplies.kinds, ...(CONFIG.dredge.supplies.gear || [])]) {
         const k = KINDS[kind], price = supplyPrice(kind), room = !!trunk.findSpot(kind);
         const buy = el('button', { type: 'button', class: 'btn small-btn', 'data-id': `supply-${kind}` }, room ? `BUY ${money(price)}` : 'NO ROOM');
         buy.disabled = !room || career.cash < price;
         buy.addEventListener('click', () => { onSupply(kind); render(); });
         body.append(el('div', { class: 'upgrade' },
           el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }), el('b', {}, k.name),
-            el('small', {}, `For the still. In the trunk: ${counts[kind] || 0}.`)), buy));
+            el('small', {}, `${k.gear ? GEAR[kind] : 'For the still.'} In the trunk: ${counts[kind] || 0}.`)), buy));
       }
     }
     // One of the endings, at Lexington Market once the story's last chapter is done.
@@ -227,13 +236,14 @@ export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () =
     contractRows(body, jobs, trunk, render);
     // The garage.
     body.append(el('h3', { class: 'market-head' }, 'THE GARAGE'));
-    const cost = career.repairCost(), health = Math.round((1 - d.wear) * 100);
+    const cracks = trunk.cracked.length, cost = career.repairCost(cracks), health = Math.round((1 - d.wear) * 100);
     const fix = el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'repair' }, cost ? `REPAIR ${money(cost)}` : 'SOUND');
     fix.disabled = !cost || career.cash < cost;
     fix.addEventListener('click', () => { onRepair(); render(); });
+    const broken = [d.damage?.lamp ? 'a smashed headlamp' : '', cracks ? `${cracks} cracked trunk cell${cracks === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ');
     body.append(el('div', { class: 'upgrade' },
       el('div', {}, el('b', {}, `The truck: ${health}%`),
-        el('small', {}, d.wear > 0.01 ? 'Knocks and crashes wear it; a worn truck is slower until it’s mended.' : 'In good shape.')),
+        el('small', {}, `${d.wear > 0.01 ? 'Knocks and crashes wear it; a worn truck is slower until it’s mended.' : broken ? '' : 'In good shape.'}${broken ? ` Broken: ${broken}.` : ''}`)),
       fix));
     // The bunk: sleep through the waiting (main.sleep).
     const naps = sleeps();
@@ -527,9 +537,9 @@ export function showBrewery(ui, { onDone }) {
 // Search, a 3x3 cellar (remember where the goods glinted, pick before the lamp dies).
 // `onDone(score)` when the player takes what's there. Returns { game, step, press, pick,
 // finish, manual } so tests can play it by hand.
-export function showSalvage(ui, { site, onDone }) {
+export function showSalvage(ui, { site, onDone, free = 0 }) {
   const kind = CONFIG.dredge.salvage.kinds[site.kind], P = CONFIG.dredge.salvage;
-  const g = kind.game === 'pry' ? newPry() : newSearch();
+  const g = kind.game === 'pry' ? newPry(Math.random, { free }) : newSearch();
   const ring = $('salvage-ring'), grid = $('salvage-grid'), pressBtn = $('salvage-press'), done = $('salvage-done');
   let raf = 0, last = 0, finished = false;
   const total = g.game === 'pry' ? P.pry.seconds : P.search.glint + P.search.seconds;
@@ -759,6 +769,11 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
   body.append(note(el('div', {}, el('b', {}, `Odd ones · ${ODDS.filter(seen).length}/${ODDS.length}${d.tools.eye ? ' ✓ the collector’s eye' : ''}`),
     el('small', {}, ODDS.map((k) => (seen(k) ? findText(k) : `? (an odd ${KINDS[KINDS[k].odd].name.toLowerCase()})`)).join(' · ')),
     el('small', { class: 'says' }, 'Odd ones turn up now and then in place of the usual piece, most often at night sites worked well.'))));
+  // Lore scraps (lore.js): what turned up among the salvage, after dark.
+  const letters = LORE.filter((x) => d.lore?.[x.id]);
+  body.append(el('h3', {}, `LETTERS · ${letters.length}/${LORE.length}`));
+  if (!letters.length) body.append(note(el('span', {}, 'Papers turn up among the salvage now and then, after dark: keep an eye out.')));
+  for (const x of letters) body.append(note(el('div', {}, el('b', {}, x.kind), el('small', { class: 'says' }, x.text))));
   body.append(el('h3', {}, `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {

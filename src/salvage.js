@@ -138,10 +138,11 @@ export const isNight = (hour) => hour >= S.night[0] || hour < S.night[1];
 export { inWindow };
 
 // ---------- Pry: a needle sweeps the ring; press while it's in a green arc. ----------
-export function newPry(rng = Math.random) {
+// `free`: slips that don't count (a crowbar in the trunk).
+export function newPry(rng = Math.random, { free = 0 } = {}) {
   const P = S.pry, arcs = [];
   for (let k = 0; k < P.arcs; k++) arcs.push({ a: (k / P.arcs) * TAU + 0.9 + rng() * (TAU / P.arcs - 1.2), w: P.arcWidth, hit: false });
-  return { game: 'pry', arcs, angle: 0, dir: 1, speed: P.speed, t: 0, strikes: 0, done: false };
+  return { game: 'pry', arcs, angle: 0, dir: 1, speed: P.speed, t: 0, strikes: 0, free, done: false };
 }
 
 export function stepPry(g, dt) {
@@ -159,6 +160,7 @@ export function pressPry(g) {
   if (g.done) return false;
   const arc = g.arcs.find((a) => !a.hit && inArc(g.angle, a));
   if (arc) { arc.hit = true; g.dir = -g.dir; g.speed += S.pry.speedUp; }
+  else if (g.free > 0) g.free--;
   else g.strikes++;
   if (g.arcs.every((a) => a.hit) || g.strikes >= S.pry.strikes) g.done = true;
   return !!arc;

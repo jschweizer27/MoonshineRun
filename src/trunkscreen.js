@@ -191,7 +191,7 @@ export class TrunkScreen {
     for (const cell of g.children) {
       const x = +cell.dataset.x, y = +cell.dataset.y, p = t.pieceAt(x, y);
       const gh = ghost.get(`${x},${y}`);
-      cell.className = `cell${p ? ' filled' : ''}${gh ? ` ghost ${gh}` : ''}${!this.hand && this.cursor.x === x && this.cursor.y === y ? ' cursor' : ''}`;
+      cell.className = `cell${p ? ' filled' : ''}${t.isCracked(x, y) ? ' cracked' : ''}${gh ? ` ghost ${gh}` : ''}${!this.hand && this.cursor.x === x && this.cursor.y === y ? ' cursor' : ''}`;
       cell.dataset.kind = p ? p.kind : '';
       // Pieces in their palette colours, edged in their accent where the neighbour is
       // another piece; the piece in hand shows through where it would go.

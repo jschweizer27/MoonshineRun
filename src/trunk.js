@@ -37,7 +37,25 @@ export class Trunk {
     this.rows = rows;
     this.grid = new Int16Array(cols * rows).fill(-1);
     this.pieces = new Map();      // id -> { id, kind, rot, x, y, cells: [[col, row]] (absolute) }
+    this.cracked = [];            // cells a crash has cracked ([col, row]): nothing packs there (-2 in the grid)
     this._next = 0;
+  }
+
+  isCracked(x, y) { return this.grid[y * this.cols + x] === -2; }
+
+  // Crack a cell (a hard crash): whatever was packed there is taken out and returned.
+  crack(x, y) {
+    if (x < 0 || y < 0 || x >= this.cols || y >= this.rows || this.isCracked(x, y)) return null;
+    const p = this.pieceAt(x, y), out = p ? this.remove(p.id) : null;
+    this.grid[y * this.cols + x] = -2;
+    this.cracked.push([x, y]);
+    return out;
+  }
+
+  // Mended: every cracked cell is good again.
+  mend() {
+    for (const [x, y] of this.cracked) this.grid[y * this.cols + x] = -1;
+    this.cracked = [];
   }
 
   get count() { return this.pieces.size; }
@@ -60,6 +78,7 @@ export class Trunk {
       if (cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) { inside = false; continue; }
       const id = this.grid[cy * this.cols + cx];
       if (id >= 0) ids.add(id);
+      else if (id === -2) inside = false;               // a cracked cell
     }
     return { inside, ids: [...ids] };
   }
@@ -100,22 +119,25 @@ export class Trunk {
   clear() {
     this.grid.fill(-1);
     this.pieces.clear();
+    for (const [x, y] of this.cracked) this.grid[y * this.cols + x] = -2;
   }
 
   // The same pieces in the same places, in a trunk of another size (a bigger trunk always
   // holds them; in a smaller one, pieces that no longer fit are left out).
   resized(cols, rows) {
     const t = new Trunk(cols, rows);
+    for (const [x, y] of this.cracked) t.crack(x, y);
     for (const p of this.pieces.values()) t.place(p.kind, p.x, p.y, p.rot);
     return t;
   }
 
   toJSON() {
-    return { cols: this.cols, rows: this.rows, pieces: [...this.pieces.values()].map(({ kind, rot, x, y }) => ({ kind, rot, x, y })) };
+    return { cols: this.cols, rows: this.rows, pieces: [...this.pieces.values()].map(({ kind, rot, x, y }) => ({ kind, rot, x, y })), cracked: this.cracked.map((c) => [...c]) };
   }
 
   static fromJSON(data) {
     const t = new Trunk(data.cols, data.rows);
+    for (const [x, y] of Array.isArray(data.cracked) ? data.cracked : []) t.crack(x, y);
     for (const p of data.pieces || []) if (KINDS[p.kind]) t.place(p.kind, p.x, p.y, p.rot);
     return t;
   }

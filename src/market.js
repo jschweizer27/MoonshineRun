@@ -50,7 +50,7 @@ export const saturdayNight = (clock, night) => night && weekday(nightOf(clock)) 
 // game) has none. Returns { town, townName, kind, kindName, mult } or null.
 export function eventFor(day) {
   if (day < 1) return null;
-  const towns = openTowns(), kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed && !k.odd);
+  const towns = openTowns(), kinds = CONFIG.dredge.loot.kinds.filter((k) => !k.rare && !k.brewed && !k.odd && !k.gear);
   const pick = (list, salt) => list[Math.floor(roll(salt, day) * list.length)];
   const town = pick(towns, 'town'), kind = pick(kinds, 'kind');
   return { town: town.id, townName: town.town, kind: kind.id, kindName: kind.name, mult: M.event.multiplier };
@@ -80,8 +80,8 @@ export function priceOf(town, kind, state, extraSold = 0) {
 // What selling every piece of `kind` (or everything when null) would fetch, piece by piece
 // as the price drops. Doesn't change anything.
 // Who buys what: the markets take anything but shine, and the speakeasies (town ids
-// 'drop:<n>') take only shine.
-export const buys = (town, kind) => (String(town).startsWith('drop:') ? !!KINDS[kind].brewed : !KINDS[kind].brewed);
+// 'drop:<n>') take only shine. Nobody buys Otto's gear.
+export const buys = (town, kind) => !KINDS[kind].gear && (String(town).startsWith('drop:') ? !!KINDS[kind].brewed : !KINDS[kind].brewed);
 
 // `keep`: { kind: count } held back from the sale (SELL EVERYTHING keeps what the orders need).
 export function quote(town, trunk, state, kind = null, keep = {}) {

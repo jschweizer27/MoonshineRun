@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { KINDS } from './trunk.js';
 import { CAST } from './story.js';
 import { blendGrade } from './brew.js';
+import { ODDS } from './codex.js';
 
 // Orders from Otto's contacts: the speakeasies (the named city corners), the farms (the
 // county barns) and the Sheriff. Pure logic: each in-game day posts a few, rolled from the
@@ -51,7 +52,7 @@ function roll(salt, day) {
 // count so far: id `<day>-f<focusN>`), so a trust step moves at the player's pace, not a
 // day's. `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
 // that lands on one goes to someone else. Without either, the offers are as they always were.
-export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [] } = {}) {
+export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, exclude = [], bounty = false } = {}) {
   // Recipes he can brew: the plain one, and those he's been taught.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
@@ -101,6 +102,20 @@ export function offersFor(day, list, { brewing = false, chapter = 0, trust = {},
   }
   const wanted = focus && !exclude.includes(focus) && list.find((c) => c.who === focus);
   if (wanted) out.push(offer(`f${focusN}`, wanted));
+  // A bounty (once Otto knows odd finds): someone wants a particular odd one, by a day or so,
+  // at a collector's price. Last, so the day's other offers stay as they were.
+  if (bounty) {
+    const r = (s) => roll(`${s}:b`, day), B = CONFIG.dredge.bounty;
+    const pool = list.filter((c) => (c.chapter || 0) <= chapter && !exclude.includes(c.who) && CAST[c.who]?.asks);
+    const contact = pool[Math.floor(r('contact') * pool.length)], kind = ODDS[Math.floor(r('kind') * ODDS.length)];
+    if (contact) {
+      out.push({
+        id: `${day}-b`, contact: contact.id, name: contact.name, place: contact.place, who: contact.who, kind: contact.kind, x: contact.x, z: contact.z,
+        line: `I’m told there’s such a thing as a ${KINDS[kind].name.toLowerCase()}. Find me one and I’ll pay what it’s worth to me.`,
+        wants: { [kind]: 1 }, grade: null, night: false, pay: Math.round((KINDS[kind].value * B.pay) / 5) * 5, hours: B.hours, km: 0, bounty: true,
+      });
+    }
+  }
   return out;
 }
 
