@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, waitForBoot } from './helpers.js';
+import { openGame, reloadGame } from './helpers.js';
 
 const dialogOpen = (page) => page.evaluate(() => !document.getElementById('dialog').classList.contains('hidden'));
 
@@ -48,8 +48,7 @@ test('story: a new game opens with the prologue, beats play once per save at the
   await page.click('#dialog-skip');
 
   // Seen once: a reload and CONTINUE plays nothing again.
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   await page.click('#start-btn');
   await page.evaluate(() => window.shine.step(1.5));
   expect(await dialogOpen(page)).toBe(false);

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openGame, startRun, waitForBoot } from './helpers.js';
+import { openGame, startRun, reloadGame } from './helpers.js';
 
 test('Otto’s barn: stop in the yard to open it; the stash keeps loot between runs and has a limit', async ({ page }) => {
   const problems = await openGame(page);
@@ -49,8 +49,7 @@ test('Otto’s barn: stop in the yard to open it; the stash keeps loot between r
 
   // Kept between visits.
   await page.click('#barn-done');
-  await page.reload();
-  await waitForBoot(page);
+  await reloadGame(page);
   expect(await page.evaluate(() => window.shine.game.dredge.data.stash)).toEqual({ crate: 10 });
   const after = await page.evaluate(() => ({ programs: window.shine.game.renderer.info.programs.length, geometries: window.shine.game.renderer.info.memory.geometries }));
   expect(after).toEqual(before);
