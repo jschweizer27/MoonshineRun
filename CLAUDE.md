@@ -121,6 +121,17 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   `farmstill` (`_dawn`), `family` (`_bust` in the city, once a day), `belvedere`
   (`_belvedere`: Banks pays `CONFIG.dredge.arcs.belvedere`x on Saturday nights; the clock
   shows the weekday, `market.weekday`). Any number of passengers ride at once.
+- Night and nerve (v5 stage 9a, after DREDGE; design only, none of its assets): `d.nerves`
+  (1..0, `main._nerves` / `_setNerves` / `_jolt`, `CONFIG.dredge.nerves`): drains at night,
+  back by day, at dawn and fully on a sleep; the clock shows the word; phantoms in
+  `_mapMarkers` (`phantom: true`), a siren in `_updateHeat`, a wobble in `step`. Working a site
+  passes `CONFIG.dredge.salvage.hours` (`main._passHours`, dawn if crossed). Both only run
+  with the clock (`OPTIONS.time`: under ?test with `&time`). `src/codex.js`: odd variants
+  (kinds with `odd`, `oddify` in `_onSalvaged`; under ?test only with `&odd`, or a stubbed
+  `g._oddRng`), `record` (`d.codex`, set rewards `flags['set:<site>']`, the `eye` tool),
+  `priced` (best sale prices); the notebook's FINDS. Upgrades' `parts` per level
+  (`dredge.nextParts`, consumed stash first in `main` `onBuy`; the market row says what's
+  short).
 - One clock: the save's `market.clock` (game hours from midnight of day 0; a new game starts
   at 21.5) is the time; `env.hour` is set from it on every load (`main._syncHour`) and both
   advance together, so deadlines, dawn, refills, the freight and the sky agree. The night's

@@ -43,14 +43,16 @@ const HOME = { x: PLACES.barn[0], z: PLACES.barn[1] };
 // 4.2 an hour), times how much of a bot's pace a person keeps. `kinds`: pieces an hour of
 // anything a farm wants, when going for it (the right kind of site).
 const SALVAGE = {
-  skilled: { perMin: 157 * 0.7, makings: { jugs: 23.4, 'small-crate': 7.8, sack: 3.9 }, kinds: 7 },
-  casual: { perMin: 80 * 0.6, makings: { jugs: 12.5 * 0.6, 'small-crate': 4.2 * 0.6, sack: 1 }, kinds: 3.5 },
+  skilled: { perMin: 157 * 0.7, makings: { jugs: 23.4, 'small-crate': 7.8, sack: 3.9 }, kinds: 7, sites: 14 },
+  casual: { perMin: 80 * 0.6, makings: { jugs: 12.5 * 0.6, 'small-crate': 4.2 * 0.6, sack: 1 }, kinds: 3.5, sites: 8 },
 };
 const PLAYERS = {
   rusher: { speed: 0.95, q: 0.85, salvage: SALVAGE.skilled, sleeps: true, side: 0, upgrades: 0, slack: 1.1 },
   steady: { speed: 0.85, q: 0.85, salvage: SALVAGE.skilled, sleeps: false, side: 2, upgrades: 0.5, slack: 1.25 },
   casual: { speed: 0.65, q: 0.6, salvage: SALVAGE.casual, sleeps: 0.5, side: 1, upgrades: 0.5, slack: 1.5 },
 };
+// Game hours a site's work takes (CONFIG.dredge.salvage.hours: pry and search alike).
+const WORK = (D.salvage.hours.pry + D.salvage.hours.search) / 2;
 const SUPPLY = (k) => Math.round(KINDS[k].value * (D.supplies?.markup || 1));
 const SUPPLIES = D.supplies?.kinds || [];          // (none before the stores sold them)
 const RECIPE = Object.fromEntries(D.brew.recipes.map((r) => [r.id, r]));
@@ -72,6 +74,7 @@ function play(P) {
   // Salvage for `min` real minutes (by day, or waiting): cash for what's sold, the makings kept.
   const salvage = (min) => {
     s.t += min; s.clock += min * HPM * 0.7;           // ~30% of it at the screens (the clock stands)
+    s.clock += (min / 60) * P.salvage.sites * WORK;   // but the work at a site takes game hours
     s.cash += P.salvage.perMin * min; s.spend.salvage += min;
     for (const [k, n] of Object.entries(P.salvage.makings)) s.stock[k] = (s.stock[k] || 0) + (n * min) / 60;
   };
@@ -160,6 +163,10 @@ function play(P) {
         if (!best || u.costs[lv] < best.cost) best = { id, cost: u.costs[lv] };
       }
       if (!best || best.cost > (s.cash - D.deed.cost * 0.15) * P.upgrades) return;
+      // The level's parts: kept back from the salvage instead of sold (their price, and a
+      // little time to keep them aside).
+      const parts = D.upgrades[best.id].parts?.[s.levels[best.id] || 0];
+      if (parts) for (const [k, n] of Object.entries(parts)) { s.cash -= KINDS[k].value * n; screen(0.5 * n); }
       s.cash -= best.cost; s.spent += best.cost; s.levels[best.id] = (s.levels[best.id] || 0) + 1;
     }
   };

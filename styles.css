@@ -343,6 +343,8 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 .upgrade { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid rgba(216, 178, 90, 0.3); border-radius: 4px; }
 .upgrade b { font-size: calc(16px * var(--ts)); color: var(--paper); }
 .upgrade small { display: block; color: var(--muted); font-size: calc(13px * var(--ts)); margin-top: 2px; }
+.upgrade small.needs { color: #b8c890; }
+.upgrade small.needs.short { color: #d8a070; }
 .pips { margin-left: 10px; }
 .pips i { display: inline-block; width: 10px; height: 10px; margin-right: 3px; border-radius: 50%; border: 1px solid var(--gold); }
 .pips i.on { background: var(--gold); }

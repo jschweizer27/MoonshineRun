@@ -131,10 +131,16 @@ Enter, the D-pad and A/B, or touch.
    - **Search** (farmhouses, cellars): watch where the goods glint, then pick your spots
      before the lamp dies.
 
-   The better you do, the more you get (up to three pieces) and the better they are. A
-   worked site is picked clean for a day or two. The best ones can only be worked at night,
+   The better you do, the more you get (up to three pieces) and the better they are. The
+   work takes time: half an hour on the clock for a pry, three quarters for a search, so a
+   night only holds so many sites. A worked site is picked clean for a day or two. The best ones can only be worked at night,
    and a clean job at one of those can turn up a **rare find**: a gold pocket watch or a case
-   of bonds, which pays big in one town. If Father's coil is lost before it's fitted (sold, or
+   of bonds, which pays big in one town. Now and then a site gives up an **odd one** in place
+   of the usual piece (most often at night, worked well): a Braun & Sons coil, a police-band
+   radio, a pre-war keg, a gilded sewing machine, a bank-stamped strongbox, worth far more.
+   The notebook's **FINDS** list everything you've turned up and the best price it fetched;
+   find every kind a site gives up and a collector pays for the list, and find every odd one
+   for the **collector's eye** (odd ones turn up more often). If Father's coil is lost before it's fitted (sold, or
    left on the road), the ruins open again: he always kept a spare.
    Lamp posts give way if you hit them; they're back up by dawn.
 3. Everything you find goes into the **trunk**, one piece at a time: turn it and fit it in;
@@ -152,10 +158,16 @@ Enter, the D-pad and A/B, or touch.
 5. Spend your cash at any market on **upgrades**: a bigger bed (the trunk grows and the
    truck gets reinforced rails), a tuned engine, stiffer springs, **padding** (fewer
    breakages in a crash) and a **spotter** (salvage sites further off on the radar; at the top
-   level, all of them). The county stores (Monkton, Glyndon, Cockeysville) also sell the
+   level, all of them). The later levels also take **parts** you've salvaged (a coil for the
+   engine, a radio set for the spotter...), from the trunk or the barn's stash: the market
+   says what each needs. The county stores (Monkton, Glyndon, Cockeysville) also sell the
    still's makings: sacks, jugs and small crates, straight into the trunk.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
-   its stash between trips, and mend the truck in its garage. Hard knocks wear the truck and
+   its stash between trips, mend the truck in its garage, and **sleep**. Otto's **nerves** wear
+   down on the night roads (faster with the headlamps off, slower with spotlamps), and the
+   clock says when he's Uneasy, Rattled or Frayed. Rattled, the radar shows Bureau cars that
+   aren't there; frayed, he hears sirens and the wheel won't sit still. Daylight and dawn
+   give some back; a sleep at the barn all of it. Hard knocks wear the truck and
    slow it down until it's repaired.
 7. The roads aren't empty: motor cars, delivery vans and horse carts go about their
    business, busier in the city than the valley and quieter late at night. Hit one and it's a

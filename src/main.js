@@ -31,7 +31,8 @@ import { Traffic } from './traffic.js';
 import { RoadEvents } from './roadevents.js';
 import { TrunkScreen } from './trunkscreen.js';
 import { DredgeCareer } from './dredgecareer.js';
-import { sell, passTime, dayOf, eventFor, eventText, townOpen, weekday, nightOf, saturdayNight } from './market.js';
+import { sell, passTime, dayOf, eventFor, eventText, townOpen, weekday, nightOf, saturdayNight, priceOf, buys } from './market.js';
+import { oddify, record, priced } from './codex.js';
 import { distToSegment } from './county.js';
 import { installDebug } from './debug.js';
 import { PostFX } from './post.js';
@@ -62,6 +63,7 @@ export const OPTIONS = {
   hints: !params.has('test') || params.has('hints'),
   traffic: !params.has('test') || params.has('traffic'),
   police: !params.has('test') || params.has('police'),
+  odd: !params.has('test') || params.has('odd'),
 };
 // Replaced with the commit id by the production build.
 const BUILD_ID = typeof __SHINE_BUILD__ !== 'undefined' ? __SHINE_BUILD__ : 'dev'; // eslint-disable-line no-undef
@@ -971,6 +973,11 @@ class Game {
     // The fields slow the truck, and so does wear (until it's mended at the barn).
     this.player.speedFactor = this.surface * (1 - this.dredge.data.wear * CONFIG.dredge.wear.maxSlow);
     this.player.t.grip = this.gripBase * (1 - (1 - fx.grip) * this.perks.wet) * (this.surface < 1 ? 0.85 : 1);
+    // Frayed nerves: the wheel won't sit still.
+    if ((this.dredge.data.nerves ?? 1) < CONFIG.dredge.nerves.frayed && OPTIONS.time) {
+      const w = Math.sin(this.time * 2.3) * Math.sin(this.time * 0.7) * CONFIG.dredge.nerves.wobble;
+      input = Object.assign(this._wobbleIn ??= {}, input, { steer: Math.max(-1, Math.min(1, (input.steer || 0) + w)) });
+    }
     this.player.update(dt, input);
     this._throttle = input.throttle || 0;
     // Hitting a wall: a thud, sparks and a shake; the hard ones throw debris and hold the
@@ -980,6 +987,7 @@ class Game {
     for (const e of this.traffic.update(dt, this.player, this.camera.position, this.env.hour)) this._onTraffic(e);
     // Revenue agents: patrols, heat, the bust meter and the York Road checkpoint.
     const night = this._night(), d = this.dredge.data;
+    this._nerves(dt, night);
     const law = this.police.update(dt, this.player, this.camera, this.time, {
       contraband: this._contraband() > 0, night, lightsOff: this.lightsOff && night, route: this.minimap.route,
       checkpoint: (d.chapter || 0) >= CONFIG.dredge.police.checkpoint.chapter,
@@ -1045,7 +1053,8 @@ class Game {
   // The HUD's clock: sun or moon, the time, the weather.
   _clockText() {
     const weather = { rain: ' · Rain', fog: ' · Fog', clear: '' }[this.env.weather];
-    return `${this.env.daylight > 0.5 ? '☀' : '☾'} ${weekday(dayOf(this.dredge.market))} ${this.env.clock}${weather}`;
+    const nerves = this._nerveWord();
+    return `${this.env.daylight > 0.5 ? '☀' : '☾'} ${weekday(dayOf(this.dredge.market))} ${this.env.clock}${weather}${nerves ? ` · ${nerves}` : ''}`;
   }
 
   // A rare find turned up (word of it, and where), or was lost to someone else.
@@ -1145,13 +1154,13 @@ class Game {
     el.querySelector('b').textContent = `${'★'.repeat(t)}${'☆'.repeat(CONFIG.dredge.police.max - t)}`;
     el.querySelector('i').style.width = `${Math.round(pol.bust * 100)}%`;
     el.classList.toggle('bad', pol.bust > 0.01);
-    this.audio.setSiren?.(t > 0 ? Math.max(0.15, 1 - pol.chaseDistance() / 150) : 0);
+    this.audio.setSiren?.(t > 0 ? Math.max(0.15, 1 - pol.chaseDistance() / 150) : this.time < (this._sirenUntil ?? 0) ? CONFIG.dredge.nerves.siren.level : 0);
   }
 
   // What the agents did. Returns true when the step should stop (a bust).
   _onPolice(e) {
     const P = CONFIG.dredge.police;
-    if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; }
+    if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; this._jolt(CONFIG.dredge.nerves.spotted); }
     else if (e.type === 'tier' && e.up && e.tier >= 2) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
     else if (e.type === 'tier' && !e.up) this.hud.toast('Fewer of them now. Keep out of sight.', '', 2500);
     else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; if (this._ambushOn) this._escaped(); }
@@ -1251,6 +1260,81 @@ class Game {
       .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
   }
 
+  // Game hours pass at once (work at a site): the save's clock and the hour together, and
+  // dawn if it comes in them.
+  _passHours(hours) {
+    if (!hours) return;
+    const h0 = this.env.hour;
+    passTime(this.dredge.market, hours);
+    this.env.hour = (h0 + hours) % 24;
+    this.env.update(0, this.camera.position);
+    this.hud.setClock(this._clockText());
+    if (h0 < 6 && h0 + hours >= 6) this._dawn();
+    else if (h0 >= 6 && h0 + hours >= 30) this._dawn();
+  }
+
+  // Finds for the notebook (codex.js): an odd one's first, a site kind's set (cash) and
+  // every odd variant (the collector's eye) said aloud.
+  _finds(kinds) {
+    const d = this.dredge.data;
+    for (const e of record(d, kinds)) {
+      if (e.type === 'odd') { this.audio.fanfare?.('rare'); this.hud.toast(`An odd one: the ${KINDS[e.kind].name.toLowerCase()}! Worth far more than the usual. It’s in the notebook (B).`, 'gold', 4500); }
+      else if (e.type === 'set') {
+        const name = CONFIG.dredge.salvage.kinds[e.site].name.toLowerCase();
+        d.ledger.unshift({ t: Date.now(), text: `Every kind of ${name} find, in the notebook`, amount: e.pay });
+        d.ledger.length = Math.min(d.ledger.length, 40);
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.toast(`Every kind a ${name} gives up, found: a collector pays ${money(e.pay)} for the list.`, 'gold', 4500);
+      } else if (e.type === 'eye') this.hud.toast('Every odd variant found: the collector’s eye. Odd ones turn up more often now.', 'gold', 5000);
+    }
+    this.dredge.save();
+  }
+
+  // Otto's nerves (after DREDGE's panic; CONFIG.dredge.nerves): the night on the road wears
+  // them, daylight gives them back. Run with the clock (under ?test only with &time).
+  _nerves(dt, night) {
+    if (!OPTIONS.time) return;
+    const N = CONFIG.dredge.nerves, d = this.dredge.data, h = dt * this.env.hoursPerSecond, was = d.nerves ?? 1;
+    const drain = night ? N.drain * Math.max(0, 1 - N.lamps * this.dredge.level('lamps')) * (this.lightsOff ? N.dark : 1) : -N.day;
+    this._setNerves(was - h * drain);
+    // Frayed nerves play tricks: Bureau cars on the radar that aren't there, a siren that
+    // isn't, and the wheel won't sit still (step()).
+    const n = d.nerves, rng = (this._nerveRng ??= createRng(1922)), P = N.phantoms;
+    this._phantoms ??= [];
+    for (let i = this._phantoms.length - 1; i >= 0; i--) if (this._phantoms[i].until < this.time) this._phantoms.splice(i, 1);
+    if (n < P.below && this.time >= (this._phantomAt ?? 0)) {
+      const a = rng() * Math.PI * 2, r = rng.range(...P.range), p = this.player.position;
+      this._phantoms.push({ x: p.x + Math.sin(a) * r, z: p.z - Math.cos(a) * r, until: this.time + P.lasts });
+      this._phantomAt = this.time + rng.range(...P.every);
+    }
+    if (n < N.frayed && this.time >= (this._sirenAt ?? 0)) {
+      this._sirenUntil = this.time + N.siren.lasts;
+      this._sirenAt = this.time + rng.range(...N.siren.every);
+    }
+  }
+
+  // Nerves set (0..1): the clock's word when they cross a mark, and a word from Otto going down.
+  _setNerves(v) {
+    const d = this.dredge.data, was = d.nerves ?? 1, w0 = this._nerveWord(was);
+    d.nerves = Math.max(0, Math.min(1, v));
+    const w = this._nerveWord(d.nerves);
+    if (w === w0) return;
+    this.hud.setClock(this._clockText());
+    if (d.nerves > was || !w) return;
+    const say = {
+      Uneasy: 'Otto’s uneasy: a long night on the roads. A sleep at the barn sets him right.',
+      Rattled: 'Otto’s rattled: was that a car behind, with no lights? The radar can’t be trusted now. Sleep at the barn.',
+      Frayed: 'Otto’s nerves are frayed: sirens that aren’t there, and the wheel won’t sit still. Get to the barn and sleep.',
+    };
+    this.hud.toast(say[w], 'red', 4500);
+  }
+
+  // A jolt to the nerves (spotted, a hard crash): only with the clock running.
+  _jolt(x) { if (OPTIONS.time) this._setNerves((this.dredge.data.nerves ?? 1) - x); }
+
+  // The clock's word for the nerves ('' when steady).
+  _nerveWord(n = this.dredge.data.nerves ?? 1) { return CONFIG.dredge.nerves.words.find(([at]) => n < at)?.[1] || ''; }
+
   // Six in the morning: the night is over. Its take on a card, the lamps the truck knocked
   // down stood back up, the sites refreshed, and the day saved.
   _dawn() {
@@ -1259,6 +1343,7 @@ class Game {
     this.world.standLamps();
     this.salvage.refresh(day);
     // Widow Carroll's still (her side story): a crate of Corn Shine in the stash every dawn.
+    if (OPTIONS.time) this._setNerves((d.nerves ?? 1) + CONFIG.dredge.nerves.dawn);
     const farm = d.tools.farmstill && d.once.farmstill !== day;
     if (farm) {
       d.once.farmstill = day;
@@ -1370,7 +1455,9 @@ class Game {
     this.salvage.refresh(day);
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
     this.dredge.save();
-    const pieces = payout(site.kind, sc), rare = rareFind(site, day, sc);
+    // The work took time (with the clock running), and a piece or two may be an odd one.
+    if (OPTIONS.time) this._passHours(CONFIG.dredge.salvage.hours[CONFIG.dredge.salvage.kinds[site.kind].game] || 0);
+    const pieces = oddify(payout(site.kind, sc), site, sc, { rng: OPTIONS.odd ? (this._oddRng || Math.random) : () => 1, eye: !!d.tools.eye }), rare = rareFind(site, day, sc);
     if (rare) {
       // A rare find on top: first up to pack, with word of where it pays.
       pieces.unshift(rare);
@@ -1390,6 +1477,7 @@ class Game {
     const counts = {};
     for (const k of pieces) counts[k] = (counts[k] || 0) + 1;
     if (!rare) this.hud.toast(`From the ${site.name.toLowerCase()}: ${wantsText(counts)}`, 'gold', 3000);
+    this._finds(pieces);
     this.audio.pickup?.();
     this._pending = pieces.slice(1);
     this.openTrunk(pieces[0]);
@@ -1601,6 +1689,7 @@ class Game {
     this.env.hour = nap.to;
     this.env.update(0, this.camera.position);
     this.dredge.data.stats.slept = (this.dredge.data.stats.slept || 0) + hours;
+    this._setNerves(1);
     this.dredge.save();
     this.hud.setClock(this._clockText());
     this.hud.toast(`Otto sleeps till ${this.env.clock}.`, '', 2500);
@@ -1628,6 +1717,7 @@ class Game {
   _crash(impact, x, z) {
     if (this.time - this._lastRam <= 0.3) return;
     this._lastRam = this.time;
+    if (impact >= CONFIG.dredge.nerves.crashAt) this._jolt(CONFIG.dredge.nerves.crash);
     this.audio.crash(Math.min(0.6, impact / 25));
     this.chase.shake(Math.min(0.5, impact / 30));
     this.feel.hit(impact / 20);
@@ -2006,11 +2096,14 @@ class Game {
       onSell: (kind) => {
         // SELL EVERYTHING keeps back what the orders and the story need; one kind's SELL sells it all.
         const blends = this.dredge.market.blend, before = onHand(this.trunk, {});
+        const each = Object.fromEntries(Object.keys(before).filter((k) => buys(town.id, k)).map((k) => [k, priceOf(town.id, k, this.dredge.market)]));
         const r = sell(town.id, this.trunk, this.dredge.market, kind, kind ? {} : this._keepBack());
         if (!r.count) return;
         const drop = this.world.drops[Number(String(town.id).split(':')[1])];
         if (String(town.id).startsWith('drop:') && this._belvedere(drop?.who)) { r.total *= CONFIG.dredge.arcs.belvedere; this.hud.toast('Saturday night at the Belvedere: Lulu Banks pays double.', 'gold', 3000); }
         r.total += this._sweetTalk(r.total);
+        const gone = onHand(this.trunk, {});
+        priced(this.dredge.data, Object.fromEntries(Object.entries(each).filter(([k]) => (gone[k] || 0) < before[k])));
         this.dredge.sold({ ...r, town: town.name, trunk: this.trunk });
         // Tainted shine in the sale (a bad batch in its blend): someone will drink it.
         const after = onHand(this.trunk, {});
@@ -2025,8 +2118,13 @@ class Game {
         this.audio.cash?.();
         this._updateTrunkPill();
       },
+      have: () => onHand(this.trunk, this.dredge.data.stash),
       onBuy: upgrades ? (id) => {
+        // A level's parts come out of the stash, then the trunk.
+        const parts = this.dredge.nextParts(id), d = this.dredge.data;
+        if (parts && missing({ needs: parts }, onHand(this.trunk, d.stash)).length) return;
         if (!this.dredge.buy(id)) return;
+        if (parts) { consume({ needs: parts }, this.trunk, d.stash); this.dredge.saveTrunk(this.trunk); this._updateTrunkPill(); }
         this._applyPerks();
         this.hud.setCash(this.dredge.cash, true);
         this.hud.cashPop(`−${money(CONFIG.dredge.upgrades[id].costs[this.dredge.level(id) - 1])}`);
@@ -2244,6 +2342,7 @@ class Game {
       drops.push({ kind: status === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }
     for (const o of this.dredge.data.orders) drops.push({ kind: 'job', x: o.x, z: o.z });
+    for (const ph of this._phantoms || []) drops.push({ kind: 'agent', x: ph.x, z: ph.z, phantom: true });   // frayed nerves
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const chapter = this.dredge.data.chapter || 0;

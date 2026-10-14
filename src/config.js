@@ -210,19 +210,21 @@ export const CONFIG = {
     // fifteen levels in about an hour. Steps are still placeholders for playtesting.
     // `costs` are levels 1-3; each level adds `step` to the base value (trunk: `sizes` per
     // level, from the base 5x3 at level 0).
+    // `parts`: what each level takes besides cash (the later levels: salvaged parts, from the
+    // trunk or the barn's stash; null for none), as DREDGE's shipwright wants materials.
     upgrades: {
-      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', costs: [300, 800, 1700, 3200, 5000], chapters: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
-      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', costs: [350, 900, 1900, 3400, 5200], chapters: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
-      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', costs: [300, 750, 1500, 2800, 4400], chapters: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
+      trunk: { name: 'Bigger bed', desc: 'More room to pack: a wider, then deeper trunk, behind reinforced rails.', parts: [null, null, { crate: 1 }, { 'long-crate': 1, barrel: 1 }, { 'long-crate': 1, keg: 1 }], costs: [300, 800, 1700, 3200, 5000], chapters: [0, 0, 0, 2, 4], sizes: [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4], [8, 5]] },
+      engine: { name: 'Tuned engine', desc: 'Higher top speed and quicker off the line.', parts: [null, null, { coil: 1 }, { coil: 2 }, { coil: 2, keg: 1 }], costs: [350, 900, 1900, 3400, 5200], chapters: [0, 0, 0, 2, 4], step: { maxSpeed: 3, accel: 2 } },
+      handling: { name: 'Stiffer springs', desc: 'More grip and sharper steering.', parts: [null, null, { bicycle: 1 }, { 'sewing-machine': 1 }, { 'sewing-machine': 1, coil: 1 }], costs: [300, 750, 1500, 2800, 4400], chapters: [0, 0, 0, 2, 4], step: { grip: 2.5, turnRate: 0.15 } },
       // Padding: each level takes `padding` off the chance a crash breaks anything (breakage).
-      padding: { name: 'Padding', desc: 'Straw and sacking round the load: fewer jars, bottles and crates of shine break in a crash.', costs: [250, 600, 1200, 2200, 3600], chapters: [0, 0, 0, 2, 4], step: { padding: 0.16 } },
+      padding: { name: 'Padding', desc: 'Straw and sacking round the load: fewer jars, bottles and crates of shine break in a crash.', parts: [null, null, { sack: 1 }, { sack: 2 }, { sack: 2, 'bottle-case': 1 }], costs: [250, 600, 1200, 2200, 3600], chapters: [0, 0, 0, 2, 4], step: { padding: 0.16 } },
       // Spotter: salvage sites on the radar out to `siteRange` (CONFIG.dredge.salvage.mapRange)
       // more a level; at the top level, every site in the county.
-      spotter: { name: 'Spotter', desc: 'The radar shows salvage sites further off; at the top level, every site in the county.', costs: [200, 500, 1000, 1900, 3000], chapters: [0, 0, 0, 2, 4], step: { siteRange: 120 } },
-      tyres: { name: 'All-weather tyres', desc: 'Grip in the rain, and a little less bogging down in the fields.', costs: [300, 700, 1500], chapters: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
-      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', costs: [250, 600, 1200], chapters: [1, 1, 2], step: { light: 0.25 } },
-      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', costs: [400, 900, 1800], chapters: [2, 2, 3], step: { wear: 0.25 } },
-      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: each level hides two more crates of shine from a checkpoint search.', costs: [900, 2000], chapters: [2, 3], step: { hidden: 2 } },
+      spotter: { name: 'Spotter', desc: 'The radar shows salvage sites further off; at the top level, every site in the county.', parts: [null, null, { radio: 1 }, { radio: 1 }, { radio: 2 }], costs: [200, 500, 1000, 1900, 3000], chapters: [0, 0, 0, 2, 4], step: { siteRange: 120 } },
+      tyres: { name: 'All-weather tyres', desc: 'Grip in the rain, and a little less bogging down in the fields.', parts: [null, { bicycle: 1 }, { bicycle: 1, sack: 1 }], costs: [300, 700, 1500], chapters: [1, 1, 2], step: { field: 0.08, wet: 0.25 } },
+      lamps: { name: 'Spotlamps', desc: 'Brighter headlamps for the night roads.', parts: [null, { 'bottle-case': 1 }, { coil: 1 }], costs: [250, 600, 1200], chapters: [1, 1, 2], step: { light: 0.25 } },
+      plating: { name: 'Steel plating', desc: 'Hard knocks wear the truck less.', parts: [null, { barrel: 1 }, { barrel: 2 }], costs: [400, 900, 1800], chapters: [2, 2, 3], step: { wear: 0.25 } },
+      falsebottom: { name: 'False bottom', desc: 'A hidden space under the bed: each level hides two more crates of shine from a checkpoint search.', parts: [null, { 'long-crate': 2 }], costs: [900, 2000], chapters: [2, 3], step: { hidden: 2 } },
     },
     // Loot value tiers show through colour (palette names): low = olive, mid = brick and
     // cream, high = copper, premium = amber. The pickup glow behind each piece is faint and
@@ -262,6 +264,23 @@ export const CONFIG = {
       leadfoot: { name: 'Lead Foot', key: '2', seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
       sweet: { name: 'Sweet Talk', key: '3', cooldown: 180, bonus: 0.2 },
     },
+    // Otto's nerves (DREDGE's panic): 1 steady .. 0. Night on the road wears them (`drain` a
+    // game hour; less a level of Spotlamps by `lamps`, more with the headlamps off by `dark`),
+    // and so does being spotted or a hard crash (`spotted`, `crash` past `crashAt` m/s).
+    // Daylight gives them back (`day` a game hour), dawn `dawn`, and a sleep at the barn all
+    // of it. Below each of `words`' marks the clock says so. Frayed nerves play tricks:
+    // `phantoms` (below `below`: radar blips that aren't there, one every `every` seconds,
+    // `range` metres off, for `lasts` s) and below `frayed` a `siren` that isn't there and a
+    // `wobble` at the wheel (steer).
+    nerves: {
+      drain: 0.08, lamps: 0.15, dark: 1.5, spotted: 0.08, crash: 0.04, crashAt: 14, day: 0.04, dawn: 0.25,
+      words: [[0.3, 'Frayed'], [0.5, 'Rattled'], [0.7, 'Uneasy']],
+      phantoms: { below: 0.5, every: [6, 14], range: [110, 240], lasts: 3 }, frayed: 0.3,
+      siren: { every: [25, 50], lasts: 1.6, level: 0.25 }, wobble: 0.08,
+    },
+    // The notebook's finds (DREDGE's encyclopedia): every kind a site kind gives up found
+    // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
+    codex: { set: 250 },
     // The side stories' rewards (arcs.js): the quality of Widow Carroll's dawn crate, and
     // what the Belvedere pays on a Saturday night (a multiple).
     arcs: { farmstill: { q: 0.6 }, belvedere: 2 },
@@ -420,6 +439,11 @@ export const CONFIG = {
     salvage: {
       count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [19.5, 6], mapRange: 250,
       rare: { score: 0.85, chance: 0.35 },
+      // Working a site takes game hours (`hours` by mini-game), so a night has a budget.
+      hours: { pry: 0.5, search: 0.75 },
+      // An odd variant (a kind's `odd`) of a piece a site gives up: `night` its chance at a
+      // night site worked at `score` or better, `day` otherwise; the collector's eye x`eye`.
+      odd: { score: 0.85, night: 0.15, day: 0.04, eye: 1.5 },
       kinds: {
         wreck: { name: 'Wrecked truck', game: 'pry', color: '#7a5236', yields: { crate: 3, 'small-crate': 3, 'long-crate': 2, keg: 1, 'bottle-case': 2, jugs: 2 } },
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
@@ -505,6 +529,14 @@ export const CONFIG = {
         { id: 'kummel', name: 'Braun’s Kümmel', short: 'Kümmel', tier: 'brewed', brewed: true, accent: 'slate', value: 120, weight: 0, cells: [[0, 0], [1, 0]] },
         { id: 'rye', name: 'Barrel Rye', short: 'Rye', tier: 'brewed', brewed: true, accent: 'brick', value: 130, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
         { id: 'lager', name: 'Highlandtown Lager', short: 'Lager', tier: 'brewed', brewed: true, accent: 'amber', value: 170, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        // Odd variants (`odd`: the kind they're a variant of): a site sometimes gives one up
+        // in place of the usual piece (CONFIG.dredge.salvage.odd), never the roads. Worth far
+        // more; the notebook's finds list them, and finding them all earns the collector's eye.
+        { id: 'odd-coil', name: 'Braun & Sons coil', short: 'Coil★', tier: 'premium', odd: 'coil', value: 190, weight: 0, cells: [[1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'odd-radio', name: 'Police-band radio', short: 'Radio★', tier: 'premium', odd: 'radio', value: 175, weight: 0, cells: [[0, 0], [0, 1], [0, 2], [1, 2]] },
+        { id: 'odd-keg', name: 'Pre-war keg', short: 'Keg★', tier: 'premium', odd: 'keg', value: 275, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
+        { id: 'odd-sewing-machine', name: 'Gilded sewing machine', short: 'Sewing★', tier: 'premium', odd: 'sewing-machine', value: 260, weight: 0, cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
+        { id: 'odd-strongbox', name: 'Bank-stamped strongbox', short: 'Box★', tier: 'premium', odd: 'strongbox', value: 380, weight: 0, cells: [[0, 0]] },
       ],
       // One rare find at a time, out in the county. Seconds of driving. PLACEHOLDERS: tune.
       rare: {

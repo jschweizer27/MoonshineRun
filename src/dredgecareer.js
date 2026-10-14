@@ -32,6 +32,8 @@ const DEFAULT = {
   opened: {},                // chapter id -> true once its opening card has played
   clues: {},                 // clue id -> true once found
   tools: {},                 // tool id -> true once earned
+  nerves: 1,                 // Otto's nerves, 1 steady .. 0 frayed (main._nerves)
+  codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
   follow: null,              // the side story the banner and the route follow (null: the chapter)
   once: {},                  // a tool's once-a-night/day use: tool id -> the game day it was used
@@ -101,7 +103,8 @@ export class DredgeCareer {
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex']) d[k] = { ...(d[k] || {}) };
+    d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
     if (typeof d.follow !== 'string' || !d.arcs[d.follow] || d.arcs[d.follow].done) d.follow = null;
     d.chapter = Math.max(0, Math.min(CHAPTERS.length, Math.floor(Number(d.chapter) || 0)));
     d.wear = Math.max(0, Math.min(1, Number(d.wear) || 0));
@@ -131,6 +134,9 @@ export class DredgeCareer {
     const costs = CONFIG.dredge.upgrades[id].costs, lvl = this.level(id);
     return lvl < costs.length ? costs[lvl] : null;
   }
+
+  // The parts the next level of an upgrade takes besides cash ({ kind: count }), or null.
+  nextParts(id) { return CONFIG.dredge.upgrades[id].parts?.[this.level(id)] || null; }
 
   // The chapter (a CHAPTERS index) the next level of an upgrade waits for, or null if it's
   // open (or maxed).
