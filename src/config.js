@@ -307,6 +307,12 @@ export const CONFIG = {
     // The notebook's finds (DREDGE's encyclopedia): every kind a site kind gives up found
     // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
     codex: { set: 250 },
+    // The operation (chapter 8 on): the hidden still in the hollow brews `perDay` crates of
+    // Corn Shine at quality `q` each dawn, up to `cap` waiting; Braun's (the old cellar) sells
+    // up to `nightly` crates of what it's stocked with each dawn at `cut` x a speakeasy's
+    // price; Barrel Rye in the barn's stash ages, its blend gaining `rye` quality a day up to
+    // `max`.
+    operation: { hollow: { perDay: 2, cap: 8, q: 0.65 }, brauns: { nightly: 3, cut: 0.9 }, aging: { rye: 0.03, max: 0.97 } },
     // Rum Row (chapter 7's tool, Mags's launch): once a night in its `window`, at the Canton
     // pier, `gives` for `price`.
     rumrow: { window: [23, 3], gives: ['scotch', 'scotch', 'rum'], price: 300 },
@@ -498,6 +504,11 @@ export const CONFIG = {
         // night: main._launchDeal), and Vail's bonded warehouse on the Lazaretto pier.
         pier: { name: 'The Canton pier', game: 'none', color: '#5a4a36', yields: { crate: 1 }, wait: 'The launch comes in after eleven. Keep your lights off.' },
         warehouse: { name: 'The Lazaretto warehouse', game: 'search', color: '#6a5a4a', yields: { crate: 1 } },
+        // Chapter 8: the hidden still in the woods past Frog Hollow, and Braun's in the old
+        // Braun & Sons cellar (both handed over, then the operation's: main._collectHollow,
+        // main._stockBrauns).
+        hollow: { name: 'The hidden still', game: 'none', color: '#3a4a2c', yields: { crate: 1 } },
+        brauns: { name: 'Braun’s', game: 'none', color: '#8a5a2c', yields: { crate: 1 } },
         // Chapter 6 (towson.js): the Towson National Bank's records room, round the back.
         bank: { name: 'Towson National Bank', game: 'search', color: '#8a8a84', yields: { crate: 1 } },
         // The side stories' deals (arcs.js `price`).

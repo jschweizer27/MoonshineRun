@@ -35,6 +35,8 @@ const DEFAULT = {
   nerves: 1,                 // Otto's nerves, 1 steady .. 0 frayed (main._nerves)
   damage: { lamp: false },   // a smashed headlamp (the trunk's cracked cells are in `trunk`)
   lore: {},                  // lore scrap id (lore.js) -> true once found
+  hollow: 0,                 // crates of Corn Shine waiting at the hidden still (chapter 8 on)
+  brauns: {},                // Braun's cellar stock: kind -> crates (it sells some each dawn)
   codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
   follow: null,              // the side story the banner and the route follow (null: the chapter)
@@ -105,7 +107,8 @@ export class DredgeCareer {
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore', 'brauns']) d[k] = { ...(d[k] || {}) };
+    d.hollow = Math.max(0, Math.floor(Number(d.hollow) || 0));
     d.damage = { lamp: !!d.damage?.lamp };
     d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
     if (typeof d.follow !== 'string' || !d.arcs[d.follow] || d.arcs[d.follow].done) d.follow = null;

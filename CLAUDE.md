@@ -2,7 +2,7 @@
 
 SHINE is a 1920s Baltimore bootlegging game (Otto Braun, Baltimore/Green Spring Valley): free
 roam, salvage sites to work, a Tetris-style trunk to pack, four market towns, a still, night
-runs past the Bureau and a story in seven chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
+runs past the Bureau and a story in eight chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
@@ -151,6 +151,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   in `updateFar`); the harbour patrol (`police._harbour`, `CONFIG.dredge.police.harbour`, one
   more night patrol on the waterfront from chapter 7); the `launch` tool keeps the pier open
   (`openSites`) for `main._launchDeal` (`CONFIG.dredge.rumrow`, once a night).
+- The Crackdown (v5 stage 12, chapter 8) and the operation: traps are keyed (`main._ambush(key)`,
+  `trapFlags`: Warren's `ambush` / `escaped`, the barn raid's `ambush:raid` / `escaped:raid`;
+  the raid springs when the `raid` step is done, set in `_checkBarn` after dark). Story steps
+  can `takes` from the trunk ('shine' = Otto's own brews; `main._short` / `_take`) and
+  `stock` it in Braun's (`d.brauns`). After the chapter `openSites` keeps `hollow` and
+  `brauns` open (`main._collectHollow`, `_stockBrauns`); `_dawn` brews the hollow (`d.hollow`),
+  sells Braun's nightly and ages stashed Rye (`CONFIG.dredge.operation`, once a day via
+  `d.once`). A story order wanting nothing is a call ("Call on ..." on the banner).
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

@@ -29,7 +29,7 @@ const PLACES = {
   banks: [88, -176], wexler: [-88, -88], feld: [-132, 44], carroll: [-246, -512], ridgely: [256, -497], pruitt: [-292, -608], jockey: [292, -722],
   tolley: [-334, -956], gill: [238, -917], sheriff: [396, -614], ruins: [148, 48], office: [295, -722], van: [-408, -668], quarry: [422, -674],
   lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735], brewery: [150, 70], board: [12, -110], note: [-256, -520],
-  towson: [600, -410], dalton: [608, -446], bank: [526, -380], courthouse: [608, -375], pier: [200, 212], warehouse: [212, 22],
+  towson: [600, -410], dalton: [608, -446], bank: [526, -380], courthouse: [608, -375], pier: [200, 212], warehouse: [212, 22], hollow: [-366, -918], brauns: [150, 60],
 };
 const FARMS = ['carroll', 'ridgely', 'pruitt', 'jockey', 'tolley', 'gill'];
 const BARS = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
@@ -214,6 +214,12 @@ function play(P) {
     launch: () => { site('pier', { window: [23, 3] }); s.stock.scotch = (s.stock.scotch || 0) + 2; s.stock.rum = (s.stock.rum || 0) + 1; d.flags.launch = true; },
     hotel: () => { deliver({ wants: { scotch: 2 }, night: true, pay: 520 }, 'abernathy'); d.flags['order:hotel'] = true; },
     warehouse: () => { site('warehouse', { night: true }); d.clues.manifests = true; },
+    // The Crackdown.
+    warn: () => { deliver({ wants: {}, night: true, pay: 0 }, 'kessler'); d.flags['order:warn'] = true; },
+    hollow: () => { need('coil', 1); need('barrel', 1); site('hollow', { night: true }); s.stock.coil -= 1; s.stock.barrel -= 1; d.flags.hollowStill = true; },
+    brauns: () => { need('corn-shine', 4); drive('brauns'); screen(0.3); s.stock['corn-shine'] -= 4; d.flags.brauns = true; },
+    raid: () => { waitNight(); drive('barn'); d.flags.raidHome = true; },
+    lose: () => { s.t += 2.5; d.flags['escaped:raid'] = true; },
   };
   let chapter = 0, from = 0;
   advance(d);
