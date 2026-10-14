@@ -49,23 +49,24 @@ test('Lager goes flat in a warm trunk by the trunk’s share, a block of ice kee
   const r = await page.evaluate((KIT) => {
     const { g, d } = eval(KIT);
     g.renderer.setAnimationLoop(null);
+    g.env.hoursPerSecond *= 10;                                  // the clock ten times fast: 4 s is a game hour
     const put = (k) => { const s = g.trunk.findSpot(k); g.trunk.place(k, s.x, s.y, s.rot); };
     g.trunk.clear(); d.stash = { lager: 1 };
     put('lager');
     d.market.blend.lager = { q: 0.9, bad: false };
-    window.shine.step(40);                                       // a game hour
+    window.shine.step(4);                                        // a game hour
     const out = { flat: Math.round((0.9 - d.market.blend.lager.q) * 10000) / 10000 };
     // With ice: no loss, until it melts.
     d.market.blend.lager.q = 0.9; d.iceLeft = undefined;
     put('ice');
-    window.shine.step(40);
+    window.shine.step(4);
     out.iced = d.market.blend.lager.q;
     d.iceLeft = 0.01;
-    window.shine.step(1);
+    window.shine.step(0.1);
     out.melted = { ice: g._gear('ice'), log: g.hud.log.join(' | ') };
     // In the stash only: no loss at all.
     g.trunk.clear(); d.stash = { lager: 2 }; d.market.blend.lager.q = 0.9;
-    window.shine.step(40);
+    window.shine.step(4);
     out.stash = d.market.blend.lager.q;
     return out;
   }, KIT);
