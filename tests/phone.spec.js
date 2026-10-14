@@ -4,7 +4,7 @@ import { openGame, SHOTS } from './helpers.js';
 // A phone, each way round, with touch controls: the HUD's pieces don't overlap or run off the
 // screen, the touch buttons work (headlamps, trunk, notebook), the trunk can be packed and
 // closed by touch alone, and the screens fit across. Screenshots go to artifacts/screenshots.
-const HUD = ['cash', 'clock', 'hud-buttons', 'objective', 'toast', 'heat', 'lights', 'wear', 'cargo', 'minimap', 'abilities', 'speedo', 'touch-pedals'];
+const HUD = ['cash', 'clock', 'hud-buttons', 'objective', 'toast', 'heat', 'lights', 'wear', 'passenger', 'cargo', 'minimap', 'abilities', 'speedo', 'touch-pedals'];
 for (const [name, viewport] of [['portrait', { width: 390, height: 844 }], ['landscape', { width: 844, height: 390 }]]) {
   test.describe(`a phone held ${name}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true });
@@ -22,6 +22,9 @@ for (const [name, viewport] of [['portrait', { width: 390, height: 844 }], ['lan
         document.getElementById('lights').classList.remove('hidden');
         g.dredge.data.tools.leadfoot = g.dredge.data.tools.sweet = true; g._buildAbilities();
         g.hud.setObjective('Ashes: Search the ruins of Braun & Sons in Highlandtown', '0.4 mi', 'market', 0.3);
+        g.hud.setClock('☾ Thu 10:00 PM · Snow · Frayed');                // (the longest the clock gets)
+        const pass = document.getElementById('passenger');
+        pass.textContent = 'UNCLE VITO & THE MOONLIGHT SERENADERS ABOARD'; pass.classList.remove('hidden');
         g.hud.toast('Order taken: 2 corn shines (grade B+) for Gus Kessler, Highlandtown Speakeasy · after dark, by dawn', 'gold', 60000);
         g.minimap.draw(g.player, g._mapMarkers());
         g.renderFrame();
@@ -30,6 +33,7 @@ for (const [name, viewport] of [['portrait', { width: 390, height: 844 }], ['lan
         for (const [i, a] of boxes.entries()) for (const b of boxes.slice(i + 1)) if (a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b) out.push(`${a.id} over ${b.id}`);
         for (const b of boxes) if (b.l < 0 || b.t < 0 || b.r > innerWidth + 1 || b.b > innerHeight + 1) out.push(`${b.id} off the screen`);
         g.police.heat = 0; g._updateHeat();
+        pass.classList.add('hidden');
         return out;
       }, HUD);
       await page.screenshot({ path: `${SHOTS}/phone-${name}-hud.png` });

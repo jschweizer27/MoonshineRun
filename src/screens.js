@@ -60,7 +60,7 @@ function contractRows(body, jobs, trunk, render) {
     take.disabled = full;
     take.addEventListener('click', () => { jobs.onAccept(o); render(); });
     body.append(el('div', { class: 'upgrade job' },
-      el('div', {}, face(o.who), el('b', {}, `${o.name}: ${orderText(o)}`),
+      el('div', {}, face(o.who), o.bounty ? el('span', { class: 'event-badge' }, 'BOUNTY') : '', el('b', {}, `${o.name}: ${orderText(o)}`),
         el('small', {}, `${o.place} · ${o.km} km from the barn · pays ${money(o.pay)} · ${o.night ? 'after dark, by dawn' : `${o.hours} h to deliver`} · trust ${stars(jobs.trust(o.who))}`),
         o.line ? el('small', { class: 'says' }, `“${o.line}”`) : ''),
       take));
@@ -718,10 +718,14 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
   const render = (focusArc = null) => {
   body.textContent = '';
   const level = (who) => Math.max(0, Math.min(5, Math.floor((d.trust[who] || 0) / C.trustPer)));
+  // Each section's heading has an id the jump buttons above the page scroll to (a pad or the
+  // arrow keys reach those buttons, so every section is in reach).
+  const heads = [];
+  const head = (id, text) => { heads.push([id, text.split(' ·')[0].split(':')[0]]); return el('h3', { id: `nb-${id}` }, text); };
   const note = (...kids) => el('div', { class: 'note' }, ...kids);
   // The chapter in hand, step by step (then the choice, then the end), and every clue found.
   const ch = CHAPTERS[d.chapter || 0];
-  body.append(el('h3', {}, ch ? `CHAPTER ${(d.chapter || 0) + 1}: ${ch.title.toUpperCase()}` : choiceOpen(d) ? 'THE CHOICE' : 'THE END'));
+  body.append(head('chapter', ch ? `CHAPTER ${(d.chapter || 0) + 1}: ${ch.title.toUpperCase()}` : choiceOpen(d) ? 'THE CHOICE' : 'THE END'));
   if (ch) {
     let next = true;
     for (const st of ch.steps) {
@@ -742,14 +746,14 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     const ENDED = { deed: 'The deed: Braun & Sons is Otto’s again.', paper: 'The paper: the Alliance and Vail have fallen together.', crown: 'The crown: the routes are Otto’s, and Vail’s are gone.' };
     body.append(note(el('span', {}, ENDED[d.ending] || ENDED.paper)));
   }
-  body.append(el('h3', {}, 'CLUES'));
+  body.append(head('clues', 'CLUES'));
   const found = CHAPTERS.filter((c) => d.clues[c.clue.id]).map((c) => c.clue);
   if (!found.length) body.append(note(el('span', {}, 'Who paid for the fire? Nothing written down yet. Keep your ears open at the handoffs.')));
   for (const c of found) body.append(note(el('div', {}, el('b', {}, c.title), el('small', { class: 'says' }, c.text))));
   // The side stories (arcs.js): open ones with their step and FOLLOW (the banner and the
   // route follow it), done ones with what they gave, and a hint at the next to open.
   const open = ARCS.filter((a) => d.arcs?.[a.id]?.open);
-  body.append(el('h3', {}, `SIDE STORIES · ${ARCS.filter((a) => d.arcs?.[a.id]?.done).length}/${ARCS.length}`));
+  body.append(head('side', `SIDE STORIES · ${ARCS.filter((a) => d.arcs?.[a.id]?.done).length}/${ARCS.length}`));
   if (!open.length) body.append(note(el('span', {}, 'Win a contact’s trust and they’ll ask for more than an order. COURT one below and their orders come at your pace.')));
   for (const a of open) {
     const st = arcStep(d, a), on = d.follow === a.id;
@@ -774,14 +778,22 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
   // What the story has given Otto to work with: the chapters' tools and the side stories'.
   const tools = [...CHAPTERS.filter((c) => c.tool && d.tools[c.tool.id]).map((c) => c.tool), ...ARCS.filter((a) => a.reward.tool && d.tools[a.reward.tool]).map((a) => a.reward)];
   if (tools.length) {
-    body.append(el('h3', {}, 'TOOLS'));
+    body.append(head('tools', 'TOOLS'));
     for (const t of tools) body.append(note(el('div', {}, el('b', {}, t.name), el('small', {}, t.text.replace(/^Earned: [^.]*\. /, '')))));
+  }
+  // The operation (chapter 8 on): the hidden still's crates, Braun's stock, Rye ageing.
+  if (d.flags.hollowStill || d.flags.brauns) {
+    const O = CONFIG.dredge.operation, stock = Object.values(d.brauns || {}).reduce((a, b) => a + b, 0), rye = d.stash.rye && d.market.blend?.rye;
+    body.append(head('operation', 'THE OPERATION'));
+    if (d.flags.hollowStill) body.append(note(el('div', {}, el('b', {}, `The hidden still: ${d.hollow || 0} crate${d.hollow === 1 ? '' : 's'} waiting`), el('small', {}, `It brews ${O.hollow.perDay} crates of Corn Shine a day, up to ${O.hollow.cap}. Collect them at the hollow.`))));
+    if (d.flags.brauns) body.append(note(el('div', {}, el('b', {}, `Braun’s: ${stock} crate${stock === 1 ? '' : 's'} in the cellar`), el('small', {}, `It sells up to ${O.brauns.nightly} a night. Stop there to stock it with your own shine.`))));
+    if (rye) body.append(note(el('div', {}, el('b', {}, `Barrel Rye in the barn: ${d.stash.rye} crate${d.stash.rye === 1 ? '' : 's'}, grade ${gradeLabel(rye)}`), el('small', {}, 'It ages a little better every day it’s kept in the stash.'))));
   }
   // The finds (codex.js): each site kind's goods, found or not, and the odd variants.
   const cx = d.codex || {}, seen = (k) => cx[k]?.n > 0;
   const findText = (k) => `${KINDS[k].name}${cx[k].n > 1 ? ` ×${cx[k].n}` : ''}${cx[k].best ? ` (best ${money(cx[k].best)})` : ''}`;
   const all = [...new Set(SITE_KINDS.flatMap(setOf))];
-  body.append(el('h3', {}, `FINDS · ${all.filter(seen).length}/${all.length} · ODD ${ODDS.filter(seen).length}/${ODDS.length}`));
+  body.append(head('finds', `FINDS · ${all.filter(seen).length}/${all.length} · ODD ${ODDS.filter(seen).length}/${ODDS.length}`));
   for (const site of SITE_KINDS) {
     const goods = setOf(site), n = goods.filter(seen).length;
     body.append(note(el('div', {}, el('b', {}, `${CONFIG.dredge.salvage.kinds[site].name}s · ${n}/${goods.length}${d.flags[`set:${site}`] ? ' ✓' : ''}`),
@@ -792,17 +804,17 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     el('small', { class: 'says' }, 'Odd ones turn up now and then in place of the usual piece, most often at night sites worked well.'))));
   // Lore scraps (lore.js): what turned up among the salvage, after dark.
   const letters = LORE.filter((x) => d.lore?.[x.id]);
-  body.append(el('h3', {}, `LETTERS · ${letters.length}/${LORE.length}`));
+  body.append(head('letters', `LETTERS · ${letters.length}/${LORE.length}`));
   if (!letters.length) body.append(note(el('span', {}, 'Papers turn up among the salvage now and then, after dark: keep an eye out.')));
   for (const x of letters) body.append(note(el('div', {}, el('b', {}, x.kind), el('small', { class: 'says' }, x.text))));
-  body.append(el('h3', {}, `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
+  body.append(head('orders', `ORDERS · ${d.orders.filter((o) => !o.story).length}/${C.book}`));
   if (!d.orders.length) body.append(note(el('span', {}, 'No orders in the book. The boards at the markets, the speakeasies and the barn have new ones each day.')));
   for (const o of d.orders) {
     const left = o.due == null ? 0 : Math.max(0, Math.ceil(o.due - clock));
-    body.append(note(face(o.who), el('div', {}, el('b', {}, `${o.name}: ${orderText(o)}`),
+    body.append(note(face(o.who), el('div', {}, el('b', {}, `${o.bounty ? 'BOUNTY · ' : ''}${o.name}: ${orderText(o)}`),
       el('small', {}, `${o.place} · ${o.call ? '' : `pays ${money(o.pay)} · `}${dueText(o, left)}`))));
   }
-  body.append(el('h3', {}, 'CONTACTS'));
+  body.append(head('contacts', 'CONTACTS'));
   for (const c of contacts) {
     if (c.chapter && (d.chapter || 0) < c.chapter && !d.trust[c.who]) continue;     // the Sheriff, before he deals
     const t = level(c.who), n = d.delivered[c.who] || 0;
@@ -811,11 +823,19 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
       d.scenes[c.who] && TRUSTED[c.who] ? el('small', { class: 'says' }, `“${TRUSTED[c.who]}”`) : ''),
       el('span', { class: 'stars', 'aria-label': `trust ${t} of 5` }, stars(t))));
   }
-  body.append(el('h3', {}, 'RECIPES'));
+  body.append(head('recipes', 'RECIPES'));
   for (const r of RECIPES) {
     const unlearned = r.learn && !d.flags[`learned:${r.id}`], best = d.best[r.id], bl = d.market.blend?.[r.id];
     body.append(note(el('div', {}, el('b', {}, r.name),
       el('small', {}, unlearned ? `Not learned yet. ${TAUGHT[r.id] || ''} Needs ${wantsText(r.needs)}.` : `Needs ${wantsText(r.needs)}.${r.brewery ? ' Brewed at the brewery in Gus’s cellar.' : ''}${best ? ` Best batch: grade ${gradeOf(best)} (${Math.round(best * 100)}%).` : ' Not brewed yet.'}${bl ? ` On hand: grade ${gradeLabel(bl)}.` : ''}`))));
+  }
+  // The jump buttons, one per section on the page.
+  const tabs = $('notebook-tabs');
+  tabs.textContent = '';
+  for (const [id, label] of heads) {
+    const b = el('button', { type: 'button', class: 'btn small-btn', 'data-jump': id }, label.replace(/^CHAPTER \d+/, 'CHAPTER'));
+    b.addEventListener('click', () => body.querySelector(`#nb-${id}`)?.scrollIntoView({ block: 'start' }));
+    tabs.append(b);
   }
   const again = focusArc && body.querySelector(`[data-arc="${focusArc}"], [data-court="${focusArc}"]`);
   if (again) again.focus();

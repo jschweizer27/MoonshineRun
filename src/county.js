@@ -194,10 +194,13 @@ export function buildCounty(world, rng) {
   for (const im of [trunk, crown]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   crown.instanceColor.needsUpdate = true;
   // Act II's winter (world.setWinter) frosts the fields, the roofs and the woods: the same
-  // materials, another colour.
+  // materials, another colour. The trees keep their own greens (instance colours), so theirs
+  // are a second copy mixed toward snow, made now and swapped in.
   // The fields get snow of their own: the grass texture's canvas repainted (its own random
   // stream, painted once at boot) and uploaded again, so no shader changes.
-  world.frost = [[roof.material, 0xf0f3f6], [crown.material, 0xb4c4bc]].map(([m, snow]) => ({ m, base: m.color.clone(), snow: new THREE.Color(snow) }));
+  world.frost = [[roof.material, 0xf0f3f6]].map(([m, snow]) => ({ m, base: m.color.clone(), snow: new THREE.Color(snow) }));
+  const greens0 = crown.instanceColor.array.slice(), frosted = greens0.map((c, i) => c + ([0.62, 0.66, 0.72][i % 3] - c) * 0.55);
+  world.crownFrost = { attr: crown.instanceColor, base: greens0, snow: frosted };
   world.snowField = { tex: grass, grass: grass.image, snow: noiseCanvas(createRng(0x5a0e), 256, ['#aeb8c0', '#bcc5cc', '#a2adb6', '#c8d0d6']) };
   world.trees = trees.filter((t) => !onHouse(t)).concat(town.trees.map(([x, z, sc]) => [x, z, sc]));
   world.extraLights.push(...town.lamps);

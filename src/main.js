@@ -9,7 +9,7 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { MiniMap } from './minimap.js';
 import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
-import { loadSettings, saveSettings } from './settings.js';
+import { loadSettings, saveSettings, keyLabel } from './settings.js';
 import { Environment } from './environment.js';
 import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, showBrewery, playDialog, money, supplyPrice } from './screens.js';
 import { Salvage, payout, rareFind } from './salvage.js';
@@ -63,6 +63,8 @@ function roll01(salt, day) {
 
 // A trap's flags (main._ambush): chapter 5's are 'ambush' / 'escaped', a keyed one's
 // 'ambush:<key>' / 'escaped:<key>'.
+// The story sites Otto's own business runs from once their chapter's done (main._mapMarkers).
+const OPS = ['hollow', 'brauns', 'pier', 'brewery'];
 const trapFlags = (key) => (key && key !== true ? [`ambush:${key}`, `escaped:${key}`] : ['ambush', 'escaped']);
 
 export const OPTIONS = {
@@ -172,6 +174,9 @@ class Game {
     this.hud = new HUD();
     this.input = new Input(this.settings.bindings);
     this.ui = new UI(this.input);
+    // News that comes under a screen comes again when the screens close (hud.release).
+    this.hud.covered = () => this.ui.anyOpen;
+    this.ui.onEmpty = () => this.hud.release();
     this.trunkScreen = new TrunkScreen(this.ui, {
       onDiscard: (k) => this.hud.toast(`Left behind: ${k.name}`, '', 1400),
       onChange: () => { this._updateTrunkPill(); this.dredge.saveTrunk(this.trunk); },
@@ -727,12 +732,17 @@ class Game {
     this._storyOrders();
     this.dredge.save();
     const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
-    if (events.some((e) => e.type === 'clue')) this.hud.toast('A clue for the notebook (B)', 'gold', 4000);
+    // The story's moments have a sound: the brass for a clue, a tool or a side story's
+    // reward, the chime for a step done or a side story opened (a chapter's own opening and
+    // close have their cards).
+    if (events.some((e) => e.type === 'clue' || e.type === 'tool') || arcs.some((e) => e.type === 'reward')) this.audio.fanfare?.('rank');
+    else if (events.some((e) => e.type === 'step') || arcs.some((e) => e.type === 'step' || e.type === 'open')) this.audio.chime?.();
+    if (events.some((e) => e.type === 'clue')) this.hud.toast(`A clue for the notebook (${this._bookKey()})`, 'gold', 4000);
     else if (done && step) this.hud.toast(`Done. ${chapter.title}: ${step.text}`, 'gold', 4000);
     else if (done && choiceOpen(d)) this.hud.toast(`The choice is yours: the deed or the paper${crownReady(d) ? ', or the crown' : ''}. The notebook has them.`, 'gold', 4000);
     for (const e of arcs) {
       const next = arcStep(d, e.arc);
-      if (e.type === 'open') this.hud.toast(`A side story: ${e.arc.title}, for ${CAST[e.arc.who].name}. The notebook (B) has it.`, 'gold', 4500);
+      if (e.type === 'open') this.hud.toast(`A side story: ${e.arc.title}, for ${CAST[e.arc.who].name}. The notebook (${this._bookKey()}) has it.`, 'gold', 4500);
       else if (e.type === 'step' && next && next === arcStep(d, e.arc) && arcs.filter((x) => x.arc === e.arc && x.type === 'step').pop() === e) this.hud.toast(`Done. ${e.arc.title}: ${next.text}`, 'gold', 4000);
       else if (e.type === 'reward') this.hud.toast(`${e.arc.title}: done.`, 'gold', 3500);
     }
@@ -775,6 +785,13 @@ class Game {
   _activeSteps() {
     const d = this.dredge.data, { step } = current(d);
     return [...(step ? [{ step, arc: null }] : []), ...activeArcs(d)];
+  }
+
+  // How to open the notebook, for whoever's playing: the key it's bound to, the left stick
+  // on a pad, the book button on a touch screen.
+  _bookKey() {
+    const d = this.input.lastDevice;
+    return d === 'gamepad' ? 'left stick' : d === 'touch' ? 'the book button' : keyLabel(this.settings.bindings?.notebook?.[0] || 'KeyB');
   }
 
   // The contact whose offers come at the player's pace (contracts.offersFor `focus`): the
@@ -889,7 +906,8 @@ class Game {
     if (!this.police.enabled) { d.flags[e] = true; this.dredge.save(); return; }
     this._hijackOn = false;                                     // (the Bureau's trap takes over from Vail's men)
     this._ambushOn = true;
-    for (const e of this.police.alert(this.player.position, A.tier, { hold: A.hold, range: A.range })) this._onPolice(e);
+    for (const e of this.police.alert(this.player.position, A.tier, { hold: A.hold, range: key === 'raid' ? A.raidRange : A.range })) this._onPolice(e);
+    this.chase.shake(0.2);
     this._updateHeat();
   }
 
@@ -918,6 +936,9 @@ class Game {
     this._updateGuide();
     this._updateAbilities();
     if (this._chapters() || this.state !== STATE.PLAYING) return;    // a beat never plays over another screen
+    // The first winter night: a word about the ice.
+    const d = this.dredge.data;
+    if (this.env.winter && this._night() && !d.flags.iceTold) { d.flags.iceTold = true; this.dredge.save(); this.hud.toast('Ice on the roads tonight: brake early and take the corners slow.', 'gold', 4500); }
     this._trustGifts({ say: true });                                   // (one earned off the road: an old save)
     const id = OPTIONS.story && nextBeat(this.dredge.data);
     if (id) this._story(id);
@@ -1085,19 +1106,21 @@ class Game {
     const hour0 = this.env.hour;
     this.env.update(dt, this.camera.position);
     if (hour0 < 6 && this.env.hour >= 6) this._dawn();
-    const county = this.world.inCounty(p);
+    const county = this.world.inCounty(p), water = this.env.winter ? 0 : this.env.wet;   // (snow throws no spray)
     this.feel.update(dt, {
-      brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: this.env.wet,
+      brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: water,
       ground: county ? (this.surface < 1 ? 'grass' : 'dirt') : 'cobble',
     });
-    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust') });
-    this.particles.atmosphere(dt, this.world, this.camera.position, { night: 1 - this.env.daylight, wet: this.env.wet });
+    this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust'), snow: this.env.winter });
+    this.particles.atmosphere(dt, this.world, this.camera.position, { night: 1 - this.env.daylight, wet: water });
     this.particles.setLight(0.5 + 0.5 * this.env.daylight);
     this.particles.update(dt);
     this.chase.update(dt, this.player, !!input.lookBack, this.feel.accel01);
     this._updateRoute(dt);
     this.hud.setSpeed(this.player.speedMph, dt);
     this.hud.setClock(this._clockText());
+    this.hud.setNerves(this._nerveWord().toLowerCase());
+    this.world.blinkSchooner(this.time, 1 - this.env.daylight);
     this._updateObjective();
     this._updateAudio();
   }
@@ -1289,7 +1312,16 @@ class Game {
     this._updateHeat();
     this._updateObjective();
     this.lastBust = { taken: n, fine: 0, hijack: true };
+    this.chase.shake(0.35);
+    this.audio.crash?.(0.6);
     this.hud.toast(`Vail’s men boxed you in and took ${n} crate${n === 1 ? '' : 's'} of shine. They didn’t bother with the rest.`, 'red', 5000);
+    // The first time, a word from them.
+    if (d.flags.hijacked || this.state !== STATE.PLAYING) { d.flags.hijacked = true; return; }
+    d.flags.hijacked = true;
+    this.dredge.save();
+    this.pause({ showMenu: false });
+    playDialog(this.ui, [['narrator', 'Two men in good coats lift the crates out of the bed like they’re doing you a favour. One of them taps the hood.'], ['narrator', '“Mr. Vail says the roads are getting crowded, Braun. Think about selling.”']], { reducedMotion: !!this.settings.reducedMotion })
+      .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
   }
 
   // Busted: the shine is taken, a fine paid, and Otto wakes at the barn.
@@ -1387,7 +1419,7 @@ class Game {
     if (!OPTIONS.story || !scrap || d.lore[scrap.id] || sc < 0.5 || !this._night()) return;
     d.lore[scrap.id] = true;
     this.dredge.save();
-    this.hud.toast(`Tucked in among it: ${scrap.kind.replace(/^./, (c) => c.toLowerCase())}. It’s in the notebook (B).`, 'gold', 4500);
+    this.hud.toast(`Tucked in among it: ${scrap.kind.replace(/^./, (c) => c.toLowerCase())}. It’s in the notebook (${this._bookKey()}).`, 'gold', 4500);
   }
 
   // Finds for the notebook (codex.js): an odd one's first, a site kind's set (cash) and
@@ -1395,14 +1427,16 @@ class Game {
   _finds(kinds) {
     const d = this.dredge.data;
     for (const e of record(d, kinds)) {
-      if (e.type === 'odd') { this.audio.fanfare?.('rare'); this.hud.toast(`An odd one: the ${KINDS[e.kind].name.toLowerCase()}! Worth far more than the usual. It’s in the notebook (B).`, 'gold', 4500); }
+      if (e.type === 'odd') { this.audio.fanfare?.('rare'); this.hud.toast(`An odd one: the ${KINDS[e.kind].name.toLowerCase()}! Worth far more than the usual. It’s in the notebook (${this._bookKey()}).`, 'gold', 4500); }
       else if (e.type === 'set') {
         const name = CONFIG.dredge.salvage.kinds[e.site].name.toLowerCase();
         d.ledger.unshift({ t: Date.now(), text: `Every kind of ${name} find, in the notebook`, amount: e.pay });
         d.ledger.length = Math.min(d.ledger.length, 40);
         this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`+${money(e.pay)}`);
+        this.audio.cash?.();
         this.hud.toast(`Every kind a ${name} gives up, found: a collector pays ${money(e.pay)} for the list.`, 'gold', 4500);
-      } else if (e.type === 'eye') this.hud.toast('Every odd variant found: the collector’s eye. Odd ones turn up more often now.', 'gold', 5000);
+      } else if (e.type === 'eye') { this.audio.fanfare?.('rank'); this.hud.toast('Every odd variant found: the collector’s eye. Odd ones turn up more often now.', 'gold', 5000); }
     }
     this.dredge.save();
   }
@@ -1489,6 +1523,8 @@ class Game {
         d.ledger.unshift({ t: Date.now(), text: `Braun’s: ${sold} crate${sold === 1 ? '' : 's'} sold last night`, amount: takings });
         d.ledger.length = Math.min(d.ledger.length, 40);
         this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`+${money(takings)}`);
+        this.audio.cash?.();
       }
     }
     const rye = d.market.blend.rye;
@@ -1517,7 +1553,7 @@ class Game {
     this.dredge.save();
     const earned = now.earned - was.earned, jobs = now.contracts - was.contracts, sites = now.salvaged - was.salvaged;
     const n = (k, one) => `${k} ${one}${k === 1 ? '' : 's'}`;
-    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}${takings ? ` Braun’s sold ${n(sold, 'crate')} for ${money(takings)}.` : ''}${cleared.length ? ` Vail’s trucks were out: the ${cleared.join(' and the ')} picked clean.` : ''}`;
+    const take = `Dawn. Since the last one: ${money(earned)} earned, ${n(jobs, 'job')} delivered, ${n(sites, 'site')} worked.${farm ? ' Widow Carroll left a crate of Corn Shine in the stash.' : ''}${takings ? ` Braun’s sold ${n(sold, 'crate')} for ${money(takings)}.` : ''}${d.hollow ? ` ${n(d.hollow, 'crate')} waiting at the hidden still.` : ''}${cleared.length ? ` Vail’s trucks were out: the ${cleared.join(' and the ')} picked clean.` : ''}`;
     const otto = earned > 0 ? 'A night’s work. Sleep, then do it again.' : 'Nothing to show for the night. Tonight, then.';
     this.dawns = (this.dawns || 0) + 1;
     if (this.state !== STATE.PLAYING) { this.hud.toast(take, 'gold', 4000); return; }
@@ -1631,6 +1667,7 @@ class Game {
     this.hud.setCash(this.dredge.cash, true);
     this.hud.cashPop(`−${money(R.price)}`);
     this.audio.pickup?.();
+    this.audio.shipHorn?.();                      // (the launch casts off)
     this._pending = R.gives.slice(1);
     this.openTrunk(R.gives[0]);
   }
@@ -2017,6 +2054,7 @@ class Game {
       d.damage.lamp = true;
       this._applyPerks();
       this.dredge.save();
+      this.audio.glass?.();
       this.hud.toast('A headlamp’s smashed: half the light on the road. Get it mended at the barn.', 'red', 4000);
       return;
     }
@@ -2635,7 +2673,7 @@ class Game {
 
   _updateTrunkPill() {
     const t = this.trunk;
-    this.hud.setCargo(`TRUNK ${t.used}/${t.size}`);
+    this.hud.setCargo(`TRUNK ${t.used}/${t.size - t.cracked.length}`);     // (a cracked cell holds nothing)
     // Gear works while it's packed: when what's packed changes, so does the truck.
     const gear = `${this._gear('spotlamp')}:${this._gear('toolbox')}`;
     if (gear !== this._gearWas && this.perks) { this._gearWas = gear; this._applyPerks(); }
@@ -2673,8 +2711,8 @@ class Game {
       slip01: speed > 6 ? Math.min(1, Math.max(0, (v.slip - 3) / 8)) : 0,
       throttle01: Math.max(0, this._throttle || 0),
       jazz01: night ? this._jazzLevel(v.position) : 0,
-      rain01: this.env.wet,
-      crickets: night && this.env.weather === 'clear' && this.world.inCounty(v.position),
+      rain01: this.env.winter ? 0 : this.env.wet, snow01: this.env.winter ? this.env.wet : 0,   // (snow falls quiet, on the wind)
+      crickets: night && !this.env.winter && this.env.weather === 'clear' && this.world.inCounty(v.position),
       place: this.place, night, harbor01: Math.min(1, Math.max(0, (v.position.z - 120) / 120)),
     });
     this._updateTune();
@@ -2713,9 +2751,15 @@ class Game {
     const drops = this._carryingShine() ? this.world.drops.map((d) => ({ kind: 'drop', x: d.x, z: d.z })) : [];
     // Salvage sites within the spotter's range (picked-clean ones dim).
     const day = dayOf(this.dredge.market), pp = this.player.position, range = this.perks.siteRange;
+    // The story's sites are gold stars at any range; the places Otto's own business runs from
+    // (the hidden still, Braun's, the pier, Gus's cellar) a quieter mark, nearby only.
+    const live = this._activeSteps().map((x) => x.step.site), lost = this._lost()?.site;
     for (const st of this.salvage.sites) {
       const status = this.salvage.status(st, day, this.env.hour);
-      if (st.story) { if (status !== 'hidden') drops.push({ kind: 'story', x: st.x, z: st.z }); continue; }   // at any range
+      if (st.story) {
+        if (status !== 'hidden') drops.push({ kind: OPS.includes(st.story) && !live.includes(st.story) && lost !== st.story ? 'op' : 'story', x: st.x, z: st.z });
+        continue;
+      }
       if (Math.hypot(st.x - pp.x, st.z - pp.z) > range) continue;
       drops.push({ kind: status === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }

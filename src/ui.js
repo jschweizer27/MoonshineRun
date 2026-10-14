@@ -32,7 +32,7 @@ export class UI {
     s.el.classList.add('hidden');
     if (this.top) this.focusFirst();
     // Back in the game: drop focus so Space (handbrake) can't "click" a leftover button.
-    else document.activeElement?.blur?.();
+    else { document.activeElement?.blur?.(); this.onEmpty?.(); }
   }
 
   closeAll() { while (this.stack.length) this.close(); }

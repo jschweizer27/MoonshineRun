@@ -488,7 +488,8 @@ export class Police {
       const i = u.id;
       if (u.active) {
         const after = u.mode === 'chase' || u.mode === 'search';
-        put(u.car.position.x, u.car.position.z, u.car.heading, after ? flash(i) * 3 : 0.25);
+        // (Vail's sedans, `quiet`, run dark: no roof lamp)
+        put(u.car.position.x, u.car.position.z, u.car.heading, this.quiet ? 0 : after ? flash(i) * 3 : 0.25);
         // The cone: ahead of a patrol, red once it's after you; none for a car leaving.
         const r = u.mode === 'patrol' ? P.sight : 0;      // one after you sees all round: no cone
         o.position.set(u.car.position.x, 0, u.car.position.z); o.rotation.set(0, -u.car.heading, 0); o.scale.set(r, 1, r); o.updateMatrix();

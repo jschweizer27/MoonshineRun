@@ -337,6 +337,11 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 
 /* Clock */
 #clock { margin-top: 2px; font-size: calc(14px * var(--ts)); letter-spacing: 2px; color: #c9c0aa; text-shadow: 0 1px 4px #000; }
+#clock { transition: color 0.6s; }
+#clock[data-nerves="uneasy"] { color: #d8c27a; }
+#clock[data-nerves="rattled"] { color: #e0a060; }
+#clock[data-nerves="frayed"] { color: #e8735a; }
+#passenger { max-width: min(260px, 32vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Market: what's for sale, then the upgrades */
 #market-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; max-height: 52vh; overflow-y: auto; }
@@ -355,6 +360,8 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 /* Ledger: a bookkeeper's page */
 .ledger-card { background: #1b1712 !important; }
 #notebook-body { text-align: left; max-height: 62vh; overflow-y: auto; margin-bottom: 16px; }
+.notebook-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 8px; }
+.notebook-tabs .btn { padding: 4px 8px; font-size: calc(11px * var(--ts)); letter-spacing: 0.08em; }
 #notebook-body h3 { color: var(--gold); letter-spacing: 0.12em; font-size: calc(14px * var(--ts)); border-bottom: 1px solid rgba(216, 178, 90, 0.4); margin: 14px 0 6px; padding-bottom: 3px; }
 #notebook-body .note { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; border-bottom: 1px dotted rgba(216, 178, 90, 0.2); font-size: calc(14px * var(--ts)); }
 #notebook-body .note small { display: block; color: #b6ab90; }
@@ -394,6 +401,8 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
   #notebook-body { max-height: 56vh; }
   #trunk-grid { --cell: min(52px, calc((100vw - 96px) / var(--cols, 5)), calc((100vh - 190px) / var(--rows, 3))); margin: 4px auto; }
   .hud-banner { top: 56px; }
+  #clock .clock-extra { display: none; }      /* (under the banner otherwise; the colour keeps the nerves) */
+  #passenger { max-width: 180px; }             /* (the toast starts just past the left column) */
   #toast { top: 96px; }
   #minimap { width: 130px; height: 130px; }
 }

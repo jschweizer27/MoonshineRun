@@ -352,7 +352,7 @@ export const CONFIG = {
       run: { kind: 'corn-shine', count: 2, pay: 420 },
       report: 500,
       brewery: { x: 176, z: 44 },
-      ambush: { tier: 3, hold: 12, range: [70, 150] },
+      ambush: { tier: 3, hold: 12, range: [70, 150], raidRange: [30, 75] },   // (the barn raid's cars wait in the lane)
     },
     // Brewing at Otto's still (src/brew.js), in three phases:
     // 1. The fire (`seconds`): hold STOKE to raise the temperature (`heat.up` a second), let

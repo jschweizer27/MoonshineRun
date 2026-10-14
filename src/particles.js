@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { radialTexture } from './world.js';
 import { CONFIG } from './config.js';
 
+const DUST = [0.55, 0.45, 0.33], SNOW = [0.86, 0.89, 0.93];
+
 // Two pooled particle systems: soft smoke/dust (normal blending) and glowing sparks/embers
 // (additive). Fixed-size buffers, updated on the CPU, one draw call each.
 const VERT = `
@@ -161,7 +163,8 @@ export class Particles {
 
   // Exhaust from the tailpipe (bigger, darker puffs under throttle) and dust off the wheels
   // on dirt/grass (more when sliding). `exhaust` and `dust` scale them (JUICE.wheels).
-  vehicle(dt, v, { throttle = 0, dusty = false, exhaust = 1, dust = 1 }) {
+  // (`snow`: winter's county kicks up powder, not dust)
+  vehicle(dt, v, { throttle = 0, dusty = false, exhaust = 1, dust = 1, snow = false }) {
     if (!this.detail) return;
     const fx = v.forwardX, fz = v.forwardZ, p = v.position;
     const speed = Math.abs(v.speed), thr = Math.max(0, throttle);
@@ -176,7 +179,7 @@ export class Particles {
       for (let k = this._rate('dust', (speed * 1.6 + v.slip * 6) * dust, dt); k > 0; k--) {
         const side = Math.random() < 0.5 ? -1 : 1;
         this.smoke.emit(p.x - fx * 2 + fz * side * 1.1, 0.4, p.z - fz * 2 - fx * side * 1.1, (Math.random() - 0.5) * 2 + v.vx * 0.2, 1 + Math.random(), (Math.random() - 0.5) * 2 + v.vz * 0.2,
-          { life: 1.8 + v.slip * 0.1, size: 1.5 + v.slip * 0.1, grow: 3.5, color: [0.55, 0.45, 0.33], alpha: 0.4 });
+          { life: 1.8 + v.slip * 0.1, size: 1.5 + v.slip * 0.1, grow: 3.5, color: snow ? SNOW : DUST, alpha: 0.4 });
       }
     }
   }
