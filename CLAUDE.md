@@ -2,7 +2,7 @@
 
 SHINE is a 1920s Baltimore bootlegging game (Otto Braun, Baltimore/Green Spring Valley): free
 roam, salvage sites to work, a Tetris-style trunk to pack, four market towns, a still, night
-runs past the Bureau and a story in six chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
+runs past the Bureau and a story in seven chapters, built as a browser demo with Three.js. `ue5/` holds a UE5 C++ scaffold
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
@@ -143,6 +143,14 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   the `bank` story site (appended last in `placeStory`). A story order's `spot` sends it to a
   `world.towson` place. The endings come after the last chapter (CHAPTERS.length); a save that
   chose one earlier is finished (`dredgecareer` load).
+- Rum Row (v5 stage 11, chapter 7) is in the city, on the existing docks: the city's warehouse
+  ring is drawn from the seeded stream, so no new region cuts through it. Story sites `pier`
+  (a window that wraps midnight) and `warehouse` (appended last in `placeStory`); imported
+  kinds (`imported: true`, brewed for contraband and the speakeasies, priced as grade A,
+  no blend); the schooner (`world.schooner`, one merged vertex-coloured mesh, hidden far off
+  in `updateFar`); the harbour patrol (`police._harbour`, `CONFIG.dredge.police.harbour`, one
+  more night patrol on the waterfront from chapter 7); the `launch` tool keeps the pier open
+  (`openSites`) for `main._launchDeal` (`CONFIG.dredge.rumrow`, once a night).
 - Stage 9b (after DREDGE): gear kinds (`gear: true`, `CONFIG.dredge.gear`, sold with the
   supplies, never bought back: `market.buys`) work while packed (`main._gear(kind)`;
   `_updateTrunkPill` re-applies perks when it changes; the crowbar is `newPry`'s `free`

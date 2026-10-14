@@ -103,6 +103,13 @@ Enter, the D-pad and A/B, or touch.
    Tavern, get into the bank's records room after dark, and drive Ruby to the courthouse with
    a copy before the bank opens.
 
+   **Chapter 7, Rum Row:** win Mags O'Rourke's full trust and work the Canton waterfront with
+   her. Meet the launch at the Canton pier after eleven (a schooner rides at anchor off the
+   docks, and the **harbour patrol** is out by night), take **Imported Scotch** to Mr.
+   Abernathy, and search Vail's bonded warehouse on the Lazaretto pier. Imported liquor (Scotch
+   and Nassau rum) sells at the speakeasies as the genuine article, and after the chapter
+   Mags's launch sells you a load any night after eleven.
+
    Each chapter ends in a **clue** to who paid for the fire, and the first four in a tool:
    - the farm tyres stop the fields slowing you, so you can go round a roadblock across country;
    - the **false bottom** hides two crates from a search;
@@ -123,7 +130,7 @@ Enter, the D-pad and A/B, or touch.
 
    The notebook lists them; **FOLLOW** one to point the banner and the route at it.
 
-   **The endings.** After chapter 6 the choice is yours, and it ends the story:
+   **The endings.** After chapter 7 the choice is yours, and it ends the story:
    - **the deed:** buy back Braun & Sons at Lexington Market ($12,000) and go legit;
    - **the paper:** take the letters to the Baltimore Sun and bring the Alliance down.
 

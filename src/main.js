@@ -997,6 +997,7 @@ class Game {
     const law = this.police.update(dt, this.player, this.camera, this.time, {
       contraband: this._contraband() > 0, night, lightsOff: this.lightsOff && night, route: this.minimap.route,
       checkpoint: (d.chapter || 0) >= CONFIG.dredge.police.checkpoint.chapter,
+      harbour: (d.chapter || 0) >= 6,                    // chapter 7 on: the harbour patrol
     });
     if (this.police.checkpoint.on && !d.flags.checkpoint) { d.flags.checkpoint = true; this.dredge.save(); }   // its warning card (story.js)
     if (law.touching > 6) this._crash(law.touching, p.x, p.z);
@@ -1404,6 +1405,7 @@ class Game {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     const game = CONFIG.dredge.salvage.kinds[site.kind].game;
+    if (site.story === 'pier' && !this._siteStep(site)) { this._launchDeal(); return; }   // Mags's launch (chapter 7's tool)
     if (game === 'none') { this._storySalvaged(site, 1); return; }
     if (game === 'pay' || game === 'give') { this._storyDeal(site, game); return; }
     if (game === 'lager') { this.openBrewery(); return; }
@@ -1464,6 +1466,26 @@ class Game {
     if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
   }
 
+  // Mags's launch (chapter 7's tool): once a night after eleven at the Canton pier, Scotch
+  // and rum off Rum Row for cash, into the trunk one piece at a time.
+  async _launchDeal() {
+    const d = this.dredge.data, R = CONFIG.dredge.rumrow, night = nightOf(this.dredge.market.clock);
+    const done = () => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); };
+    if (d.once.launch === night) { this.hud.toast('The launch has gone back out to the schooner. Tomorrow night.', '', 3000); done(); return; }
+    if (d.cash < R.price) { this.hud.toast(`The launch wants ${money(R.price)}, cash on the pier.`, '', 3000); done(); return; }
+    if (!(await this.ui.confirm('THE LAUNCH?', `Buy ${wantsText(Object.fromEntries(R.gives.map((k) => [k, R.gives.filter((x) => x === k).length])))} off the launch for ${money(R.price)}?`, `PAY ${money(R.price)}`))) { done(); return; }
+    d.cash -= R.price;
+    d.once.launch = night;
+    d.ledger.unshift({ t: Date.now(), text: 'Off the launch on Rum Row', amount: -R.price });
+    d.ledger.length = Math.min(d.ledger.length, 40);
+    this.dredge.save();
+    this.hud.setCash(this.dredge.cash, true);
+    this.hud.cashPop(`−${money(R.price)}`);
+    this.audio.pickup?.();
+    this._pending = R.gives.slice(1);
+    this.openTrunk(R.gives[0]);
+  }
+
   // A site worked: it's empty for a day or two, and what it gave up goes into the trunk,
   // one piece at a time.
   _onSalvaged(site, sc) {
@@ -1519,7 +1541,7 @@ class Game {
     if (job.ambush) d.flags.ambush = true;
     if (job.gives) {
       const kind = job.gives[0];
-      if (KINDS[kind].brewed) blend(d.market.blend, kind, onHand(this.trunk, d.stash)[kind] || 0, job.gives.length, CONFIG.dredge.story.consignment.q, false);
+      if (KINDS[kind].brewed && !KINDS[kind].imported) blend(d.market.blend, kind, onHand(this.trunk, d.stash)[kind] || 0, job.gives.length, CONFIG.dredge.story.consignment.q, false);
       this.dredge.save();
       this.hud.toast(job.got || `Found: ${wantsText({ [kind]: job.gives.length })}`, 'gold', 3000);
       this.audio.pickup?.();

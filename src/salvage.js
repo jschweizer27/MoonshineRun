@@ -132,6 +132,10 @@ export function placeStory(world, regular = []) {
   }
   // Chapter 6: the Towson National Bank's records room, round the back (towson.js).
   if (world.towson) field('bank', 'bank', world.towson.records.x, world.towson.records.z, [-1, 0]);
+  // Chapter 7: the Canton pier by the harbour, and Vail's warehouse on the Lazaretto pier at
+  // the city's east edge, both away from the speakeasies.
+  sidewalk('pier', 'pier', 200, 215, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 30));
+  sidewalk('warehouse', 'warehouse', 215, 20, 10, (x, z) => apart(x, z) && world.drops.every((d) => Math.hypot(d.x - x, d.z - z) > 30));
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }
