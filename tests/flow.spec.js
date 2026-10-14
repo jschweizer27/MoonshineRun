@@ -34,7 +34,7 @@ test('one clock: a new game starts at 21:30 on the save’s clock, a reload keep
   expect(problems).toEqual([]);
 });
 
-test('sleeping at the barn: by day till dusk (warning of orders that will go late), in the freight’s steps till it comes in; the clock and the hour move together', async ({ page }) => {
+test('sleeping at the barn: by day till dusk (warning of orders that will go late), by night till morning, and till a step’s own hours (the freight); the clock and the hour move together', async ({ page }) => {
   const problems = await openGame(page);
   await startRun(page, { loot: false });
   const barn = () => page.evaluate(() => {
@@ -63,13 +63,17 @@ test('sleeping at the barn: by day till dusk (warning of orders that will go lat
     out.orders = g.dredge.data.orders.length;
     return out;
   });
-  expect(slept).toEqual({ hour: 19.5, clock: 43.5, naps: 0, orders: 0 });     // the order went late
+  expect(slept).toEqual({ hour: 19.5, clock: 43.5, naps: 1, orders: 0 });     // the order went late; now only till morning
   // The freight's steps: till 23:00.
   await past(page, 2);
   await page.evaluate(() => { const g = window.shine.game, d = g.dredge.data; d.trust.orourke = 4; g.env.hour = 12; g.dredge.market.clock = 60; window.shine.step(0.3); });
-  expect((await barn(page)).naps).toEqual(['sleep-dusk', 'sleep-freight']);
-  await page.click('#barn-body [data-id="sleep-freight"]');
+  expect((await barn(page)).naps).toEqual(['sleep-dusk', 'sleep-window']);
+  await expect(page.locator('#barn-body .upgrade', { has: page.locator('[data-id="sleep-window"]') })).toContainText('Sleep till 23:00');
+  await page.click('#barn-body [data-id="sleep-window"]');
   expect(await page.evaluate(() => { const g = window.shine.game; return [g.env.hour, g.dredge.market.clock]; })).toEqual([23, 71]);
+  // By night: till morning, a new day (dawn) and steady nerves.
+  const night = await page.evaluate(() => { const g = window.shine.game; g.dredge.data.nerves = 0.2; return g.sleep('morning').then((ok) => ({ ok, hour: g.env.hour, clock: g.dredge.market.clock, nerves: g.dredge.data.nerves })); });
+  expect(night).toEqual({ ok: true, hour: 6, clock: 78, nerves: 1 });
   expect(problems).toEqual([]);
 });
 

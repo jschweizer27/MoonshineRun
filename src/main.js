@@ -427,12 +427,15 @@ class Game {
     on('pause-help', () => this.ui.open('help'));
     on('pause-skip-tips', () => { this.endGuide(true); $('pause-skip-tips').classList.add('hidden'); this.ui.focusFirst(); });
     on('guide-skip', () => this.endGuide(true));
-    // Quitting with the Bureau on your tail is a bust (no getting away by quitting).
+    // Quitting with the Bureau on your tail is a bust (no getting away by quitting); with
+    // Vail's men, a hijack.
     on('pause-quit', async () => {
-      const heat = this.police.tier > 0;
-      const text = heat ? 'The Bureau is on your tail: quitting now counts as a bust. The shine aboard is taken, and the fine paid.' : 'Quit to the title screen? Your cash, upgrades and what’s in the trunk are saved.';
+      const heat = this.police.tier > 0, vail = heat && this._hijackOn;
+      const text = vail ? 'Vail’s men are on your tail: quitting now, they take their share of the shine aboard.'
+        : heat ? 'The Bureau is on your tail: quitting now counts as a bust. The shine aboard is taken, and the fine paid.' : 'Quit to the title screen? Your cash, upgrades and what’s in the trunk are saved.';
       if (!(await this.ui.confirm('QUIT?', text, 'QUIT'))) return;
-      if (heat) this._bust('You quit with the Bureau on your tail.');
+      if (vail) this._hijack();
+      else if (heat) this._bust('You quit with the Bureau on your tail.');
       this.quitToTitle();
     });
     on('ledger-done', () => this.ui.back());
@@ -758,12 +761,13 @@ class Game {
     const d = this.dredge.data, want = this._activeSteps().filter((x) => x.step.order && !d.flags[`order:${x.step.id}`]);
     const ids = new Set(want.map((x) => x.step.id)), had = d.orders.length;
     d.orders = d.orders.filter((o) => (!o.story || ids.has(o.story)) && !(d.flags.betrayed && o.who === 'jockey'));
+    for (const o of d.orders) if (o.story && o.call == null) o.call = !o.passenger && !Object.keys(o.wants).length;   // (saves from before calls)
     const added = [];
     for (const { step, arc } of want) if (!d.orders.some((o) => o.story === step.id)) { const o = this._storyOrder(step, arc); d.orders.push(o); added.push(o); }
     if (!added.length && d.orders.length === had) return;
     this.dredge.save();
     this._updateJobMarker();
-    for (const o of added) this.hud.toast(`In the book: ${o.passenger ? `carry ${o.name} from ${o.pickup.place} to ${o.drop.place}` : `${wantsText(o.wants)} for ${o.name}, ${o.place}`}${o.window ? ` · ${hoursText(o.window)}` : o.night ? ' · after dark' : ''}`, 'gold', 4000);
+    for (const o of added) this.hud.toast(`In the book: ${o.passenger ? `carry ${o.name} from ${o.pickup.place} to ${o.drop.place}` : o.call ? `call on ${o.name}, ${o.place}` : `${wantsText(o.wants)} for ${o.name}, ${o.place}`}${o.window ? ` · ${hoursText(o.window)}` : o.night ? ' · after dark' : ''}`, 'gold', 4000);
   }
 
   // The steps in play: the chapter's current step and each open side story's (arcs.js), as
@@ -803,8 +807,9 @@ class Game {
   // A `passenger` rides along: the order points at his pickup (a contact's door) until he's
   // aboard (`aboard`, main._checkPassenger), then at where he's going (`drop`). A `fragile`
   // load breaks a crate on any hard knock (main._breakage).
-  // A side story's passenger (`arc`) answers to its contact (`vouch`: trust for a smooth
-  // ride, lost on a rough one); the chapters' to Mags O'Rourke. `freight`: the order waits on
+  // A passenger answers to whoever vouched for Otto (`vouch`: trust for a smooth ride, lost
+  // on a rough one): a side story's contact (`arc`), a contact riding on their own errand
+  // (Ruby to the courthouse), else Mags O'Rourke (Walt Purdy). `freight`: the order waits on
   // the midnight freight (its window is the train's).
   _storyOrder(step, arc = null) {
     // (`spot`: a place in a region, world.towson's, instead of the contact's door)
@@ -812,7 +817,8 @@ class Game {
     const o = {
       id: `story:${step.id}`, story: step.id, contact: c.id || null, who: O.who, name: CAST[O.who].name, place: O.place || c.place, kind: 'speakeasy', x: c.x, z: c.z,
       wants: { ...O.wants }, grade: null, night: !!O.night, window: O.window || null, pay: O.pay, hours: 0, km: 0, line: '', due: null, fragile: !!O.fragile,
-      freight: O.at === 'load', vouch: arc ? arc.who : CONFIG.dredge.story.passenger.from,
+      call: !O.passenger && !Object.keys(O.wants).length,   // (wants nothing: a call in person, the step's lines say the rest)
+      freight: O.at === 'load', vouch: arc ? arc.who : this.contactList.some((x) => x.who === O.who) ? O.who : CONFIG.dredge.story.passenger.from,
     };
     if (O.passenger) {
       const from = this.contactList.find((x) => x.who === O.passenger.from);
@@ -861,8 +867,10 @@ class Game {
     const S = CONFIG.dredge.story.passenger, o = this.dredge.data.orders.find((x) => x.passenger && x.aboard);
     if (!o || impact < S.crash || this.time - (this._knockAt ?? -10) < 3) return;
     this._knockAt = this.time;
-    const vouch = o.vouch || S.from, first = CAST[vouch].name.split(' ')[0];
-    const lines = [`“Mind the road! ${first} said you could drive.”`, '“My dinner, Braun. My dinner.”', `“I’ll be telling ${first} about this.”`];
+    // (a title stays with its name: Widow Carroll, Doc Wexler, Ma Pruitt)
+    const vouch = o.vouch || S.from, full = CAST[vouch].name, first = /^(Widow|Doc|Ma|Mr\.|Mrs\.|Sheriff|Big|Uncle)\b/.test(full) ? full : full.split(' ')[0];
+    const lines = vouch === o.passenger ? ['“Mind the road, Otto!”', '“I’d like to get there in one piece.”', '“Easy! Easy, now.”']
+      : [`“Mind the road! ${first} said you could drive.”`, o.passenger === S.who ? '“My dinner, Braun. My dinner.”' : '“Do you drive like this all the time?”', `“I’ll be telling ${first} about this.”`];
     this._knocks = (this._knocks || 0) + 1;
     this._trust(vouch, -S.trust);
     this.dredge.save();
@@ -879,6 +887,7 @@ class Game {
     if (d.flags[e] || this._ambushOn) return;
     this._trapKey = key;
     if (!this.police.enabled) { d.flags[e] = true; this.dredge.save(); return; }
+    this._hijackOn = false;                                     // (the Bureau's trap takes over from Vail's men)
     this._ambushOn = true;
     for (const e of this.police.alert(this.player.position, A.tier, { hold: A.hold, range: A.range })) this._onPolice(e);
     this._updateHeat();
@@ -1215,7 +1224,7 @@ class Game {
   _onPolice(e) {
     const P = CONFIG.dredge.police;
     if (e.type === 'spotted') { this.hud.toast('Spotted! A Bureau car has seen the shine.', 'red', 3000); this.dredge.data.stats.spotted = (this.dredge.data.stats.spotted || 0) + 1; this._jolt(CONFIG.dredge.nerves.spotted); }
-    else if (e.type === 'tier' && e.up && e.tier >= 2) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
+    else if (e.type === 'tier' && e.up && e.tier >= 2 && !this._hijackOn) this.hud.toast(e.tier >= P.max ? 'Every car in the county is after you!' : 'They’ve radioed ahead: watch for a roadblock.', 'red', 3500);
     else if (e.type === 'tier' && !e.up) this.hud.toast('Fewer of them now. Keep out of sight.', '', 2500);
     else if (e.type === 'clear' && this._hijackOn) { this._hijackOn = false; this.hud.toast('You shook Vail’s men. The load is still yours.', 'gold', 3500); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; }
     else if (e.type === 'clear') { this.hud.toast('You lost them. The heat’s off.', 'gold', 3000); this.dredge.data.stats.escapes = (this.dredge.data.stats.escapes || 0) + 1; if (this._ambushOn) this._escaped(); }
@@ -1254,7 +1263,7 @@ class Game {
     if ((this._rivalRng || Math.random)() >= R.chance * dt * this.env.hoursPerSecond) return;
     this._hijackOn = true;
     d.stats.hijackTries = (d.stats.hijackTries || 0) + 1;
-    for (const e of this.police.alert(this.player.position, R.tier, { hold: R.hold, range: R.range })) this._onPolice(e);
+    for (const e of this.police.alert(this.player.position, R.tier, { hold: R.hold, range: R.range, quiet: true })) this._onPolice(e);
     this._updateHeat();
     this.hud.toast('Black sedans behind you, and no sirens: Vail’s men. Lose them or lose the load.', 'red', 4500);
   }
@@ -1289,10 +1298,12 @@ class Game {
     // who trusts Otto makes it go away, for a price.
     const fine = Math.min(d.cash, Math.max(P.fineMin, Math.min(P.fineMax, Math.round(d.cash * P.fine))));
     const bribe = Math.round(Math.max(P.fineMin, Math.min(P.fineMax, d.cash * P.fine)) * C.bribe);
+    this._hijackOn = false;                                     // (the checkpoint can bust Otto mid-hijack)
     this._escaped();
     // Sal Romano's family (his side story): once a day, a bust in the city goes away.
-    if (!this.world.inCounty(this.player.position) && d.tools.family && d.once.family !== dayOf(this.dredge.market)) {
-      d.once.family = dayOf(this.dredge.market);
+    // (keyed by the night, 06:00 to 06:00, like the labels: one favour a night out)
+    if (!this.world.inCounty(this.player.position) && d.tools.family && d.once.family !== nightOf(this.dredge.market.clock)) {
+      d.once.family = nightOf(this.dredge.market.clock);
       d.stats.favours = (d.stats.favours || 0) + 1;
       d.ledger.unshift({ t: Date.now(), text: 'Sal Romano’s lawyer made a bust go away', amount: 0 });
       d.ledger.length = Math.min(d.ledger.length, 40);
@@ -1308,8 +1319,6 @@ class Game {
         .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
       return;
     }
-    // A passenger goes back to wait (and the run can be tried again).
-    for (const o of this._passengerOff()) this.hud.toast(`${CAST[o.passenger].name} has had enough, and has gone back to ${o.place} to wait.`, '', 4000);
     if (this.world.inCounty(this.player.position) && d.flags.bribery && trustLevel(d.trust.sheriff) >= C.bribeAt && d.cash >= bribe) {
       d.cash -= bribe;
       d.stats.bribes = (d.stats.bribes || 0) + 1;
@@ -1328,6 +1337,9 @@ class Game {
         .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
       return;
     }
+    // A passenger goes back to wait (and the run can be tried again). A bust waived (the
+    // family, the Sheriff) leaves them aboard.
+    for (const o of this._passengerOff()) this.hud.toast(`${CAST[o.passenger].name} has had enough, and has gone back to ${o.place} to wait.`, '', 4000);
     let taken = 0;
     for (const p of [...this.trunk.pieces.values()]) if (KINDS[p.kind].brewed) { this.trunk.remove(p.id); taken++; }
     d.cash -= fine;
@@ -1406,7 +1418,9 @@ class Game {
     const n = d.nerves, rng = (this._nerveRng ??= createRng(1922)), P = N.phantoms;
     this._phantoms ??= [];
     for (let i = this._phantoms.length - 1; i >= 0; i--) if (this._phantoms[i].until < this.time) this._phantoms.splice(i, 1);
-    if (n < P.below && this.time >= (this._phantomAt ?? 0)) {
+    // (none in a real chase: the tricks are for empty roads)
+    const chase = this.police.tier > 0;
+    if (n < P.below && !chase && this.time >= (this._phantomAt ?? 0)) {
       const a = rng() * Math.PI * 2, r = rng.range(...P.range), p = this.player.position;
       this._phantoms.push({ x: p.x + Math.sin(a) * r, z: p.z - Math.cos(a) * r, until: this.time + P.lasts });
       this._phantomAt = this.time + rng.range(...P.every);
@@ -1414,7 +1428,7 @@ class Game {
     // The Black Car: on the barest nerves, at night in the county, headlights off and right
     // behind on the radar, a siren, a word from Otto, and then nothing.
     const B = N.blackCar;
-    if (n < B.below && night && this.world.inCounty(this.player.position) && this.time >= (this._blackAt ?? 0)) {
+    if (n < B.below && night && !chase && this.world.inCounty(this.player.position) && this.time >= (this._blackAt ?? 0)) {
       const p = this.player.position;
       this._phantoms.push({ x: p.x - this.player.forwardX * 30, z: p.z - this.player.forwardZ * 30, until: this.time + B.lasts });
       this._sirenUntil = this.time + B.lasts;
@@ -1535,7 +1549,7 @@ class Game {
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     if (this.state !== STATE.PAUSED) return;
     const game = CONFIG.dredge.salvage.kinds[site.kind].game;
-    if (site.story === 'pier' && !this._siteStep(site)) { this._launchDeal(); return; }   // Mags's launch (chapter 7's tool)
+    if (site.story === 'pier' && !this._siteStep(site) && this._lost()?.site !== 'pier') { this._launchDeal(); return; }   // Mags's launch (chapter 7's tool)
     if (site.story === 'hollow' && !this._siteStep(site)) { this._collectHollow(); return; }   // the operation (chapter 8 on)
     if (site.story === 'brauns' && !this._siteStep(site)) { this._stockBrauns(); return; }
     if (game === 'none') { this._storySalvaged(site, 1); return; }
@@ -1707,15 +1721,17 @@ class Game {
     return lack.map(([k, n]) => (k === 'shine' ? `${n} crates of your own shine` : wantsText({ [k]: n }))).join(' and ');
   }
 
-  // Take `takes` out of the trunk; returns { kind: count } of what was taken.
-  _take(takes) {
-    const out = {};
+  // Take `takes` out of the trunk, leaving `keep` ({ kind: count }, main._keepBack) aboard;
+  // returns { kind: count } of what was taken (with `dry`, what would be).
+  _take(takes, keep = {}, dry = false) {
+    const out = {}, spare = { ...keep };
     for (const [k, n] of Object.entries(takes)) {
       let left = n;
       for (const p of [...this.trunk.pieces.values()]) {
         if (!left) break;
         if (k === 'shine' ? !(KINDS[p.kind].brewed && !KINDS[p.kind].imported) : p.kind !== k) continue;
-        this.trunk.remove(p.id);
+        if (spare[p.kind] > 0) { spare[p.kind]--; continue; }
+        if (!dry) this.trunk.remove(p.id);
         out[p.kind] = (out[p.kind] || 0) + 1;
         left--;
       }
@@ -1738,15 +1754,26 @@ class Game {
   }
 
   // Braun's: every crate of Otto's own shine aboard goes into its cellar, to sell nightly.
-  _stockBrauns() {
-    const d = this.dredge.data, took = this._take({ shine: Infinity }), n = Object.values(took).reduce((a, b) => a + b, 0);
+  // Braun's (chapter 8 on): leave Otto's own shine in the cellar to sell, all of it but what
+  // the orders and the story need (main._keepBack), after asking.
+  async _stockBrauns() {
+    const d = this.dredge.data, keep = this._keepBack(), would = this._take({ shine: Infinity }, keep, true), n = Object.values(would).reduce((a, b) => a + b, 0);
+    const count = (k) => Object.values(k).reduce((a, b) => a + b, 0), stock = () => count(d.brauns);
+    const done = () => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); };
+    const kept = count(this._take({ shine: Infinity }, {}, true)) - n;
+    if (!n) {
+      this.hud.toast(`Braun’s has ${stock()} crate${stock() === 1 ? '' : 's'} in the cellar. ${kept ? 'The shine aboard is spoken for (your orders): bring more to stock it.' : 'Bring your own shine to stock it.'}`, '', 3500);
+      done();
+      return;
+    }
+    if (!(await this.ui.confirm('STOCK BRAUN’S?', `Leave ${n} crate${n === 1 ? '' : 's'} of your own shine (${wantsText(would)}) in Braun’s cellar to sell, a few every night?${kept ? ` (${kept} more stay aboard for your orders.)` : ''}`, 'STOCK IT'))) { done(); return; }
+    const took = this._take({ shine: Infinity }, keep);
     for (const [k, c] of Object.entries(took)) d.brauns[k] = (d.brauns[k] || 0) + c;
-    const stock = Object.values(d.brauns).reduce((a, b) => a + b, 0);
     this.dredge.saveTrunk(this.trunk);
     this.dredge.save();
     this._updateTrunkPill();
-    this.hud.toast(n ? `Braun’s cellar takes ${n} crate${n === 1 ? '' : 's'}: ${stock} in stock. It sells a few every night.` : `Braun’s has ${stock} crate${stock === 1 ? '' : 's'} in the cellar. Bring your own shine to stock it.`, n ? 'gold' : '', 3500);
-    if (!this.ui.anyOpen) this.resume();
+    this.hud.toast(`Braun’s cellar takes ${n} crate${n === 1 ? '' : 's'}: ${stock()} in stock. It sells a few every night.`, 'gold', 3500);
+    done();
   }
 
   // The step (the chapter's or a side story's) whose story site this is, or null.
@@ -1831,7 +1858,8 @@ class Game {
     this._barnLeft = false;
     // Chapter 8: the Bureau is waiting at the barn after dark (the raid; main._ambush).
     const d = this.dredge.data;
-    if (current(d).step?.id === 'raid' && this._night()) { d.flags.raidHome = true; this.dredge.save(); return; }
+    // (the trap's flag is set now, so a run cut short under its cards still counts Otto away: resetRun)
+    if (current(d).step?.id === 'raid' && this._night()) { d.flags.raidHome = true; d.flags[trapFlags('raid')[0]] = true; this.dredge.save(); return; }
     this.openBarn();
   }
 
@@ -1914,25 +1942,30 @@ class Game {
   }
 
   // Sleeping at the barn, to skip the waiting: by day, till dusk (when the night's work
-  // starts); in the freight's steps, till it stands at Glyndon. [{ id, name, text, to }]
+  // starts); by night, till morning (a night's sleep sets the nerves right); and till the
+  // followed step's own hours come round (the midnight freight, the courthouse by morning,
+  // the bank by day...). [{ id, name, text, to }]
   _sleeps() {
-    const h = this.env.hour, dusk = CONFIG.dredge.police.checkpoint.hours[0], W = CONFIG.dredge.story.freight.window, out = [];
-    const { step } = current(this.dredge.data);
+    const h = this.env.hour, dusk = CONFIG.dredge.police.checkpoint.hours[0], out = [];
+    const { step } = this._followed(), win = step?.order?.window || step?.window;
     if (h >= 6 && h < dusk - 0.25) out.push({ id: 'dusk', name: 'Sleep till dusk', text: `Till ${clockAt(dusk)}, when the night’s work starts.`, to: dusk });
-    if ((step?.order?.window || step?.window) && h >= 6 && h < W[0] - 0.25) out.push({ id: 'freight', name: 'Sleep till the freight', text: `Till ${clockAt(W[0])}, when the midnight freight stands at Glyndon.`, to: W[0] });
+    else if (h >= dusk - 0.25 || h < 5.75) out.push({ id: 'morning', name: 'Sleep till morning', text: 'Till 06:00. A night’s sleep steadies the nerves.', to: 6 });
+    const till = win && (((win[0] - h) % 24) + 24) % 24;
+    if (win && till > 0.25 && !out.some((n) => n.to === win[0]) && !inWindow(h, win)) {
+      out.push({ id: 'window', name: `Sleep till ${clockAt(win[0])}`, text: `Till ${clockAt(win[0])}. ${step.text.split(' (')[0]}.`, to: win[0] });
+    }
     return out;
   }
 
   // Sleep: the save's clock and the hour move on together (orders due before then go late,
-  // after a warning). Returns whether Otto slept.
+  // after a warning; past 06:00 it's a new day). Returns whether Otto slept.
   async sleep(id) {
     const nap = this._sleeps().find((x) => x.id === id), M = this.dredge.market;
     if (!nap) return false;
-    const hours = nap.to - this.env.hour, late = this.dredge.data.orders.filter((o) => o.due != null && o.due < M.clock + hours);
+    const hours = (((nap.to - this.env.hour) % 24) + 24) % 24, late = this.dredge.data.orders.filter((o) => o.due != null && o.due < M.clock + hours);
     if (late.length && !(await this.ui.confirm('SLEEP?', `${late.length === 1 ? 'An order' : `${late.length} orders`} in the book will be late by then (${late.map((o) => o.name).join(', ')}). Sleep anyway?`, 'SLEEP'))) return false;
-    passTime(M, hours);
+    this._passHours(hours);
     this.env.hour = nap.to;
-    this.env.update(0, this.camera.position);
     this.dredge.data.stats.slept = (this.dredge.data.stats.slept || 0) + hours;
     this._setNerves(1);
     this.dredge.save();
@@ -2005,8 +2038,10 @@ class Game {
   _spoil(dt) {
     if (!OPTIONS.time) return;
     const h = dt * this.env.hoursPerSecond, d = this.dredge.data;
+    let ice = null;
+    for (const p of this.trunk.pieces.values()) if (p.kind === 'ice') { ice = p; break; }
+    if (!ice) d.iceLeft = null;                     // (the next block aboard starts with its full hours)
     if (!h || !this._carrying('lager')) return;
-    const ice = [...this.trunk.pieces.values()].find((p) => p.kind === 'ice');
     if (ice) {
       d.iceLeft = (d.iceLeft ?? CONFIG.dredge.gear.ice.hours) - h;
       if (d.iceLeft > 0) return;
@@ -2031,7 +2066,7 @@ class Game {
   }
 
   // A hard knock can break what's fragile aboard: jars, bottles, every crate of shine. A
-  // fragile order's load (Delaney's crates) loses a crate for certain.
+  // fragile order's load (Delaney's crates, the wedding toast) loses a crate for certain.
   _breakage(impact) {
     const K = CONFIG.dredge.breakage;
     if (impact <= K.from || !this.trunk.count) return;
@@ -2049,7 +2084,7 @@ class Game {
     this.dredge.saveTrunk(this.trunk);
     this._updateTrunkPill();
     this.audio.glass?.();
-    this.hud.toast(`${jumped ? 'Delaney’s crates jump in the bed. ' : ''}Glass breaking: ${broke.length === 1 ? `a ${broke[0]}` : `${broke.length} pieces (${[...new Set(broke)].join(', ')})`} smashed in the crash.${jumped ? ' Make it up with your own.' : ''}`, 'red', 4000);
+    this.hud.toast(`${jumped ? 'The fragile load jumps in the bed. ' : ''}Glass breaking: ${broke.length === 1 ? `a ${broke[0]}` : `${broke.length} pieces (${[...new Set(broke)].join(', ')})`} smashed in the crash.${jumped ? ' Make it up with your own.' : ''}`, 'red', 4000);
   }
 
   // A hard knock wears the truck (it slows until mended at the barn).
@@ -2296,10 +2331,10 @@ class Game {
     this._updateTrunkPill();
     this._updatePassenger();
     this.hud.setCash(this.dredge.cash, true);
-    const paid = done.reduce((s, x) => s + x.paid, 0);
-    this.hud.cashPop(`+${money(paid)}`);
-    this.audio.cash?.();
-    this.hud.toast(`Delivered to ${[...new Set(done.map((x) => x.order.name))].join(' and ')}: ${money(paid)}${done.some((x) => x.bonus) ? ' (sweet-talked)' : ''}`, 'gold', 3000);
+    const paid = done.reduce((s, x) => s + x.paid, 0), names = (xs) => [...new Set(xs.map((x) => x.order.name))].join(' and ');
+    const calls = done.filter((x) => x.order.call), handed = done.filter((x) => !x.order.call);
+    if (paid) { this.hud.cashPop(`+${money(paid)}`); this.audio.cash?.(); }
+    this.hud.toast(handed.length ? `Delivered to ${names(handed)}: ${money(paid)}${done.some((x) => x.bonus) ? ' (sweet-talked)' : ''}` : `Called on ${names(calls)}.`, 'gold', 3000);
     // The news on the card: whose trust went up, and what it earned.
     const news = done.filter((x) => x.trust.after > x.trust.before).map((x) => `${x.order.name} trusts you more: ${'★'.repeat(x.trust.after)}${'☆'.repeat(5 - x.trust.after)}.`);
     news.push(...this._trustGifts());
@@ -2318,8 +2353,10 @@ class Game {
     d.stats.contracts++;
     d.delivered[o.who] = (d.delivered[o.who] || 0) + 1;
     if (o.story) d.flags[`order:${o.story}`] = true;
-    d.ledger.unshift({ t: Date.now(), text: o.passenger ? `Carried ${o.name} to ${o.place}` : `Order for ${o.name}: ${wantsText(o.wants)}${o.grade ? ` (grade ${pr.grade})` : ''}`, amount: paid });
-    d.ledger.length = Math.min(d.ledger.length, 40);
+    if (!o.call) {
+      d.ledger.unshift({ t: Date.now(), text: o.passenger ? `Carried ${o.name} to ${o.place}` : `Order for ${o.name}: ${wantsText(o.wants)}${o.grade ? ` (grade ${pr.grade})` : ''}`, amount: paid });
+      d.ledger.length = Math.min(d.ledger.length, 40);
+    }
     d.orders.splice(d.orders.indexOf(o), 1);
     // A passenger delivered: whoever vouched for Otto (Mags, for Walt Purdy) hears of it.
     const vouch = o.vouch || CONFIG.dredge.story.passenger.from;
@@ -2340,6 +2377,7 @@ class Game {
   // (trust, and what it earned), so a delivery can't pass unnoticed. The drive waits under it.
   async _handoff(done, news = []) {
     const lines = [], said = new Set();
+    done = done.filter((x) => !x.order.call);          // (a call's own step lines tell it)
     for (const { order: o, scene } of done) {
       if (!CAST[o.who]) continue;
       if (!said.has(o.who)) lines.push([o.who, THANKS[o.who] || 'Much obliged.']);
@@ -2462,6 +2500,21 @@ class Game {
     const keep = {}, d = this.dredge.data, { step } = current(d);
     for (const o of d.orders) for (const [k, n] of Object.entries(o.wants)) keep[k] = (keep[k] || 0) + n;
     if (step?.lost && step.lost.when(d, {})) for (const k of step.lost.gives) keep[k] = (keep[k] || 0) + 1;
+    // What the story steps in hand will take at their site (the hollow's coil and barrel,
+    // Braun's first stock): 'shine' is Otto's own brews, the first on hand.
+    for (const { step: st } of this._activeSteps()) {
+      for (const [k, n] of Object.entries(st.takes || {})) {
+        if (k !== 'shine') { keep[k] = (keep[k] || 0) + n; continue; }
+        const left = { ...keep };
+        let want = n;
+        for (const p of this.trunk.pieces.values()) {
+          if (!want || !(KINDS[p.kind].brewed && !KINDS[p.kind].imported)) continue;
+          if (left[p.kind] > 0) { left[p.kind]--; continue; }
+          keep[p.kind] = (keep[p.kind] || 0) + 1;
+          want--;
+        }
+      }
+    }
     return keep;
   }
 
@@ -2494,7 +2547,13 @@ class Game {
       this.hud.setObjective(`${'★'.repeat(this.police.tier)} The Bureau is after you: get out of sight to lose them`, null, 'roam');
       return;
     }
-    const c = this._focusOrder();
+    const c = this._focusOrder(), cur = current(this.dredge.data);
+    // The chapter's own order, with what it needs lost (the Scotch): where to get it back.
+    if (c?.story && c.story === cur.step?.id && this._lost()) {
+      const g = this._stepGoal(cur.step), dx = g.x - this.player.position.x, dz = g.z - this.player.position.z, b = Math.atan2(dx, -dz) - this.chase.heading;
+      this.hud.setObjective(`${cur.chapter.title}: ${this._lost().text}`, `${Math.max(0.1, Math.hypot(dx, dz) / 1609.34).toFixed(1)} mi`, 'market', Math.atan2(Math.sin(b), Math.cos(b)));
+      return;
+    }
     if (c?.passenger) {
       const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z, b = Math.atan2(dx, -dz) - this.chase.heading, name = CAST[c.passenger].name;
       this.hud.setObjective(c.aboard ? `Get ${name} to ${c.place}${c.window ? ` · ${hoursText(c.window)}` : ''}` : `Pick up ${name} at ${c.place}`,
@@ -2503,7 +2562,7 @@ class Game {
     }
     if (c) {
       const p = this.player.position, dx = c.x - p.x, dz = c.z - p.z;
-      const left = c.due == null ? (c.window ? hoursText(c.window) : 'tonight') : `${Math.max(0, Math.ceil(c.due - this.dredge.market.clock))} h`;
+      const left = c.due == null ? (c.window ? hoursText(c.window) : c.night ? 'tonight' : 'any time') : `${Math.max(0, Math.ceil(c.due - this.dredge.market.clock))} h`;
       const bearing = Math.atan2(dx, -dz) - this.chase.heading;
       const pr = progress(c, this.trunk, this.dredge.market.blend), ready = pr.ready && pr.gradeOk, near = Math.hypot(dx, dz) < 40;
       const at = c.place ? ` at ${c.place}` : '';
@@ -2660,7 +2719,7 @@ class Game {
       drops.push({ kind: status === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }
     for (const o of this.dredge.data.orders) drops.push({ kind: 'job', x: o.x, z: o.z });
-    for (const ph of this._phantoms || []) drops.push({ kind: 'agent', x: ph.x, z: ph.z, phantom: true });   // frayed nerves
+    if (!this.police.tier) for (const ph of this._phantoms || []) drops.push({ kind: 'agent', x: ph.x, z: ph.z, phantom: true });   // frayed nerves
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });
     const chapter = this.dredge.data.chapter || 0;

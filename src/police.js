@@ -123,6 +123,7 @@ export class Police {
     this.checkpoint.handled = false;
     this._rbTimer = 4;
     this.hold = 0;
+    this.quiet = false;
     this._write(0);
   }
 
@@ -130,9 +131,10 @@ export class Police {
   // car it calls for brought in on the roads `range` metres off (out of view where it can
   // be), a roadblock going up on the route, and the heat held `hold` seconds so it can't
   // cool before they get there. Returns the events, for main._onPolice.
-  alert(p, tier, { hold = 10, range = [70, 150] } = {}) {
+  alert(p, tier, { hold = 10, range = [70, 150], quiet = false } = {}) {
     const events = [];
     this.hold = hold;
+    this.quiet = quiet;              // not the Bureau (Vail's men): no roadblock, no roof lamps
     // Cars too far off to be part of it (a patrol across the county) go home; the trap's
     // cars all come in close.
     for (const u of this.units) if (u.active && u.car.position.distanceTo(p) > range[1] * 1.5 && !this._visible(u.car.position.x, u.car.position.z)) this._deactivate(u);
@@ -392,7 +394,7 @@ export class Police {
       return;
     }
     this._rbTimer -= dt;
-    if (this.tier < 2 || this._rbTimer > 0 || !ctx.route || ctx.route.length < 4) return;
+    if (this.quiet || this.tier < 2 || this._rbTimer > 0 || !ctx.route || ctx.route.length < 4) return;
     const placed = this._placeRoadblock(p, ctx.route);
     this._rbTimer = placed ? P.roadblockEvery : 3;
     if (placed) events.push({ type: 'roadblock', x: this.roadblock.x, z: this.roadblock.z });

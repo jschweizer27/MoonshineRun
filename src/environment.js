@@ -59,8 +59,11 @@ export class Environment {
 
   // Multipliers the physics uses.
   // Grip: the rain takes some (snow less), and a winter's night ices the roads.
+  // (one object, refreshed: it's read every step)
   get effects() {
-    return { grip: 1 - 0.2 * this.wet * (this.winter ? 0.5 : 1) - (this.winter ? CONFIG.dredge.winter.ice * (1 - this.daylight) : 0) };
+    const e = (this._effects ??= { grip: 1 });
+    e.grip = 1 - 0.2 * this.wet * (this.winter ? 0.5 : 1) - (this.winter ? CONFIG.dredge.winter.ice * (1 - this.daylight) : 0);
+    return e;
   }
 
   // Winter (Act II): the rain comes down as snow.
