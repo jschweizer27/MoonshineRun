@@ -29,6 +29,7 @@ const PLACES = {
   banks: [88, -176], wexler: [-88, -88], feld: [-132, 44], carroll: [-246, -512], ridgely: [256, -497], pruitt: [-292, -608], jockey: [292, -722],
   tolley: [-334, -956], gill: [238, -917], sheriff: [396, -614], ruins: [148, 48], office: [295, -722], van: [-408, -668], quarry: [422, -674],
   lockup: [412, -628], mill: [551, -740], load: [-414, -702], loch: [545, -735], brewery: [150, 70], board: [12, -110], note: [-256, -520],
+  towson: [600, -410], dalton: [608, -446], bank: [526, -380], courthouse: [608, -375],
 };
 const FARMS = ['carroll', 'ridgely', 'pruitt', 'jockey', 'tolley', 'gill'];
 const BARS = ['kessler', 'orourke', 'abernathy', 'romano', 'hummel', 'pryor', 'healy', 'banks', 'wexler', 'feld'];
@@ -36,6 +37,7 @@ const LIST = [
   ...BARS.map((who, i) => ({ id: `drop:${i}`, who, name: who, place: who, kind: 'speakeasy', x: PLACES[who][0], z: PLACES[who][1] })),
   ...FARMS.map((who, i) => ({ id: `farm:${i}`, who, name: who, place: who, kind: 'farm', x: PLACES[who][0], z: PLACES[who][1] })),
   { id: 'lockup', who: 'sheriff', name: 'sheriff', place: 'lockup', kind: 'speakeasy', chapter: 3, x: PLACES.sheriff[0], z: PLACES.sheriff[1] },
+  { id: 'tavern', who: 'dalton', name: 'dalton', place: 'dalton', kind: 'speakeasy', chapter: 5, x: PLACES.dalton[0], z: PLACES.dalton[1] },
 ];
 const HOME = { x: PLACES.barn[0], z: PLACES.barn[1] };
 // Salvage, per real minute at the wheel (scripts/economy.mjs: a clean job 157 $/min with
@@ -201,6 +203,12 @@ function play(P) {
     loch: () => { drive('loch'); d.flags.loch = true; },
     mill: () => { site('mill', { night: true }); d.clues.letters = true; d.flags.ambush = true; },
     escape: () => { s.t += 2.5; drive('barn'); d.flags.escaped = true; },
+    // Act II: Towson.
+    towson: () => { drive('towson'); d.flags.towson = true; },
+    ruby: () => focusOrder('dalton'),
+    'ruby-trust': () => focusOrder('dalton'),
+    records: () => { site('bank', { night: true }); d.clues.mortgages = true; },
+    copy: () => { drive('dalton'); screen(0.2); site('courthouse', { window: [6, 9] }); s.cash += 80; d.flags['order:copy'] = true; },
   };
   let chapter = 0, from = 0;
   advance(d);

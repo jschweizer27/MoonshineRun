@@ -7,9 +7,14 @@ import { CollisionWorld } from './collision.js';
 import { RoadGraph } from './roadgraph.js';
 import { buildCounty, COUNTY } from './county.js';
 import { LOCH, LAKE, WARREN, crossesLake } from './loch.js';
+import { TOWSON } from './towson.js';
 import { RAILWAY } from './railway.js';
 import { ATLAS, region, makePaintedAtlas, atlasMaterial, uvToRegion } from './atlas.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
+
+// Where Towson's side of the east wall begins, going south from Loch Raven (between Loch
+// Raven's southmost node, R4 at z -538, and Towson's northmost, T1 at -480).
+const TOWSON_SPLIT = -508;
 
 // Named corners around the city, each with its sign over the door (at night there's jazz
 // from the speakeasies among them). `who` is the contact there who posts jobs (story.js CAST).
@@ -247,14 +252,14 @@ export class World {
 
   inCounty(p) { return p.z < -250; }
 
-  // Which side of the county's east wall a point is on: 'loch' (Loch Raven, loch.js) or
-  // 'main'. The nearest road node to a point is taken on its own side (`nearestNode`), so a
-  // route or a Bureau car never starts out through the wall.
-  regionOf(x) { return x > LOCH.minX ? 'loch' : 'main'; }
+  // Which side of the county's east wall a point is on: 'loch' (Loch Raven, loch.js),
+  // 'towson' (towson.js, south of it) or 'main'. The nearest road node to a point is taken on
+  // its own side (`nearestNode`), so a route or a Bureau car never starts out through a wall.
+  regionOf(x, z = -Infinity) { return x <= LOCH.minX ? 'main' : z > TOWSON_SPLIT ? 'towson' : 'loch'; }
 
   nearestNode(x, z, filter = null) {
-    const loch = this.regionOf(x) === 'loch';
-    return this.roads.nearest(x, z, (n) => (n.region === 'loch') === loch && (!filter || filter(n)));
+    const region = this.regionOf(x, z);
+    return this.roads.nearest(x, z, (n) => (n.region ?? 'main') === region && (!filter || filter(n)));
   }
 
   // Would a straight run from a to b cross Loch Raven's water?
@@ -933,6 +938,7 @@ export class World {
       { text: 'INNER HARBOR', x: 0, z: 275 }, { text: 'YORK ROAD', x: 60, z: -330 },
       { text: 'GREEN SPRING VALLEY', x: 0, z: -540 }, { text: 'MONKTON', x: 0, z: -712 }, { text: 'GLYNDON', x: -390, z: -742 },
       { text: 'COCKEYSVILLE', x: 392, z: -702 }, { text: 'LOCH RAVEN', x: 690, z: -822 }, { text: 'WARREN', x: WARREN.x, z: WARREN.z + 30 },
+      { text: 'TOWSON', x: 650, z: -470 },
     ];
   }
 
@@ -942,6 +948,7 @@ export class World {
     g.fillStyle = '#16211a';
     g.fillRect(X(COUNTY.minX), Z(COUNTY.minZ), (COUNTY.maxX - COUNTY.minX) * s, (COUNTY.maxZ - COUNTY.minZ) * s);
     g.fillRect(X(LOCH.minX), Z(LOCH.minZ), (LOCH.maxX - LOCH.minX) * s, (LOCH.maxZ - LOCH.minZ) * s);
+    g.fillRect(X(TOWSON.minX), Z(TOWSON.minZ), (TOWSON.maxX - TOWSON.minX) * s, (TOWSON.maxZ - TOWSON.minZ) * s);
     g.fillStyle = '#0f1c26';
     g.beginPath();
     LAKE.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](X(x), Z(z)));

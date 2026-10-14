@@ -152,6 +152,8 @@ export const CONFIG = {
       { id: 'monkton', town: 'Monkton', name: 'Monkton General Store', x: 0, z: -660, radius: 12, area: 95, supplies: true },
       { id: 'glyndon', town: 'Glyndon', name: 'Glyndon Depot', x: -390, z: -690, radius: 12, area: 90, supplies: true },
       { id: 'cockeysville', town: 'Cockeysville', name: 'Cockeysville Quarry Store', x: 400, z: -650, radius: 12, area: 90, chapter: 2, supplies: true },
+      // Towson (towson.js), the county seat: its market house deals from chapter 6.
+      { id: 'towson', town: 'Towson', name: 'Towson Market House', x: 662, z: -340, radius: 12, chapter: 5 },
     ],
     // The county stores (a town's `supplies`) sell the still's makings: these kinds, at their
     // base value x `markup` (rounded to $), into the trunk.
@@ -204,6 +206,14 @@ export const CONFIG = {
         crate: 1.3, 'long-crate': 1.2, coil: 1.55, keg: 1.35, strongbox: 1.1,
         bicycle: 0.9, radio: 0.75, 'sewing-machine': 0.7,
         'pocket-watch': 0.6, bonds: 0.6,
+      },
+      // Towson, the county seat: lawyers' and clerks' households pay for the parlour and the
+      // office (sewing machines, radio sets, strongboxes), little for the farm's goods.
+      towson: {
+        'small-crate': 0.9, 'bottle-case': 1.15, sack: 0.7, barrel: 0.8, jugs: 0.9,
+        crate: 1.0, 'long-crate': 0.85, coil: 0.9, keg: 1.1, strongbox: 1.4,
+        bicycle: 1.3, radio: 1.35, 'sewing-machine': 1.45,
+        'pocket-watch': 1.2, bonds: 1.2,
       },
     },
     market: {
@@ -478,6 +488,8 @@ export const CONFIG = {
         sun: { name: 'The Baltimore Sun', game: 'give', color: '#d8d2c4', yields: { crate: 1 } },
         // Gus's cellar (chapter 5 on): the brewery mini-game (`lager`, screens.js showBrewery).
         brewery: { name: 'Gus’s cellar', game: 'lager', color: '#b8733a', yields: { crate: 1 } },
+        // Chapter 6 (towson.js): the Towson National Bank's records room, round the back.
+        bank: { name: 'Towson National Bank', game: 'search', color: '#8a8a84', yields: { crate: 1 } },
         // The side stories' deals (arcs.js `price`).
         board: { name: 'State Board of Pharmacy', game: 'pay', color: '#6a7a8a', yields: { crate: 1 } },
         note: { name: 'The Harrow estate’s agent', game: 'pay', color: '#6a5a4a', yields: { crate: 1 } },

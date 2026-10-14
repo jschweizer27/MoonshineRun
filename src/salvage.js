@@ -130,6 +130,8 @@ export function placeStory(world, regular = []) {
       }
     }
   }
+  // Chapter 6: the Towson National Bank's records room, round the back (towson.js).
+  if (world.towson) field('bank', 'bank', world.towson.records.x, world.towson.records.z, [-1, 0]);
   out.forEach((s) => { s.id = `story:${s.story}`; s.name = S.kinds[s.kind].name; });
   return out;
 }

@@ -32,6 +32,8 @@ export function contacts(world) {
     ...world.drops.map((d, i) => ({ id: `drop:${i}`, ...person(d.who, d.name), x: d.x, z: d.z, kind: 'speakeasy' })),
     ...world.barns.map((b, i) => ({ id: `farm:${i}`, ...person(b.who, b.name), x: b.stopX, z: b.stopZ, kind: 'farm' })),
     ...(world.lockup ? [{ id: 'lockup', ...person(world.lockup.who, world.lockup.name), x: world.lockup.x, z: world.lockup.z, kind: 'speakeasy', chapter: 3 }] : []),
+    // Towson's Courthouse Tavern (chapter 6 on, towson.js): last, so no offer before it moves.
+    ...(world.towson ? [{ id: 'tavern', ...person(world.towson.tavern.who, world.towson.tavern.name), x: world.towson.tavern.x, z: world.towson.tavern.z, kind: 'speakeasy', chapter: 5 }] : []),
   ];
 }
 
