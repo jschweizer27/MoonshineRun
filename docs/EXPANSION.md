@@ -153,9 +153,11 @@ Built differently from the design above:
   at the site.
 
 Stage 16 added what was left out: shorter winter days (above), DREDGE's tool for each kind
-of site, drop boxes that fill over days, charged late-game abilities and Act II's own story
-beats. The UE5 project (`ue5/`) keeps the first design and is frozen, so none of
-v5 is mirrored there.
+of site, drop boxes that fill over days, charged late-game abilities (Second Wind after
+chapter 5, Smoke Screen after chapter 6, filled by deliveries and by night miles with shine
+aboard) and Act II's own story beats (Vail's men on the roads, "Mr. V.", Otto's own launch
+runs, Vail's Scotch, the hidden still, Braun's and frayed nerves). The UE5 project (`ue5/`)
+keeps the first design and is frozen, so none of v5 is mirrored there.
 
 **Constraints, as before:**
 - 12 lights, and under 60 draw calls.

@@ -20,7 +20,7 @@ for (const [name, viewport] of [['portrait', { width: 390, height: 844 }], ['lan
         g.police.heat = 2; g._updateHeat();
         g.dredge.data.wear = 0.6; g._updateWearPill();
         document.getElementById('lights').classList.remove('hidden');
-        g.dredge.data.tools.leadfoot = g.dredge.data.tools.sweet = true; g._buildAbilities();
+        Object.assign(g.dredge.data.tools, { leadfoot: true, sweet: true, smoke: true, wind: true }); g._buildAbilities();
         g.hud.setObjective('Ashes: Search the ruins of Braun & Sons in Highlandtown', '0.4 mi', 'market', 0.3);
         g.hud.setClock('☾ Thu 10:00 PM · Snow · Frayed');                // (the longest the clock gets)
         const pass = document.getElementById('passenger');

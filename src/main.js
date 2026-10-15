@@ -735,7 +735,7 @@ class Game {
     this.salvage.story = this._openSites();
     this.salvage.refresh(dayOf(this.dredge.market));
     this._applyWinter();
-    if (tool) this._applyPerks();
+    if (tool) { this._applyPerks(); this._buildAbilities(); }
     this._storyOrders();
     this.dredge.save();
     const { chapter, step } = current(d), done = events.filter((e) => e.type === 'step').pop();
@@ -947,6 +947,8 @@ class Game {
     const d = this.dredge.data;
     if (this.env.winter && this._night() && !d.flags.iceTold) { d.flags.iceTold = true; this.dredge.save(); this.hud.toast('Ice on the roads tonight: brake early and take the corners slow.', 'gold', 4500); }
     this._trustGifts({ say: true });                                   // (one earned off the road: an old save)
+    // A story beat waits out a chase (the Bureau's, Vail's men's, a trap).
+    if (this.police.tier || this._hijackOn || this._ambushOn) return;
     const id = OPTIONS.story && nextBeat(this.dredge.data);
     if (id) this._story(id);
   }
@@ -1020,6 +1022,8 @@ class Game {
     else if (a === 'notebook') this.openNotebook();
     else if (a === 'ability2') this.useAbility('leadfoot');
     else if (a === 'ability3') this.useAbility('sweet');
+    else if (a === 'ability4') this.useAbility('smoke');
+    else if (a === 'ability5') this.useAbility('wind');
     else if (a === 'radio') this.hud.toast(this.audio.toggleRadio() ? 'Radio on — hot jazz from the Belvedere ballroom' : 'Radio off', '', 1800);
     else if (a === 'mute') this.toggleMute();
     else if (a === 'fullscreen') this.toggleFullscreen();
@@ -1098,7 +1102,7 @@ class Game {
     if (road) this.hud.toast(road.what === 'start' ? road.ev.text : RoadEvents.endText(road.ev), road.what === 'start' ? 'gold' : '', road.what === 'start' ? 5000 : 2500);
     this._checkEvent();
     this._updateMarkers();
-    this._tickAbilities();
+    this._tickAbilities(dt);
     // The stops: once one opens a screen (the game pauses), the rest wait for the next step,
     // so two never open on one stop.
     for (const check of [this._checkPassenger, this._checkContract, this._checkMarket, this._checkBarn, this._checkDrop, this._checkSalvage]) {
@@ -1120,6 +1124,7 @@ class Game {
       ground: county ? (this.surface < 1 ? 'grass' : 'dirt') : 'cobble',
     });
     this.particles.vehicle(dt, this.player, { throttle: input.throttle, dusty: county, exhaust: juice('wheels', 'exhaust'), dust: juice('wheels', 'dust'), snow: this.env.winter });
+    if (this.time < this.abil.smoke.until) this.particles.smokeScreen(dt, this.player);
     this.particles.atmosphere(dt, this.world, this.camera.position, { night: 1 - this.env.daylight, wet: water });
     this.particles.setLight(0.5 + 0.5 * this.env.daylight);
     this.particles.update(dt);
@@ -2253,7 +2258,8 @@ class Game {
   useAbility(id) {
     const A = CONFIG.dredge.abilities[id], s = this.abil[id], d = this.dredge.data;
     if (this.state !== STATE.PLAYING) return false;
-    if (!d.tools[id]) return false;                    // not earned yet (a contact's gift)
+    if (!d.tools[id]) return false;                    // not earned yet (a contact's gift, a chapter's tool)
+    if (A.charge) return this._useCharged(id);
     if (this.time < s.ready || (id === 'sweet' && this._sweet)) { this.hud.toast(this._sweet && id === 'sweet' ? 'Sweet Talk is waiting for the next sale' : `${A.name} is ready in ${Math.ceil(s.ready - this.time)} s`, '', 1800); return false; }
     s.ready = this.time + A.cooldown;
     if (id === 'leadfoot') { s.until = this.time + A.seconds; this._leadFoot = true; this._applyPerks(); this.hud.toast('Lead Foot!', 'gold', 1500); }
@@ -2262,9 +2268,45 @@ class Game {
     return true;
   }
 
-  // Lead Foot runs out; the HUD chips count down.
-  _tickAbilities() {
+  // A charged ability (stage 16): only when it's full, and only when it would help (Smoke
+  // Screen in a chase, Second Wind on frayed nerves); used, it's empty again.
+  _useCharged(id) {
+    const A = CONFIG.dredge.abilities[id], s = this.abil[id], d = this.dredge.data, c = d.charge[id] || 0;
+    if (c < 1) { this.hud.toast(`${A.name}: ${Math.floor(c * 100)}% charged. ${A.charge.by === 'night' ? 'Drive after dark with shine aboard' : 'Deliver orders'} to fill it.`, '', 2500); return false; }
+    if (id === 'smoke') {
+      if (!this.police.tier) { this.hud.toast('Smoke Screen: save it for a chase', '', 1800); return false; }
+      s.until = this.time + A.seconds;
+      this.particles.smokeScreen(0, this.player, 60);
+      this.hud.toast('Smoke Screen! They’ve lost sight of you.', 'gold', 2200);
+      for (const e of this.police.smoke(A.seconds, this.player.position)) this._onPolice(e);
+    }
+    if (id === 'wind') {
+      if ((d.nerves ?? 1) >= A.below) { this.hud.toast('Otto’s steady: save his second wind for a long night', '', 1800); return false; }
+      this._setNerves(1);
+      this.hud.setClock(this._clockText());
+      this.hud.toast('Second wind: Otto’s steady again.', 'gold', 2200);
+    }
+    d.charge[id] = 0;
+    this.dredge.save();
+    this._updateAbilities();
+    return true;
+  }
+
+  // Fill a charged ability by `amount` of its `charge.full` (once it's earned); say so when
+  // it's full.
+  _charge(id, amount) {
+    const A = CONFIG.dredge.abilities[id], d = this.dredge.data, was = d.charge[id] || 0;
+    if (!A?.charge || !d.tools[id] || was >= 1) return;
+    d.charge[id] = Math.min(1, was + amount / A.charge.full);
+    if (d.charge[id] >= 1) { this.hud.toast(`${A.name} is ready (${A.key}, or its chip)`, 'gold', 3000); this.dredge.save(); this._updateAbilities(); }
+  }
+
+  // Lead Foot runs out; Smoke Screen charges with the miles driven after dark with shine
+  // aboard.
+  _tickAbilities(dt = 0) {
     if (this._leadFoot && this.time > this.abil.leadfoot.until) { this._leadFoot = false; this._applyPerks(); }
+    const v = Math.abs(this.player.speed);
+    if (v > 1 && this.dredge.data.tools.smoke && this._night() && this._contraband()) this._charge('smoke', v * dt);
   }
 
   // The HUD's ability chips: one per ability earned (tap or press its key).
@@ -2284,14 +2326,17 @@ class Game {
   }
 
   _updateAbilities() {
+    const charge = this.dredge.data.charge || {};
     for (const b of $('abilities').children) {
       const id = b.dataset.id, A = CONFIG.dredge.abilities[id], s = this.abil[id];
-      const active = (id === 'sweet' && this._sweet) || this.time < s.until, wait = Math.ceil(s.ready - this.time);
-      const state = active ? 'on' : wait > 0 ? `${wait}s` : 'ready';
+      // (a charged one shows how full it is, a timed one its cooldown)
+      const active = (id === 'sweet' && this._sweet) || this.time < s.until, c = charge[id] || 0;
+      const wait = A.charge ? 0 : Math.ceil(s.ready - this.time), ready = A.charge ? c >= 1 : wait <= 0;
+      const state = active ? 'on' : ready ? 'ready' : A.charge ? `${Math.floor(c * 100)}%` : `${wait}s`;
       const text = `${A.key} · ${A.name} · ${state}`;
       if (b.textContent !== text) b.textContent = text;
       b.classList.toggle('on', active);
-      b.classList.toggle('ready', !active && wait <= 0);
+      b.classList.toggle('ready', !active && ready);
     }
   }
 
@@ -2472,6 +2517,7 @@ class Game {
     d.stats.earned += paid;
     d.stats.contracts++;
     d.delivered[o.who] = (d.delivered[o.who] || 0) + 1;
+    this._charge('wind', 1);
     if (o.story) d.flags[`order:${o.story}`] = true;
     if (!o.call) {
       d.ledger.unshift({ t: Date.now(), text: o.passenger ? `Carried ${o.name} to ${o.place}` : `Order for ${o.name}: ${wantsText(o.wants)}${o.grade ? ` (grade ${pr.grade})` : ''}`, amount: paid });

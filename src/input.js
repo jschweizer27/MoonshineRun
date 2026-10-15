@@ -2,7 +2,7 @@
 // on-screen touch controls. Driving input is read every frame with read(); one-shot
 // actions (pause, map, horn, menu navigation) are delivered through onAction(name, device).
 const DEADZONE = 0.18;
-const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 export class Input {
   constructor(bindings) {
@@ -50,7 +50,7 @@ export class Input {
     if (this.playing && (actions.length || ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code))) e.preventDefault();
     if (e.repeat) { this.down.add(e.code); return; }
     this.down.add(e.code);
-    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice', 'trunk', 'lights', 'notebook', 'ability2', 'ability3'].includes(a)) this.onAction(a, 'keyboard');
+    for (const a of actions) if (['pause', 'map', 'mute', 'fullscreen', 'horn', 'radio', 'juice', 'trunk', 'lights', 'notebook', 'ability2', 'ability3', 'ability4', 'ability5'].includes(a)) this.onAction(a, 'keyboard');
   }
 
   isDown(action) { return (this.bindings[action] || []).some((c) => this.down.has(c)); }
@@ -89,14 +89,15 @@ export class Input {
     edge(PAD.X, 'trunk');
     edge(PAD.LB, 'rotate');
     edge(PAD.RB, 'rotate');
-    // A click of the left stick: Otto's notebook.
+    // A click of the left stick: Otto's notebook; of the right stick: Second Wind.
     edge(PAD.LS, 'notebook');
-    // The d-pad moves through menus; while driving, up / right are the abilities and
+    edge(PAD.RS, 'ability5');
+    // The d-pad moves through menus; while driving, up / right / left are the abilities and
     // down the headlamps
     // (the stick's menu moves don't count, so steering never fires one).
     edge(PAD.UP, 'up', 'ability2');
     edge(PAD.DOWN, 'down', 'lights');
-    edge(PAD.LEFT, 'left');
+    edge(PAD.LEFT, 'left', 'ability4');
     edge(PAD.RIGHT, 'right', 'ability3');
     // Left stick flicks also navigate menus.
     const ny = y > 0 ? 1 : y < 0 ? -1 : 0;

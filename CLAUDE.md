@@ -258,6 +258,15 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   colliders: `world.knockLamps` tips them over (instance matrices only) and `standLamps`
   puts them back at dawn (`main._dawn`, which also shows the night's take and saves).
   Deliveries end on a handoff card (`main._handoff`, `story.js THANKS`).
+- Stage 16c: charged abilities (`CONFIG.dredge.abilities` with `charge: { by, full }`):
+  `d.charge` (0..1, saved), filled by `main._charge(id, amount)` (Smoke Screen in
+  `_tickAbilities(dt)`: metres after dark with shine aboard; Second Wind in `_deliver`),
+  used by `_useCharged` (only when full and when it helps). Smoke Screen is
+  `police.smoke(seconds, p)` (a tier down, `police.blind` stops every sight check) and
+  `particles.smokeScreen`; Second Wind `_setNerves(1)`. They're chapter tools (chapters 5
+  and 6: `_chapters` rebuilds the chips). Keys `Digit4` / `Digit5`, the pad's d-pad left and
+  right stick click (`PAD.RS`). Act II's story beats (`story.js` BEATS after `checkpoint`:
+  sedans, mrv, launch, scotch, hollow, brauns, frayed) wait out a chase (`_checkStory`).
 - Stage 16b: the shallows (`salvage.placeShallows`: four `deep:N` sites, `deep: true`, kind
   `shallows`, placed from fixed anchors with no random draws, after the story sites, so the
   layout lock leaves them out). A salvage kind's `gear` (the shallows' `grapple`) must be

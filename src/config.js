@@ -288,13 +288,19 @@ export const CONFIG = {
       orourke: { at: 3, tool: 'leadfoot' },
       abernathy: { at: 3, tool: 'sweet' },
     },
-    // Abilities (keys 2 and 3, the D-pad's up / right, or the HUD chips), each a tool from a
-    // contact's trust (`gifts`): Lead Foot opens the engine up (`speed` / `accel` x) for
-    // `seconds`; Sweet Talk adds `bonus` to the next sale or job. `cooldown` seconds before
-    // each can be used again.
+    // Abilities (keys 2 to 5, the D-pad's up / right / left and the right stick's click, or
+    // the HUD chips), each a tool. From a contact's trust (`gifts`): Lead Foot opens the
+    // engine up (`speed` / `accel` x) for `seconds`; Sweet Talk adds `bonus` to the next sale
+    // or job; `cooldown` seconds before each can be used again. From the chapters (stage 16),
+    // charged, not timed: each fills from what Otto does (`charge.by`: `night` metres driven
+    // after dark with shine aboard, or `deliveries` made), `full` of it, and empties when
+    // used. Smoke Screen (in a chase) takes the heat down a tier and blinds the cars behind
+    // for `seconds`; Second Wind (nerves below `below`) steadies Otto's nerves.
     abilities: {
       leadfoot: { name: 'Lead Foot', key: '2', seconds: 6, cooldown: 60, speed: 1.25, accel: 1.4 },
       sweet: { name: 'Sweet Talk', key: '3', cooldown: 180, bonus: 0.2 },
+      smoke: { name: 'Smoke Screen', key: '4', charge: { by: 'night', full: 4000 }, seconds: 5 },
+      wind: { name: 'Second Wind', key: '5', charge: { by: 'deliveries', full: 3 }, below: 0.9 },
     },
     // Otto's nerves (DREDGE's panic): 1 steady .. 0. Night on the road wears them (`drain` a
     // game hour; less a level of Spotlamps by `lamps`, more with the headlamps off by `dark`),

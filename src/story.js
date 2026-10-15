@@ -260,6 +260,68 @@ export const BEATS = {
     ],
   },
   // The Jockey's betrayal and the deed are chapter 5's and the endings' now (chapters.js).
+  // Act II's own beats (stage 16). Each waits for what it's about, and none plays in a chase
+  // (main._checkStory).
+  // Vail's men: the first dawn after they've been out picking the county clean (main._dawn).
+  sedans: {
+    when: (d) => d.once?.rivals != null,
+    lines: [
+      ['dalton', 'Otto, honey. Two black sedans outside the tavern last night, and the men in them asked my barman about a truck. Yours.'],
+      ['dalton', 'They’re not the Bureau: the Bureau buys its coats off the rack. Mr. Vail’s men were out on the county roads all night, and the salvage you meant to have is in their trunks.'],
+      ['otto', 'Then I get there first. And I don’t stop for anybody in a good coat.'],
+    ],
+  },
+  // Father's diary named a "Mr. V." (a lore scrap, lore.js) and the bank's books name Cyrus
+  // Vail: a minute after the records room, Otto puts the two together.
+  mrv: {
+    when: (d) => !!d.clues?.mortgages && !!d.lore?.['diary-1919'] && d.stepTimes?.records != null && (d.stats?.playSeconds || 0) - d.stepTimes.records >= 60,
+    lines: [
+      ['otto', 'March 1919, in Father’s hand: “Mr. V. says the note can wait, if I sell him the recipes.”'],
+      ['otto', 'Mr. V. Three years before the fire, the bank’s president came asking for the Braun & Sons recipes, and Father told him no.'],
+      ['narrator', 'Otto reads the page again by the dash lamp. He had thought it was about money. It was about the beer.'],
+    ],
+  },
+  // Otto's own first run off the launch (chapter 7's tool).
+  launch: {
+    when: (d) => d.once?.launch != null,
+    lines: [
+      ['orourke', 'Your own run off the schooner now, eh? Mind the harbour patrol: the Coast Guard keeps a picket boat out past Fort McHenry, and it doesn’t care whose name is on the cases.'],
+      ['orourke', 'Never the same pier two nights running, lamps off on the water, and don’t ever stop to count the crates. That’s how my old man kept out of the papers.'],
+    ],
+  },
+  // Vail's own Scotch, sold on Otto's account (the codex: the best price it's fetched).
+  scotch: {
+    when: (d) => (d.codex?.scotch?.best || 0) > 0 || (d.codex?.rum?.best || 0) > 0,
+    lines: [
+      ['abernathy', 'I hear the speakeasies are pouring a very good Scotch this month, Mr. Braun. The very label Mr. Vail serves in our private dining room.'],
+      ['abernathy', 'He imports it at some trouble. It must gall him, finding his own whisky undersold on Charles Street. Do carry on.'],
+    ],
+  },
+  // The hidden still's first crates (chapter 8 on: main._dawn).
+  hollow: {
+    when: (d) => !!d.flags?.hollowStill && d.once?.hollow != null,
+    lines: [
+      ['pruitt', 'My husband ran that still all through the war and never once got caught. The fire’s held all night and the worm runs clear: two crates by morning.'],
+      ['pruitt', 'Keep the smoke low, and come and go by the creek, not the lane. The Bureau watches lanes.'],
+    ],
+  },
+  // Braun's, the first night it's sold (chapter 8 on: main._dawn).
+  brauns: {
+    when: (d) => !!d.flags?.brauns && d.once?.brauns != null,
+    lines: [
+      ['coombs', 'Braun’s. Open again, I hear, and under the same name. You might at least have had the decency to change it.'],
+      ['coombs', 'The Alliance will pray for you, Mr. Braun. Every Sunday, by name.'],
+      ['otto', 'Tell them to pray in the back room, Reverend. It’s warmer, and the lager’s Father’s.'],
+    ],
+  },
+  // Act II's long nights wear on Otto: his own voice, at the edge (chapter 6 on).
+  frayed: {
+    when: (d) => (d.chapter || 0) >= 5 && (d.nerves ?? 1) < 0.3,
+    lines: [
+      ['otto', 'Every pair of headlamps is Draper’s. Every parked car has a man in a good coat in it.'],
+      ['otto', 'Father used to say a brewer sleeps when the beer’s in the barrel. The barn, then, and a night’s sleep, before I put the truck in a ditch.'],
+    ],
+  },
 };
 
 // The first beat whose trigger is met and hasn't been seen in this save.
