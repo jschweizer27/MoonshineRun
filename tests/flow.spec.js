@@ -217,7 +217,7 @@ test('a rare find: a clean job at a night site turns one up now and then (the sa
   await startRun(page, { loot: false });
   const r = await page.evaluate(async () => {
     const g = window.shine.game, { rareFind } = await import('/src/salvage.js');
-    const nightSite = g.salvage.sites.find((s) => s.night && !s.story), daySite = g.salvage.sites.find((s) => !s.night && !s.story);
+    const nightSite = g.salvage.sites.find((s) => s.night && !s.story), daySite = g.salvage.sites.find((s) => !s.night && !s.story && !s.deep);
     const days = Array.from({ length: 60 }, (_, k) => k);
     const lucky = days.find((k) => rareFind(nightSite, k, 1));
     const out = {

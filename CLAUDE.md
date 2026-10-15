@@ -258,6 +258,15 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   colliders: `world.knockLamps` tips them over (instance matrices only) and `standLamps`
   puts them back at dawn (`main._dawn`, which also shows the night's take and saves).
   Deliveries end on a handoff card (`main._handoff`, `story.js THANKS`).
+- Stage 16b: the shallows (`salvage.placeShallows`: four `deep:N` sites, `deep: true`, kind
+  `shallows`, placed from fixed anchors with no random draws, after the story sites, so the
+  layout lock leaves them out). A salvage kind's `gear` (the shallows' `grapple`) must be
+  aboard (`_checkSalvage`). The ship's `bell` is theirs only (`deep: true` kind: never a
+  market day's pick). The `lantern` is `newSearch(rng, { glint, seconds })`. Drop boxes:
+  `d.boxes` ([{ site, since }], `CONFIG.dredge.boxes`), `boxFill` / `boxPieces` (a hash of
+  site and day), `main._dropBox` (before the site, at a regular one: empty or take back /
+  leave one, asked once a site a day), drawn as `boxes.max` extra instances of the salvage
+  heap (`Salvage.refresh`), radar kind `box` (nearby only). `ui.confirm` takes a `no` label.
 - Road events: `src/roadevents.js`, rolled per slot of game hours (`CONFIG.dredge.roadEvents`,
   offset from midnight so they never land with the daily demand). A blocked road gets an
   edge key in `blocked` (shared with traffic and `minimap.blocked`, so routes and cars go

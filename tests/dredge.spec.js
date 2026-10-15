@@ -394,7 +394,7 @@ test('the thirteen loot kinds, two rare finds, five brews, five odd ones, four p
   // jug cluster a T of 4, wooden crate 2x2, long crate 3x1, copper coil an S of 4, aged keg 2x3,
   // strongbox 1x1 (premium); and a bicycle (an arch of 5), a radio set (an L of 4) and a
   // sewing machine (a P of 5).
-  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox', 'pocket-watch', 'bonds', 'corn-shine', 'applejack', 'kummel', 'rye', 'lager', 'odd-coil', 'odd-radio', 'odd-keg', 'odd-sewing-machine', 'odd-strongbox', 'spotlamp', 'crowbar', 'toolbox', 'ice', 'scotch', 'rum']);
+  expect(r.kinds.map((k) => k.id)).toEqual(['small-crate', 'bottle-case', 'sack', 'bicycle', 'barrel', 'jugs', 'crate', 'long-crate', 'radio', 'coil', 'keg', 'sewing-machine', 'strongbox', 'pocket-watch', 'bonds', 'corn-shine', 'applejack', 'kummel', 'rye', 'lager', 'odd-coil', 'odd-radio', 'odd-keg', 'odd-sewing-machine', 'odd-strongbox', 'spotlamp', 'crowbar', 'toolbox', 'ice', 'lantern', 'grapple', 'dropbox', 'bell', 'scotch', 'rum']);
   const dims = (id) => [by[id].cells, by[id].w, by[id].h];
   expect(dims('small-crate')).toEqual([1, 1, 1]);
   expect(dims('bottle-case')).toEqual([2, 2, 1]);
@@ -433,7 +433,7 @@ test('the thirteen loot kinds, two rare finds, five brews, five odd ones, four p
     coil: P.copper, keg: P.copper, 'sewing-machine': P.copper, strongbox: P.amber, 'pocket-watch': P.amber, bonds: P.amber,
     'corn-shine': P.cream, applejack: P.cream, kummel: P.cream, rye: P.cream, lager: P.cream,
     'odd-coil': P.amber, 'odd-radio': P.amber, 'odd-keg': P.amber, 'odd-sewing-machine': P.amber, 'odd-strongbox': P.amber,
-    spotlamp: P.brick, crowbar: P.olive, toolbox: P.brick, ice: P.cream, scotch: P.cream, rum: P.cream,
+    spotlamp: P.brick, crowbar: P.olive, toolbox: P.brick, ice: P.cream, lantern: P.olive, grapple: P.brick, dropbox: P.olive, bell: P.copper, scotch: P.cream, rum: P.cream,
   });
   // Value rises with the tier.
   const tierMax = (t) => Math.max(...r.kinds.filter((k) => k.tier === t).map((k) => k.value));

@@ -151,6 +151,30 @@ const MODELS = {
     add(box(0.5, 0.4, 0.5), c.accent, 0, 0.2, 0);
     add(box(0.52, 0.04, 0.52), c.main, 0, 0.02, 0);
   },
+  // Stage 16's gear: a storm lantern, a grappling hook, a drop box.
+  lantern: (add, c) => {
+    add(box(0.32, 0.06, 0.32), c.main, 0, 0.03, 0);
+    add(cyl(0.12, 0.14, 0.34, 8), c.accent, 0, 0.23, 0);
+    add(box(0.3, 0.06, 0.3), c.main, 0, 0.43, 0);
+    add(new THREE.TorusGeometry(0.11, 0.02, 4, 10, Math.PI), c.main, 0, 0.47, 0);
+  },
+  grapple: (add, c) => {
+    add(cyl(0.04, 0.04, 0.9, 6), c.main, 0, 0.45, 0);
+    for (const a of [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3]) add(box(0.06, 0.06, 0.3).rotateY(a).translate(Math.sin(a) * 0.12, 0, Math.cos(a) * 0.12), c.main, 0, 0.06, 0);
+    add(new THREE.TorusGeometry(0.1, 0.03, 4, 10), c.accent, 0, 0.92, 0);
+  },
+  dropbox: (add, c) => {
+    add(box(0.8, 0.5, 0.6), c.main, 0, 0.25, 0);
+    add(box(0.84, 0.08, 0.64), c.accent, 0, 0.52, 0);
+    add(box(0.12, 0.14, 0.04), P.slate, 0, 0.36, 0.31);
+  },
+  // A ship's bell off a sunk wreck, on its yoke.
+  bell: (add, c) => {
+    add(box(0.9, 0.08, 0.5), P.slate, 0, 0.04, 0);
+    add(cyl(0.18, 0.34, 0.5, 10), c.main, 0, 0.33, 0);
+    add(cyl(0.36, 0.36, 0.06, 10), c.main, 0, 0.1, 0);
+    add(box(0.1, 0.12, 0.1), c.accent, 0, 0.64, 0);
+  },
   rye: (add, c) => { shineCrate(add, c); add(box(0.5, 0.5, 0.5), c.main, -0.25, 0.25, 0.5); },
   lager: (add, c) => {
     add(cyl(0.42, 0.42, 1.0, 10).rotateZ(Math.PI / 2), c.main, 0, 0.5, 0);

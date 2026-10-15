@@ -10,7 +10,7 @@ import { KINDS } from './trunk.js';
 const S = CONFIG.dredge.salvage;
 
 // The regular site kinds (the story sites' goods are the story's), and each one's goods.
-export const SITE_KINDS = ['wreck', 'farmhouse', 'siding', 'cellar'];
+export const SITE_KINDS = ['wreck', 'farmhouse', 'siding', 'cellar', 'shallows'];
 export const setOf = (site) => Object.keys(S.kinds[site].yields);
 
 // A kind's odd variant (base id -> odd id), and the odd ones in order.

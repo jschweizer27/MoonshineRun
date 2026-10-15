@@ -8,7 +8,7 @@ import { CONFIG } from './config.js';
 const LAYER_SCALE = 1;                   // pixels per metre in the prerendered layer
 // Glyph colours, from the palette (the route is gold).
 const P = CONFIG.dredge.palette;
-const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, 'market-closed': '#6d675d', site: P.copper, 'site-empty': '#5d574d', barn: P.cream, drop: P.copper, job: '#f2c55c', op: P.copper, roadblock: '#e8735a', agent: '#9fb4c8', 'agent-chase': '#e8735a', story: '#f2c55c', me: '#ece3cf' };
+const COLORS = { gold: '#f2c55c', loot: P.amber, 'loot-premium': P.amber, 'loot-rare': P.amber, market: P.cream, 'market-closed': '#6d675d', site: P.copper, 'site-empty': '#5d574d', barn: P.cream, drop: P.copper, job: '#f2c55c', op: P.copper, box: P.cream, roadblock: '#e8735a', agent: '#9fb4c8', 'agent-chase': '#e8735a', story: '#f2c55c', me: '#ece3cf' };
 
 export class MiniMap {
   constructor(world, canvas, bigCanvas) {
@@ -122,7 +122,7 @@ export class MiniMap {
     const r = size * 0.045;
     for (const m of markers) {
       const [x, y, edge] = place(m.x, m.z);
-      if (edge && m.kind === 'op') continue;                 // (the operation's places: nearby only)
+      if (edge && (m.kind === 'op' || m.kind === 'box')) continue;   // (the operation's places, the drop boxes: nearby only)
       drawMarker(g, m.kind, x, y, r, m.look == null ? null : m.look - (this.rotate ? h : 0));
     }
     drawPlayer(g, c, c, this.rotate ? 0 : h, r * 1.3);
@@ -226,6 +226,9 @@ function drawMarker(g, kind, x, y, r, look = null) {
   } else if (kind === 'barn') {
     // Otto's barn: a little house, pitched roof.
     g.moveTo(x - r * 1.1, y + r); g.lineTo(x - r * 1.1, y - r * 0.2); g.lineTo(x, y - r * 1.2); g.lineTo(x + r * 1.1, y - r * 0.2); g.lineTo(x + r * 1.1, y + r); g.closePath();
+  } else if (kind === 'box') {
+    // A drop box Otto left: a small cream square, tipped like a crate.
+    g.moveTo(x, y - r * 0.75); g.lineTo(x + r * 0.75, y); g.lineTo(x, y + r * 0.75); g.lineTo(x - r * 0.75, y); g.closePath();
   } else if (kind === 'op') {
     // One of Otto's own places (the hidden still, Braun's): a small copper star.
     for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k / 10) * Math.PI * 2, q = k % 2 ? r * 0.4 : r * 0.95; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * q, y + Math.sin(a) * q); }

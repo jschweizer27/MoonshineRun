@@ -180,6 +180,10 @@ Enter, the D-pad and A/B, or touch.
    - **Search** (farmhouses, cellars): watch where the goods glint, then pick your spots
      before the lamp dies.
 
+   Four wrecks lie sunk in the **shallows**, two off Loch Raven's west shore and two off the
+   city's docks. Only a **grappling hook** reaches them; they pry open like a wreck and give up
+   kegs, copper, barrels, bottle cases and the odd **ship's bell**, found nowhere else.
+
    The better you do, the more you get (up to three pieces) and the better they are. The
    work takes time: half an hour on the clock for a pry, three quarters for a search, so a
    night only holds so many sites. A worked site is picked clean for a day or two. The best ones can only be worked at night,
@@ -213,9 +217,14 @@ Enter, the D-pad and A/B, or touch.
    says what each needs. The county stores (Monkton, Glyndon, Cockeysville) sell the still's
    makings (sacks, jugs and small crates, straight into the trunk) and **gear**, which only
    works while it rides in the trunk, taking room from the cargo: spare **spotlamps**
-   (brighter headlamps), a **crowbar** (the first slip at a pry doesn't count), a **toolbox**
-   (knocks wear the truck less) and **blocks of ice** (they keep Highlandtown Lager from going
-   flat in a warm trunk, till they melt). Nobody buys your gear back.
+   (brighter headlamps), a **crowbar** (the first slip at a pry doesn't count), a **storm
+   lantern** (a search's goods glint longer and its lamp lasts longer), a **grappling hook**
+   (for the shallows), a **toolbox** (knocks wear the truck less), **blocks of ice** (they keep
+   Highlandtown Lager from going flat in a warm trunk, till they melt) and **drop boxes**. Stop
+   at a salvage site with a drop box aboard and Otto can leave it there (three at most): it
+   gathers a piece of that site's goods a day, up to four, and the next stop there empties it
+   into the trunk, or takes it back. ◆ marks them on the radar and the notebook lists them.
+   Nobody buys your gear back.
 6. **Otto's barn** (⌂ on the radar, just off York Road outside the city) is home: store loot in
    its stash between trips, mend the truck in its garage, and **sleep**. Otto's **nerves** wear
    down on the night roads (faster with the headlamps off, slower with spotlamps), and the
