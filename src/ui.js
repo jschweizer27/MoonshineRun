@@ -110,13 +110,14 @@ export class UI {
     }
   }
 
-  confirm(title, text, yes = 'YES') {
+  confirm(title, text, yes = 'YES', no = 'CANCEL') {
     return new Promise((resolve) => {
       document.getElementById('confirm-title').textContent = title;
       document.getElementById('confirm-text').textContent = text;
       const yesBtn = document.getElementById('confirm-yes');
       const noBtn = document.getElementById('confirm-no');
       yesBtn.textContent = yes;
+      noBtn.textContent = no;
       const done = (v) => { yesBtn.onclick = noBtn.onclick = null; this.close('confirm'); resolve(v); };
       yesBtn.onclick = () => done(true);
       noBtn.onclick = () => done(false);

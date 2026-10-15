@@ -157,13 +157,18 @@ export const CONFIG = {
     ],
     // The county stores (a town's `supplies`) sell the still's makings: these kinds, at their
     // base value x `markup` (rounded to $), into the trunk.
-    supplies: { kinds: ['sack', 'jugs', 'small-crate'], markup: 1.3, gear: ['spotlamp', 'crowbar', 'toolbox', 'ice'] },
+    supplies: { kinds: ['sack', 'jugs', 'small-crate'], markup: 1.3, gear: ['spotlamp', 'crowbar', 'lantern', 'grapple', 'toolbox', 'ice', 'dropbox'] },
     // Gear (a kind's `gear`; after DREDGE's equipment in the hold): sold at the county stores,
     // it works only while it's packed in the trunk, taking room from the cargo. A `spotlamp`
     // adds `light` to the headlamps (two at most); a `crowbar` allows `strikes` more slips at
-    // a pry; a `toolbox` takes `wear` off each knock; an `ice` block keeps Lager cold for
-    // `hours` game hours, then it's melted. Gear never sells and never counts as shine.
-    gear: { spotlamp: { light: 0.2, most: 2 }, crowbar: { strikes: 1 }, toolbox: { wear: 0.4 }, ice: { hours: 10 } },
+    // a pry; a `lantern` adds `glint` and `seconds` to a search; the `grapple` is what the
+    // shallows' sunk wrecks take (salvage kind `shallows`); a `toolbox` takes `wear` off each
+    // knock; an `ice` block keeps Lager cold for `hours` game hours, then it's melted; a
+    // `dropbox` is left at a site (CONFIG.dredge.boxes). Gear never sells and never counts as shine.
+    gear: { spotlamp: { light: 0.2, most: 2 }, crowbar: { strikes: 1 }, lantern: { glint: 0.6, seconds: 2 }, grapple: {}, toolbox: { wear: 0.4 }, ice: { hours: 10 }, dropbox: {} },
+    // Drop boxes (DREDGE's crab pots): at most `max` left at salvage sites at a time; each fills
+    // with `perDay` of its site kind's goods a game day, up to `cap`, till Otto collects them.
+    boxes: { max: 3, perDay: 1, cap: 4 },
     // Lager goes flat in a warm trunk (DREDGE's fish rot): its blend loses `lager` quality a
     // game hour while it rides without ice, down to `floor` (the barn's stash keeps it cool).
     spoil: { lager: 0.025, floor: 0.2 },
@@ -181,6 +186,7 @@ export const CONFIG = {
         crate: 1.2, 'long-crate': 0.9, coil: 1.15, keg: 1.05, strongbox: 1.0,
         bicycle: 1.1, radio: 1.25, 'sewing-machine': 1.0,
         'pocket-watch': 0.6, bonds: 1.8,   // the city's brokers buy bonds
+        bell: 1.3,                         // the harbour's ship chandlers want the bells
       },
       // The village pays well for what's scarce out there (bottled goods, kegs, cash) and
       // little for farm goods it has plenty of. PLACEHOLDERS: tune after playtesting.
@@ -498,6 +504,8 @@ export const CONFIG = {
       odd: { score: 0.85, night: 0.15, day: 0.04, eye: 1.5 },
       kinds: {
         wreck: { name: 'Wrecked truck', game: 'pry', color: '#7a5236', yields: { crate: 3, 'small-crate': 3, 'long-crate': 2, keg: 1, 'bottle-case': 2, jugs: 2 } },
+        // (stage 16) A wreck sunk in the shallows: only a grappling hook (`gear`) reaches it.
+        shallows: { name: 'Sunk wreck', game: 'pry', gear: 'grapple', color: '#4a5e66', yields: { keg: 3, coil: 2, barrel: 3, bell: 1, 'bottle-case': 2 } },
         farmhouse: { name: 'Abandoned farmhouse', game: 'search', color: '#9c8a64', yields: { sack: 4, jugs: 3, barrel: 2, 'sewing-machine': 1, radio: 1, bicycle: 1 } },
         siding: { name: 'Rail siding', game: 'pry', color: '#5a6066', yields: { coil: 3, barrel: 2, 'long-crate': 2, crate: 2, keg: 1 } },
         cellar: { name: 'Back-alley cellar', game: 'search', color: '#6a4e3a', yields: { 'bottle-case': 3, jugs: 2, keg: 2, strongbox: 1, radio: 1 } },
@@ -607,6 +615,11 @@ export const CONFIG = {
         { id: 'crowbar', name: 'Crowbar', short: 'Bar', tier: 'low', gear: true, value: 35, weight: 0, cells: [[0, 0], [1, 0], [2, 0]] },
         { id: 'toolbox', name: 'Toolbox', short: 'Tools', tier: 'mid', gear: true, value: 70, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
         { id: 'ice', name: 'Block of ice', short: 'Ice', tier: 'low', gear: true, color: 'cream', accent: 'slate', value: 15, weight: 0, cells: [[0, 0]] },
+        { id: 'lantern', name: 'Storm lantern', short: 'Lantern', tier: 'low', gear: true, accent: 'cream', value: 30, weight: 0, cells: [[0, 0], [0, 1]] },
+        { id: 'grapple', name: 'Grappling hook', short: 'Hook', tier: 'mid', gear: true, value: 55, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
+        { id: 'dropbox', name: 'Drop box', short: 'Box', tier: 'low', gear: true, value: 40, weight: 0, cells: [[0, 0], [1, 0]] },
+        // Brought up from the shallows' sunk wrecks only (`deep`: never a market day's pick).
+        { id: 'bell', name: 'Ship’s bell', short: 'Bell', tier: 'high', deep: true, accent: 'slate', value: 120, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
         // Imported off Rum Row (chapter 7): contraband like shine, sold at the speakeasies,
         // always the genuine article (no blend: they sell as grade A).
         { id: 'scotch', name: 'Imported Scotch', short: 'Scotch', tier: 'brewed', brewed: true, imported: true, accent: 'amber', value: 160, weight: 0, cells: [[0, 0], [1, 0]] },

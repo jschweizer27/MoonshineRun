@@ -72,6 +72,9 @@ export const supplyPrice = (kind) => Math.round(KINDS[kind].value * CONFIG.dredg
 
 // What each piece of gear does (CONFIG.dredge.gear), while it's packed in the trunk.
 const GEAR = {
+  lantern: 'Gear: in the trunk, a search’s goods glint longer and the lamp lasts longer.',
+  grapple: 'Gear: reaches the wrecks sunk in the shallows (Loch Raven, the docks). Nothing else will.',
+  dropbox: 'Gear: stop at a salvage site with it aboard to leave it there; it fills with that site’s goods, a piece a day. Empty it, or take it back, when you stop by.',
   spotlamp: 'Gear: brighter headlamps while it rides in the trunk (two at most).',
   crowbar: 'Gear: in the trunk, the first slip at a pry doesn’t count.',
   toolbox: 'Gear: in the trunk, knocks wear the truck less.',
@@ -537,12 +540,13 @@ export function showBrewery(ui, { onDone }) {
 // Search, a 3x3 cellar (remember where the goods glinted, pick before the lamp dies).
 // `onDone(score)` when the player takes what's there. Returns { game, step, press, pick,
 // finish, manual } so tests can play it by hand.
-export function showSalvage(ui, { site, onDone, free = 0 }) {
+// (`free`: the crowbar's slips at a pry; `lamp`: the lantern's { glint, seconds } at a search)
+export function showSalvage(ui, { site, onDone, free = 0, lamp = null }) {
   const kind = CONFIG.dredge.salvage.kinds[site.kind], P = CONFIG.dredge.salvage;
-  const g = kind.game === 'pry' ? newPry(Math.random, { free }) : newSearch();
+  const g = kind.game === 'pry' ? newPry(Math.random, { free }) : newSearch(Math.random, lamp || {});
   const ring = $('salvage-ring'), grid = $('salvage-grid'), pressBtn = $('salvage-press'), done = $('salvage-done');
   let raf = 0, last = 0, finished = false;
-  const total = g.game === 'pry' ? P.pry.seconds : P.search.glint + P.search.seconds;
+  const total = g.game === 'pry' ? P.pry.seconds : g.glint + g.seconds;
   const draw = () => {
     $('salvage-progress').firstElementChild.style.width = `${Math.max(0, 1 - g.t / total) * 100}%`;
     if (g.game === 'pry') {
@@ -713,7 +717,7 @@ export function showLedger(ui, career) {
 // every contact and their trust (and what they've told him once they trust him), and the
 // recipes with the best batch and the blend on hand. `contacts` from contracts.js; `clock`
 // game hours.
-export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) {
+export function showNotebook(ui, { career, contacts, clock, boxes = [], onBack, onFollow }) {
   const d = career.data, body = $('notebook-body'), C = CONFIG.dredge.contracts;
   const render = (focusArc = null) => {
   body.textContent = '';
@@ -781,13 +785,15 @@ export function showNotebook(ui, { career, contacts, clock, onBack, onFollow }) 
     body.append(head('tools', 'TOOLS'));
     for (const t of tools) body.append(note(el('div', {}, el('b', {}, t.name), el('small', {}, t.text.replace(/^Earned: [^.]*\. /, '')))));
   }
-  // The operation (chapter 8 on): the hidden still's crates, Braun's stock, Rye ageing.
-  if (d.flags.hollowStill || d.flags.brauns) {
+  // The operation (chapter 8 on): the hidden still's crates, Braun's stock, Rye ageing; and
+  // the drop boxes Otto has left, whenever there are any.
+  if (d.flags.hollowStill || d.flags.brauns || boxes.length) {
     const O = CONFIG.dredge.operation, stock = Object.values(d.brauns || {}).reduce((a, b) => a + b, 0), rye = d.stash.rye && d.market.blend?.rye;
     body.append(head('operation', 'THE OPERATION'));
     if (d.flags.hollowStill) body.append(note(el('div', {}, el('b', {}, `The hidden still: ${d.hollow || 0} crate${d.hollow === 1 ? '' : 's'} waiting`), el('small', {}, `It brews ${O.hollow.perDay} crates of Corn Shine a day, up to ${O.hollow.cap}. Collect them at the hollow.`))));
     if (d.flags.brauns) body.append(note(el('div', {}, el('b', {}, `Braun’s: ${stock} crate${stock === 1 ? '' : 's'} in the cellar`), el('small', {}, `It sells up to ${O.brauns.nightly} a night. Stop there to stock it with your own shine.`))));
     if (rye) body.append(note(el('div', {}, el('b', {}, `Barrel Rye in the barn: ${d.stash.rye} crate${d.stash.rye === 1 ? '' : 's'}, grade ${gradeLabel(rye)}`), el('small', {}, 'It ages a little better every day it’s kept in the stash.'))));
+    for (const b of boxes) body.append(note(el('div', {}, el('b', {}, `Drop box at the ${b.name.toLowerCase()} near ${b.place}: ${b.n} piece${b.n === 1 ? '' : 's'} waiting`), el('small', {}, `It gathers a piece a day, up to ${CONFIG.dredge.boxes.cap}. Stop there to empty it (or take it back).`))));
   }
   // The finds (codex.js): each site kind's goods, found or not, and the odd variants.
   const cx = d.codex || {}, seen = (k) => cx[k]?.n > 0;

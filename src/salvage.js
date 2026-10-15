@@ -4,7 +4,7 @@ import { createRng } from './rng.js';
 import { KINDS } from './trunk.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 import { RAILWAY, inWindow } from './railway.js';
-import { MILL } from './loch.js';
+import { MILL, inLake, shoreDistance } from './loch.js';
 import { isNight as nightAt } from './hours.js';
 
 // Salvage sites: where Otto finds things now (CONFIG.dredge.salvage). Wrecks in the ditch,
@@ -147,6 +147,46 @@ export function placeStory(world, regular = []) {
   return out;
 }
 
+// The shallows (stage 16): wrecks sunk just off the shore, reached only with a grappling hook
+// (salvage kind `shallows`): two on Loch Raven's west shore, two on the city's docks by the
+// Inner Harbor. Placed on their own from fixed anchors (no random draws), after the story
+// sites, so nothing seeded moves; ids `deep:N`, `deep: true`, their stop inland of the water.
+export function placeShallows(world, existing = []) {
+  const c = world.collision, out = [];
+  const clear = (x, z, r) => !c.resolveCircle(x, z, r).hit;
+  const apart = (x, z) => [...existing, ...out].every((s) => Math.hypot(s.x - x, s.z - z) > 24);
+  const near = (ax, az, [dx, dz], check) => {
+    for (let r = 0; r <= 36; r += 3) {
+      for (let k = 0; k < (r ? 16 : 1); k++) {
+        const a = (k / 16) * Math.PI * 2, x = ax + Math.cos(a) * r, z = az + Math.sin(a) * r, stopX = x + dx * 6, stopZ = z + dz * 6;
+        if (clear(x, z, 2.2) && clear(stopX, stopZ, 1.8) && apart(x, z) && check(x, z)) { out.push({ kind: 'shallows', deep: true, x, z, stopX, stopZ }); return; }
+      }
+    }
+  };
+  const shore = (x, z) => !inLake(x, z) && shoreDistance(x, z) < 22;
+  near(566, -790, [-1, 0], shore);
+  near(574, -650, [-1, 0], shore);
+  near(-130, 222, [0, -1], (x, z) => z > 200);
+  near(70, 222, [0, -1], (x, z) => z > 200);
+  out.forEach((s, i) => { s.id = `deep:${i}`; s.name = S.kinds.shallows.name; });
+  return out;
+}
+
+// Drop boxes (stage 16; CONFIG.dredge.boxes): what a box at `site` has gathered by `day`
+// since `since`, and the pieces it holds then (its site kind's goods, picked by a hash of the
+// site and the day: no random draws).
+export const boxFill = (box, day) => Math.min(CONFIG.dredge.boxes.cap, Math.max(0, day - box.since) * CONFIG.dredge.boxes.perDay);
+export function boxPieces(site, n, day) {
+  const goods = Object.entries(S.kinds[site.kind].yields), total = goods.reduce((a, [, w]) => a + w, 0), out = [];
+  for (let k = 0; k < n; k++) {
+    let h = 2166136261;
+    for (const ch of `box:${site.id}:${day}:${k}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+    let r = ((h >>> 0) / 4294967296) * total;
+    out.push(goods.find(([, w]) => (r -= w) < 0)?.[0] || goods[0][0]);
+  }
+  return out;
+}
+
 // Night by the season (hours.js): `winter`, Act II's longer nights.
 export const isNight = (hour, winter = false) => nightAt(hour, winter);
 export { inWindow };
@@ -183,19 +223,20 @@ export function pressPry(g) {
 export const pryScore = (g) => Math.max(0, g.arcs.filter((a) => a.hit).length / g.arcs.length - 0.15 * g.strikes);
 
 // ---------- Search: remember where the goods glinted, then pick before the lamp dies. ----------
-export function newSearch(rng = Math.random) {
+// `glint` / `seconds`: more of each (a storm lantern in the trunk: CONFIG.dredge.gear.lantern).
+export function newSearch(rng = Math.random, { glint = 0, seconds = 0 } = {}) {
   const P = S.search, spots = Array.from({ length: P.spots }, () => ({ good: false, picked: false }));
   for (let k = 0; k < P.goods;) { const s = spots[Math.floor(rng() * P.spots)]; if (!s.good) { s.good = true; k++; } }
-  return { game: 'search', spots, t: 0, picks: 0, found: 0, done: false };
+  return { game: 'search', spots, t: 0, picks: 0, found: 0, done: false, glint: P.glint + glint, seconds: P.seconds + seconds };
 }
 
 // Glinting first (no picking yet), then the lamp burns down.
-export const searchGlint = (g) => g.t < S.search.glint;
+export const searchGlint = (g) => g.t < (g.glint ?? S.search.glint);
 
 export function stepSearch(g, dt) {
   if (g.done) return g;
   g.t += dt;
-  if (g.t >= S.search.glint + S.search.seconds) g.done = true;
+  if (g.t >= (g.glint ?? S.search.glint) + (g.seconds ?? S.search.seconds)) g.done = true;
   return g;
 }
 
@@ -249,13 +290,14 @@ export function rareFind(site, day, sc) {
 export class Salvage {
   constructor(scene, world, seed = 1) {
     this.winter = false;             // Act II's longer nights (main._applyWinter; hours.js)
-    const regular = placeSites(world, seed);
-    this.sites = [...regular, ...placeStory(world, regular)];
+    const regular = placeSites(world, seed), story = placeStory(world, regular);
+    this.sites = [...regular, ...story, ...placeShallows(world, [...regular, ...story])];
+    this.boxes = [];        // the drop boxes left at sites: the save's `boxes` ([{ site, since }])
     this.world = world;
     this.state = {};
     this.story = {};        // the story sites open now: { [story]: { night, window } } (chapters.js openSites)
     this._colliders = new Map();
-    for (const s of regular) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
+    for (const s of this.sites) if (!s.story) world.collision.addCircle(s.x, s.z, 1.8, { tag: 'salvage' });
     const parts = [
       new THREE.BoxGeometry(1.4, 1.1, 1.2).translate(-0.6, 0.55, 0.2),
       new THREE.BoxGeometry(1.0, 0.8, 1.0).rotateY(0.5).translate(0.7, 0.4, -0.4),
@@ -265,11 +307,14 @@ export class Salvage {
     ];
     const geo = mergeGeometries(parts.map((p) => p.toNonIndexed()));
     this.material = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
-    this.mesh = new THREE.InstancedMesh(geo, this.material, this.sites.length);
+    // (and CONFIG.dredge.boxes.max more, for the drop boxes: a small heap beside their site)
+    this.mesh = new THREE.InstancedMesh(geo, this.material, this.sites.length + CONFIG.dredge.boxes.max);
     this.mesh.name = 'salvage';
     this.mesh.castShadow = this.mesh.receiveShadow = true;
     this._colors = this.sites.map((s) => new THREE.Color(S.kinds[s.kind].color));
     this.sites.forEach((s, i) => this.mesh.setColorAt(i, this._colors[i]));
+    this._boxColor = new THREE.Color(0x9a7a4a);
+    for (let b = 0; b < CONFIG.dredge.boxes.max; b++) this.mesh.setColorAt(this.sites.length + b, this._boxColor);
     scene.add(this.mesh);
     this.refresh(0);
   }
@@ -332,6 +377,15 @@ export class Salvage {
       this.mesh.setMatrixAt(i, o.matrix);
       this.mesh.setColorAt(i, empty ? dim.copy(this._colors[i]).multiplyScalar(0.45) : this._colors[i]);
     });
+    // The drop boxes: a small, squat heap beside their site (none: nothing drawn).
+    for (let b = 0; b < CONFIG.dredge.boxes.max; b++) {
+      const box = this.boxes[b], s = box && this.sites.find((x) => x.id === box.site);
+      o.position.set(s ? s.x + 2.4 : 0, 0, s ? s.z + 1.4 : 0);
+      o.rotation.set(0, 0.6, 0);
+      o.scale.set(s ? 0.42 : 0, s ? 0.36 : 0, s ? 0.42 : 0);
+      o.updateMatrix();
+      this.mesh.setMatrixAt(this.sites.length + b, o.matrix);
+    }
     this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.instanceColor.needsUpdate = true;
   }

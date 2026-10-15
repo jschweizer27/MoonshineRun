@@ -12,7 +12,7 @@ import { UI, buildSettings, buildHelpKeys, el } from './ui.js';
 import { loadSettings, saveSettings, keyLabel } from './settings.js';
 import { Environment } from './environment.js';
 import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, showBrewery, playDialog, money, supplyPrice } from './screens.js';
-import { Salvage, payout, rareFind } from './salvage.js';
+import { Salvage, payout, rareFind, boxFill, boxPieces } from './salvage.js';
 import { isNight, dawnHour, duskHour } from './hours.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
@@ -568,6 +568,11 @@ class Game {
     if (this.state !== STATE.PAUSED) return;
     showNotebook(this.ui, {
       career: this.dredge, contacts: this.contactList, clock: this.dredge.market.clock,
+      // (the drop boxes, by their site's name and what each has gathered)
+      boxes: this.dredge.data.boxes.map((b) => {
+        const st = this.salvage.sites.find((x) => x.id === b.site);
+        return { name: st?.name || 'site', place: st ? this._landmark(st.x, st.z) : 'the road', n: boxFill(b, dayOf(this.dredge.market)) };
+      }),
       onBack: () => { this.ui.close('notebook'); if (fromRoad && !this.ui.anyOpen) this.resume(); },
       onFollow: () => { this._updateJobMarker(); this._updateObjective(); },
     });
@@ -612,6 +617,7 @@ class Game {
     this._updatePassenger();
     this._nightFrom = this._tally();
     this.salvage.state = this.dredge.data.sites;
+    this.salvage.boxes = this.dredge.data.boxes;
     this.salvage.story = this._openSites();
     this.salvage.refresh(dayOf(this.dredge.market));
     this._jobLeft = true;
@@ -1427,7 +1433,8 @@ class Game {
   // A lore scrap (lore.js) at a site worked well after dark: the notebook's LETTERS (with the
   // story on: under ?test only with &story).
   _lore(site, sc) {
-    const d = this.dredge.data, scrap = siteFor(Number(String(site.id).split(':')[1]));
+    // (the regular sites only: `site:N`; the shallows' `deep:N` hold none)
+    const d = this.dredge.data, scrap = String(site.id).startsWith('site:') && siteFor(Number(String(site.id).split(':')[1]));
     if (!OPTIONS.story || !scrap || d.lore[scrap.id] || sc < 0.5 || !this._night()) return;
     d.lore[scrap.id] = true;
     this.dredge.save();
@@ -1582,6 +1589,8 @@ class Game {
     if (!s) { this._siteLeft = true; this._siteWhy = ''; return; }
     if (!this._siteLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._siteLeft = false;
+    // A drop box here (stage 16): what it's gathered comes out first; carrying one, it can be left.
+    if (!s.story && this._dropBox(s)) return;
     const st = this.salvage.status(s, dayOf(this.dredge.market), this.env.hour);
     if (st === 'empty') { this.hud.toast(`The ${s.name.toLowerCase()} has been picked clean. Try again in a day or two.`, '', 3000); return; }
     // Too early: said once, and it opens as soon as its hours come (waiting there).
@@ -1592,7 +1601,65 @@ class Game {
       this._siteLeft = true;
       return;
     }
+    // The shallows take a grappling hook (a kind's `gear`): nothing else reaches them.
+    const need = CONFIG.dredge.salvage.kinds[s.kind].gear;
+    if (need && !this._gear(need)) {
+      const why = `The ${s.name.toLowerCase()} lies out in the water: you need a ${KINDS[need].name.toLowerCase()} (the county stores sell them).`;
+      if (this._siteWhy !== why) this.hud.toast(why, '', 4000);
+      this._siteWhy = why;
+      this._siteLeft = true;
+      return;
+    }
     this.openSalvage(s);
+  }
+
+  // Drop boxes (DREDGE's crab pots; CONFIG.dredge.boxes): stopped at a regular site, a box
+  // there that's gathered something is emptied into the trunk (and can be taken back too);
+  // with a box in the trunk and none here, Otto can leave it (asked once a day a site). Then
+  // the site itself opens, as if just stopped there. Returns true when it took over.
+  _dropBox(s) {
+    const d = this.dredge.data, day = dayOf(this.dredge.market), B = CONFIG.dredge.boxes, box = d.boxes.find((b) => b.site === s.id);
+    const key = `${s.id}:${day}`, name = s.name.toLowerCase();
+    const after = () => {
+      this.dredge.save();
+      this.salvage.refresh(day);
+      this._siteLeft = true;          // still stopped here: the site comes next
+    };
+    if (box) {
+      const n = boxFill(box, day);
+      if (!n) return false;
+      const kinds = boxPieces(s, n, day), counts = {};
+      for (const k of kinds) counts[k] = (counts[k] || 0) + 1;
+      box.since = day;
+      d.stats.boxed = (d.stats.boxed || 0) + n;
+      this._boxAsked = key;
+      this.dredge.save();
+      this.audio.pickup?.();
+      if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+      this.ui.confirm('THE DROP BOX', `The box at the ${name} held ${wantsText(counts)}. Leave it to gather more (a piece a day, up to ${B.cap}), or take it back?`, 'TAKE IT BACK', 'LEAVE IT').then((take) => {
+        if (take) { d.boxes.splice(d.boxes.indexOf(box), 1); kinds.push('dropbox'); }
+        after();
+        this._pending = kinds.slice(1);
+        this.openTrunk(kinds[0]);
+      });
+      return true;
+    }
+    if (!this._gear('dropbox') || d.boxes.length >= B.max || this._boxAsked === key) return false;
+    this._boxAsked = key;
+    if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
+    this.ui.confirm('LEAVE A DROP BOX?', `Leave the drop box at the ${name}? It gathers what turns up here, a piece a day (up to ${B.cap}). Stop by to empty it.`, 'LEAVE IT').then((ok) => {
+      const p = ok && [...this.trunk.pieces.values()].find((q) => q.kind === 'dropbox');
+      if (p) {
+        this.trunk.remove(p.id);
+        d.boxes.push({ site: s.id, since: day });
+        this.dredge.saveTrunk(this.trunk);
+        this._updateTrunkPill();
+        this.hud.toast(`Drop box left at the ${name} (${d.boxes.length}/${B.max}).`, 'gold', 3000);
+      }
+      after();
+      if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
+    });
+    return true;
   }
 
   openSalvage(site) {
@@ -1605,7 +1672,7 @@ class Game {
     if (game === 'none') { this._storySalvaged(site, 1); return; }
     if (game === 'pay' || game === 'give' || game === 'crown') { this._storyDeal(site, game); return; }
     if (game === 'lager') { this.openBrewery(); return; }
-    this.salvageScreen = showSalvage(this.ui, { site, free: this._gear('crowbar') ? CONFIG.dredge.gear.crowbar.strikes : 0, onDone: (sc) => this._onSalvaged(site, sc) });
+    this.salvageScreen = showSalvage(this.ui, { site, free: this._gear('crowbar') ? CONFIG.dredge.gear.crowbar.strikes : 0, lamp: this._gear('lantern') ? CONFIG.dredge.gear.lantern : null, onDone: (sc) => this._onSalvaged(site, sc) });
   }
 
   // Gus's cellar: a batch of Highlandtown Lager at the brewery (its makings from the trunk and
@@ -2778,6 +2845,8 @@ class Game {
       drops.push({ kind: status === 'ok' ? 'site' : 'site-empty', x: st.x, z: st.z });
     }
     for (const o of this.dredge.data.orders) drops.push({ kind: 'job', x: o.x, z: o.z });
+    // The drop boxes (nearby only, like the operation's places).
+    for (const b of this.dredge.data.boxes) { const st = this.salvage.sites.find((x) => x.id === b.site); if (st) drops.push({ kind: 'box', x: st.x + 2.4, z: st.z + 1.4 }); }
     if (!this.police.tier) for (const ph of this._phantoms || []) drops.push({ kind: 'agent', x: ph.x, z: ph.z, phantom: true });   // frayed nerves
     const re = this.roadEvents.active;
     if (re?.edge) drops.push({ kind: 'roadblock', x: re.x, z: re.z });

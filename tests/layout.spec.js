@@ -19,7 +19,7 @@ const fingerprint = () => {
   const hash = (nums) => { let h = 2166136261; for (const n of nums) for (const c of String(Math.round(n * 1000))) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(16); };
   const cleared = (x, z) => x < -415 || x >= 440 || (x > 370 && x < 450 && (Math.abs(z + 571) < 12 || Math.abs(z + 770) < 12));
   const trees = w.trees.filter(([x, z]) => !cleared(x, z));
-  const sites = g.salvage.sites.filter((s) => !s.story);
+  const sites = g.salvage.sites.filter((s) => !s.story && !s.deep);
   return {
     rng: w.rng(),
     sites: hash(sites.flatMap((s) => [s.x, s.z, s.stopX, s.stopZ, s.night ? 1 : 0, ['wreck', 'farmhouse', 'siding', 'cellar'].indexOf(s.kind)])),

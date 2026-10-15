@@ -145,8 +145,12 @@ Built differently from the design above:
   auction.
 - Vail's men hijack loads and pick salvage sites clean at dawn; they don't take orders. They
   come once Vail is named.
-- Gear is spotlamps, a crowbar, a toolbox and ice (no spare tyre; the false bottom stays an
-  upgrade), and only Lager spoils.
+- Gear is spotlamps, a crowbar, a storm lantern, a grappling hook, a toolbox, ice and drop
+  boxes (no spare tyre; the false bottom stays an upgrade), and only Lager spoils.
+- The tool for a kind of site (stage 16): the crowbar for a pry, the lantern for a search, and
+  the grappling hook for a new kind, the shallows (four sunk wrecks, with the ship's bell as
+  their own find). Drop boxes: three at most, a piece a day up to four, emptied or taken back
+  at the site.
 
 Stage 16 added what was left out: shorter winter days (above), DREDGE's tool for each kind
 of site, drop boxes that fill over days, charged late-game abilities and Act II's own story
