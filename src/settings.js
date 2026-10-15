@@ -22,6 +22,8 @@ export const ACTIONS = [
   ['notebook', 'Otto’s notebook'],
   ['ability2', 'Lead Foot'],
   ['ability3', 'Sweet Talk'],
+  ['ability4', 'Smoke Screen'],
+  ['ability5', 'Second Wind'],
 ];
 
 export const DEFAULT_BINDINGS = {
@@ -43,6 +45,8 @@ export const DEFAULT_BINDINGS = {
   notebook: ['KeyB'],
   ability2: ['Digit2'],
   ability3: ['Digit3'],
+  ability4: ['Digit4'],
+  ability5: ['Digit5'],
 };
 
 const prefersReducedMotion = () => {

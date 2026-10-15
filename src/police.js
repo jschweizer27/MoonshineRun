@@ -124,7 +124,25 @@ export class Police {
     this._rbTimer = 4;
     this.hold = 0;
     this.quiet = false;
+    this.blind = 0;
     this._write(0);
+  }
+
+  // A smoke screen (main.useAbility 'smoke'): the heat down a tier now, and for `seconds` no
+  // car or roadblock sees the truck (those after it go where they last saw it, then search).
+  // Returns the events, for main._onPolice.
+  smoke(seconds, p) {
+    const events = [];
+    this.blind = seconds;
+    if (this.heat > 0) {
+      this.heat = this.tier - 1;
+      this.evade = 0;
+      this.hold = 0;
+      events.push(this.heat > 0 ? { type: 'tier', tier: this.tier, up: false } : { type: 'clear' });
+      this._setPursuers(p);
+      if (!this.heat) this.contact = false;
+    }
+    return events;
   }
 
   // A story's ambush (chapters.js, chapter 5 at Warren): the heat straight to `tier`, every
@@ -272,6 +290,7 @@ export class Police {
     this._patrols(p, ctx.night);
     const range = P.sight * (ctx.night ? (ctx.lightsOff ? P.darkSight : P.nightSight) : 1);
     const boost = this.tier >= 3 ? P.boost : 1;
+    const blind = (this.blind = Math.max(0, this.blind - dt)) > 0;     // a smoke screen
     let seen = false, nearest = Infinity;
     for (const u of this.units) {
       if (!u.active) continue;
@@ -283,7 +302,7 @@ export class Police {
       car.t.accel = P.accel * (after ? boost : 1);
       // A patrol looks ahead in its cone (close up it notices anyway); one after you sees all round.
       const ahead = Math.abs(wrap(Math.atan2(dx, -dz) - car.heading)) <= P.cone || d < P.closeSight;
-      const sees = u.mode !== 'leave' && d < range && (after || ahead) && this.world.lineOfSight(car.position, p);
+      const sees = !blind && u.mode !== 'leave' && d < range && (after || ahead) && this.world.lineOfSight(car.position, p);
       u.sees = false;
       if (sees && (ctx.contraband || this.tier > 0)) {
         u.sees = true;
@@ -332,7 +351,7 @@ export class Police {
     // The checkpoint and the roadblock watch the road too.
     this._checkpoint(dt, player, ctx, events);
     const rb = this.roadblock;
-    if (rb.active && Math.hypot(rb.x - p.x, rb.z - p.z) < 60 && this.world.lineOfSight(rb, p) && this.tier > 0) seen = true;
+    if (!blind && rb.active && Math.hypot(rb.x - p.x, rb.z - p.z) < 60 && this.world.lineOfSight(rb, p) && this.tier > 0) seen = true;
 
     // Heat: seen builds it, out of sight long enough sheds a tier.
     if (this.heat > 0) {

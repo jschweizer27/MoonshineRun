@@ -39,6 +39,7 @@ on-screen pedals appear automatically on phones and tablets.
 | Headlamps on/off | `L` | d-pad down | lamp button, top right |
 | Otto's notebook | `B` | left stick click | book button, top right |
 | Lead Foot / Sweet Talk (once earned) | `2` / `3` | D-pad ↑ / → | chips above the speedometer |
+| Smoke Screen / Second Wind (once earned) | `4` / `5` | D-pad ← / right stick click | chips above the speedometer |
 | Horn | `H` | B | HORN |
 | Radio (the jazz soundtrack) | `R` | — | — |
 | Look back | `C` | Y | — |
@@ -304,7 +305,12 @@ Enter, the D-pad and A/B, or touch.
    (`2`, d-pad up, or its chip: a burst of speed) and Mr. Abernathy shows Otto **Sweet Talk**
    (`3`, d-pad right: the next sale or job pays 20% more). **Highlandtown Lager** is brewed
    only in Gus's cellar, from chapter 5. Upgrade levels 4 and 5 and the later upgrades open as
-   the story goes on.
+   the story goes on. Two more come with the story, and they charge from what you do rather
+   than on a timer (the chip shows how full): **Second Wind** at the end of chapter 5 (`5`, the
+   right stick's click: Otto's frayed nerves steady again; every three deliveries fill it) and
+   **Smoke Screen** at the end of chapter 6 (`4`, d-pad left: in a chase the heat drops a star
+   and the cars behind lose sight of you for a few seconds; about 4 km driven after dark with
+   shine aboard fills it).
 12. The story ends with **the deed**, **the paper** or **the crown** (above). The roads stay open after it.
 13. Rain makes the cobbles slick; off the dirt lanes in the valley the truck bogs down in the
    fields. **Otto's Ledger** (in the pause menu) keeps your books, and how long each chapter

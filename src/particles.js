@@ -184,6 +184,19 @@ export class Particles {
     }
   }
 
+  // A smoke screen (Smoke Screen, main.useAbility): thick grey smoke pouring from the back of
+  // the truck, `burst` puffs at once and then a steady stream while it lasts.
+  smokeScreen(dt, v, burst = 0) {
+    if (!this.detail) return;
+    const fx = v.forwardX, fz = v.forwardZ, p = v.position;
+    for (let k = burst + this._rate('screen', 70, dt); k > 0; k--) {
+      const s = 0.5 + Math.random() * 0.25;
+      this.smoke.emit(p.x - fx * 3 + (Math.random() - 0.5) * 2.5, 0.6 + Math.random() * 0.5, p.z - fz * 3 + (Math.random() - 0.5) * 2.5,
+        -fx * 2 + (Math.random() - 0.5) * 3, 0.6 + Math.random() * 0.8, -fz * 2 + (Math.random() - 0.5) * 3,
+        { life: 3.5 + Math.random() * 1.5, size: 2.4, grow: 3.8, color: [s, s, s * 0.97], alpha: 0.6 });
+    }
+  }
+
   // A burst of sparks where metal meets brick.
   sparks(x, z, strength) {
     if (!this.detail) return;

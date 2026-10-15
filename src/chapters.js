@@ -176,7 +176,8 @@ export const CHAPTERS = [
         lines: [['otto', 'The Jockey sent me to Warren, and the Bureau was waiting. He sold me out, the way he sold out Father’s brewery.']] },
     ],
     clue: { id: 'letters', title: 'The Jockey’s letters', text: 'Letters to the Reverend Coombs from the Warren mill office, in the Jockey’s hand: the Braun barn’s land for him once Otto is ruined, and the fire for the Alliance’s headline. Signed: J.' },
-    tool: null,
+    // (stage 16: a charged ability, CONFIG.dredge.abilities.wind)
+    tool: { id: 'wind', name: 'Second Wind', text: 'Otto got away from Loch Raven with the whole Bureau behind him, and the road knows him now. When a long night frays his nerves, he finds his second wind (5, the right stick’s click, or its chip): steady again. Every three deliveries charge it.' },
     close: [
       ['otto', 'The Alliance wanted a headline, and the Jockey wanted Father’s land. Now I have it in his own hand.'],
       ['otto', 'But the pledge card in the cellar was stamped PAID by a bank in Towson. Somebody paid for the kerosene, and it wasn’t a jockey.'],
@@ -212,7 +213,8 @@ export const CHAPTERS = [
         lines: [['dalton', 'Filed with the county clerk, stamped and dated. Whatever happens to that ledger now, there’s a copy Mr. Vail can’t buy back.']] },
     ],
     clue: { id: 'mortgages', title: 'The Towson National Bank’s mortgage book', text: 'The notes on Braun & Sons and twelve other Baltimore breweries, each bought the week before the brewery closed, burned or went under. Every page signed C. Vail, President. They’re waiting for Repeal.' },
-    tool: null,
+    // (stage 16: a charged ability, CONFIG.dredge.abilities.smoke)
+    tool: { id: 'smoke', name: 'Smoke Screen', text: 'Ruby Dalton’s brother-in-law keeps a garage behind the tavern, and he fitted a smoke can to the exhaust. In a chase it takes the heat down a star and blinds the cars behind for a few seconds (4, the d-pad’s left, or its chip). Night miles with shine aboard fill it again.' },
     close: [
       ['otto', 'The Jockey wanted Father’s land and the Alliance wanted a headline. But Cyrus Vail wanted the brewery, and every brewery like it, for the day the law changes.'],
       ['dalton', 'A bank that size doesn’t live on mortgages, honey. Mr. Vail’s money comes in by water. Ask the dockers at Canton.'],

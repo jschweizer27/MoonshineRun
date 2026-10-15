@@ -39,6 +39,7 @@ const DEFAULT = {
   hollow: 0,                 // crates of Corn Shine waiting at the hidden still (chapter 8 on)
   brauns: {},                // Braun's cellar stock: kind -> crates (it sells some each dawn)
   boxes: [],                 // drop boxes left at salvage sites: [{ site, since }] (salvage.boxFill)
+  charge: {},                // a charged ability's charge, 0..1 (CONFIG.dredge.abilities `charge`)
   codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
   follow: null,              // the side story the banner and the route follow (null: the chapter);
@@ -112,6 +113,7 @@ export class DredgeCareer {
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
     for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore', 'brauns']) d[k] = { ...(d[k] || {}) };
     d.hollow = Math.max(0, Math.floor(Number(d.hollow) || 0));
+    d.charge = Object.fromEntries(Object.entries(d.charge || {}).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => [k, Math.max(0, Math.min(1, v))]));
     d.boxes = (Array.isArray(d.boxes) ? d.boxes : []).filter((b) => b && typeof b.site === 'string' && Number.isFinite(b.since)).slice(0, CONFIG.dredge.boxes.max);
     d.damage = { lamp: !!d.damage?.lamp };
     d.nerves = Number.isFinite(d.nerves) ? Math.max(0, Math.min(1, d.nerves)) : 1;
