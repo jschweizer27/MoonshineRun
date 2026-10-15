@@ -5,6 +5,7 @@ import { KINDS } from './trunk.js';
 import { mergeGeometries } from '../vendor/three/addons/utils/BufferGeometryUtils.js';
 import { RAILWAY, inWindow } from './railway.js';
 import { MILL } from './loch.js';
+import { isNight as nightAt } from './hours.js';
 
 // Salvage sites: where Otto finds things now (CONFIG.dredge.salvage). Wrecks in the ditch,
 // abandoned farmhouses and rail sidings out in the county, back-alley cellars in the city,
@@ -146,7 +147,8 @@ export function placeStory(world, regular = []) {
   return out;
 }
 
-export const isNight = (hour) => hour >= S.night[0] || hour < S.night[1];
+// Night by the season (hours.js): `winter`, Act II's longer nights.
+export const isNight = (hour, winter = false) => nightAt(hour, winter);
 export { inWindow };
 
 // ---------- Pry: a needle sweeps the ring; press while it's in a green arc. ----------
@@ -246,6 +248,7 @@ export function rareFind(site, day, sc) {
 // `data.sites`).
 export class Salvage {
   constructor(scene, world, seed = 1) {
+    this.winter = false;             // Act II's longer nights (main._applyWinter; hours.js)
     const regular = placeSites(world, seed);
     this.sites = [...regular, ...placeStory(world, regular)];
     this.world = world;
@@ -287,10 +290,10 @@ export class Salvage {
       const open = this.story[site.story];
       if (!open) return 'hidden';
       if (open.window && !inWindow(hour, open.window)) return 'closed';
-      return open.night && !isNight(hour) ? 'day' : 'ok';
+      return open.night && !isNight(hour, this.winter) ? 'day' : 'ok';
     }
     if (day < this.refillDay(site)) return 'empty';
-    if (site.night && !isNight(hour)) return 'day';
+    if (site.night && !isNight(hour, this.winter)) return 'day';
     return 'ok';
   }
 

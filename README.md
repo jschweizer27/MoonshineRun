@@ -106,7 +106,8 @@ Enter, the D-pad and A/B, or touch.
 
    Act II comes in **winter**: the rain falls as snow, the fields and roofs are white, and
    after dark the roads ice over (a little less grip, all night; snow itself is less slippery
-   than rain).
+   than rain). The days are short: it's dark from half past five till seven, and the night's
+   work (the checkpoint, the night sites, the speakeasies) keeps the same hours.
 
    **Chapter 7, Rum Row:** win Mags O'Rourke's full trust and work the Canton waterfront with
    her. Meet the launch at the Canton pier after eleven (a schooner rides at anchor off the

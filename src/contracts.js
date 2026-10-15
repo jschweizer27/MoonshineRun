@@ -3,6 +3,7 @@ import { KINDS } from './trunk.js';
 import { CAST } from './story.js';
 import { blendGrade } from './brew.js';
 import { ODDS } from './codex.js';
+import { nextDawn as dawnAfter } from './hours.js';
 
 // Orders from Otto's contacts: the speakeasies (the named city corners), the farms (the
 // county barns) and the Sheriff. Pure logic: each in-game day posts a few, rolled from the
@@ -16,11 +17,7 @@ export const trustLevel = (points = 0) => Math.max(0, Math.min(5, Math.floor(poi
 export const gradeAtLeast = (have, want) => GRADES.indexOf(have) >= GRADES.indexOf(want || 'C');
 
 // The game clock (hours since day 0, midnight) of the next dawn at least `C.dawnMin` hours off.
-export function nextDawn(clock) {
-  let due = Math.floor(clock / 24) * 24 + 6;
-  while (due - clock < C.dawnMin) due += 24;
-  return due;
-}
+export const nextDawn = (clock, winter = false) => dawnAfter(clock, winter, C.dawnMin);
 
 // Everyone who posts jobs: { id, name, place, who, x, z, kind: 'speakeasy' | 'farm', chapter? }.
 // `name` is the contact (a character from story.js CAST, `who`), `place` where they are.

@@ -67,8 +67,9 @@ and they're gone for good in chapter 9.
 
 ### 5. Winter (Act II)
 The calendar turns to winter in Act II: snow on the roofs and fields, snow for rain, and ice
-on the roads at night (less grip). (Built without shorter days: the night is 19:30–06:00
-all year, because the Bureau's checkpoint, the night sites and the night orders all keep it.)
+on the roads at night (less grip), and short days: the night runs 17:30–07:00 instead of
+19:30–06:00, for the Bureau's checkpoint, the night sites, the night orders and the light
+alike (`src/hours.js`; stage 16).
 
 ### 6. Night and nerve: the core loop, after DREDGE (the whole game, from the first night)
 DREDGE (Black Salt Games) is a design touchstone for Shine's salvage-and-sell loop. These are
@@ -147,9 +148,9 @@ Built differently from the design above:
 - Gear is spotlamps, a crowbar, a toolbox and ice (no spare tyre; the false bottom stays an
   upgrade), and only Lager spoils.
 
-Left out, for later: shorter winter days (above); DREDGE's tool for each kind of site,
-drop boxes that fill over days, and charged late-game abilities (the pacing has no room
-for more time). The UE5 project (`ue5/`) keeps the first design and is frozen, so none of
+Stage 16 added what was left out: shorter winter days (above), DREDGE's tool for each kind
+of site, drop boxes that fill over days, charged late-game abilities and Act II's own story
+beats. The UE5 project (`ue5/`) keeps the first design and is frozen, so none of
 v5 is mirrored there.
 
 **Constraints, as before:**

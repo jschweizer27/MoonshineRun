@@ -17,6 +17,7 @@
 // and, with the side stories, 10-15 for a steady player. `ARCS=1` adds the side stories'
 // split (trust, then steps); `STEPS=1` each contact's trust and each step's minutes.
 import { CONFIG } from '../src/config.js';
+import { isNight, duskHour } from '../src/hours.js';
 import { CHAPTERS, advance, current, choiceOpen } from '../src/chapters.js';
 import { offersFor, trustLevel } from '../src/contracts.js';
 import { ARCS } from '../src/arcs.js';
@@ -24,7 +25,7 @@ import { KINDS } from '../src/trunk.js';
 import { gradeOf, yieldFor } from '../src/brew.js';
 
 const D = CONFIG.dredge, HPM = 24 / 16;                 // game hours a real minute
-const [N0, N1] = D.police.checkpoint.hours, W = D.story.freight.window;
+const W = D.story.freight.window;
 const PLACES = {
   spawn: [0, 100], barn: [-52, -300], baltimore: [-44, 44], monkton: [0, -660], glyndon: [-390, -690], cockeysville: [400, -650],
   kessler: [176, 44], orourke: [132, 176], abernathy: [0, -132], romano: [44, 132], hummel: [-176, -132], pryor: [220, 132], healy: [-88, 176],
@@ -60,7 +61,10 @@ const WORK = (D.salvage.hours.pry + D.salvage.hours.search) / 2;
 const SUPPLY = (k) => Math.round(KINDS[k].value * (D.supplies?.markup || 1));
 const SUPPLIES = D.supplies?.kinds || [];          // (none before the stores sold them)
 const RECIPE = Object.fromEntries(D.brew.recipes.map((r) => [r.id, r]));
-const night = (h) => { h = ((h % 24) + 24) % 24; return h >= N0 || h < N1; };
+// (the night by the season, hours.js: Act II's winter nights run 17:30–07:00; `winter` is set
+// from the save's chapter as play goes on)
+let winter = false;
+const night = (h) => isNight(h, winter);
 const inWin = (h, [a, b]) => { h = ((h % 24) + 24) % 24; return a <= b ? h >= a && h < b : h >= a || h < b; };
 // Game hours from `clock` until the hour `to` comes round.
 const until = (clock, to) => (((to - clock) % 24) + 24) % 24;
@@ -68,6 +72,7 @@ const until = (clock, to) => (((to - clock) % 24) + 24) % 24;
 function play(P) {
   const d = { still: 0, stats: { brews: 0, contracts: 0 }, flags: {}, steps: {}, opened: {}, clues: {}, tools: {}, trust: {}, delivered: {}, best: {}, chapter: 0 };
   const s = { t: 0, clock: 21.5, cash: 0, at: 'spawn', stock: {}, spent: 0, orders: 0, nightDone: -1, chapters: [], spend: { drive: 0, screens: 0, salvage: 0, sleep: 0 } };
+  winter = false;
   const where = (p) => PLACES[p] || p;
   const drive = (to) => {
     const [ax, az] = where(s.at), [bx, bz] = where(to), km = (1.3 * Math.hypot(bx - ax, bz - az)) / 1000;
@@ -90,7 +95,7 @@ function play(P) {
     if (P.sleeps && min > 2 && (P.sleeps === true || (s.naps = (s.naps || 0) + P.sleeps) % 1 === 0)) { drive('barn'); screen(0.2); s.spend.sleep++; s.clock += until(s.clock, to); return; }
     salvage(min / 0.7);
   };
-  const waitNight = () => wait(night, N0);
+  const waitNight = () => wait(night, duskHour(winter));
   // Have `n` of `kind` on hand: brew shine; buy what a store sells; salvage the rest.
   const need = (kind, n) => {
     if (KINDS[kind].brewed) { while ((s.stock[kind] || 0) < n) brew(kind); return; }
@@ -235,6 +240,7 @@ function play(P) {
     side();
     STEP[step.id]();
     advance(d);
+    winter = d.chapter >= D.winter.from;
     if (d.chapter !== chapter) { s.chapters.push(s.t - from); from = s.t; chapter = d.chapter; }
   }
   // The side stories (arcs.js), for a player who takes the side orders: the contacts' trust

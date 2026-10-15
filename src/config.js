@@ -311,8 +311,10 @@ export const CONFIG = {
     // pays `set` once; every odd variant found earns the collector's eye (salvage.odd.eye).
     codex: { set: 250 },
     // Winter comes with Act II (from chapter index `from`): snow for rain, the county frosted,
-    // and on winter nights the roads ice over (`ice` off the grip at full dark).
-    winter: { from: 5, ice: 0.12 },
+    // and on winter nights the roads ice over (`ice` off the grip at full dark). The days are
+    // short: the night is `night` (dusk, dawn; hours.js), and the nerves' night drain is
+    // scaled by `drain` so the longer night costs about what a summer one does.
+    winter: { from: 5, ice: 0.12, night: [17.5, 7], drain: 0.78 },
     // Rivals (Act II, chapter 6 until Vail is faced in chapter 9; DREDGE's hunters): by night
     // in the county, with `min` crates of shine aboard, Vail's black sedans may come for the
     // load (`chance` a game hour): boxed in, they take `take` of the shine (a hijack, not a
@@ -432,7 +434,8 @@ export const CONFIG = {
     // cash (at least `fineMin`, at most `fineMax`), and Otto wakes at the barn. Agents drive at `maxSpeed` /
     // `accel` (x `boost` at heat 3), spawn `spawn` metres off (out of view) and go beyond
     // `despawn`. The York Road `checkpoint` stands at the city gap at night (its `hours`,
-    // which are the game's night: the salvage sites', the orders' and the speakeasies' too),
+    // which are the game's night: the salvage sites', the orders' and the speakeasies' too;
+    // winter's are CONFIG.dredge.winter.night, and hours.js answers for both),
     // from the CHAPTERS index `chapter` on: stop there and they search the trunk (the false
     // bottom hides `hidden` crates); run it with shine aboard and it's heat 2.
     // PLACEHOLDERS: tune after playtesting.
@@ -481,12 +484,12 @@ export const CONFIG = {
     // (`radius` metres) to work it: a mini-game (pry or search) whose score sets how many
     // pieces it gives up (1-3) and how good they are. A worked site refills after
     // `refillDays` game days; a `nightShare` of the sites can only be worked at night
-    // (`night` hours). PLACEHOLDERS: tune after playtesting.
+    // (hours.js: the game's night). PLACEHOLDERS: tune after playtesting.
     // `mapRange`: how far off the radar shows them (the Spotter upgrade adds to it). A score of
     // at least `rare.score` at a night-only site turns up a rare find (the pocket watch or the
     // bonds, CONFIG.dredge.loot.kinds `rare`) one time in `1 / rare.chance`, on top of the rest.
     salvage: {
-      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, night: [19.5, 6], mapRange: 250,
+      count: 18, city: 5, radius: 7, refillDays: [1, 2], nightShare: 0.25, mapRange: 250,
       rare: { score: 0.85, chance: 0.35 },
       // Working a site takes game hours (`hours` by mini-game), so a night has a budget.
       hours: { pry: 0.5, search: 0.75 },

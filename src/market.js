@@ -42,7 +42,8 @@ export const dayOf = (state) => Math.floor((state.clock || 0) / 24);
 // (its small hours belong to the evening before): Saturday night is day 2's, 9's, ...
 const WEEK = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'];
 export const weekday = (day) => WEEK[((day % 7) + 7) % 7];
-export const nightOf = (clock) => Math.floor(((clock || 0) - 6) / 24);
+// (cut at noon, so a long winter night, 17:30–07:00, is still one night)
+export const nightOf = (clock) => Math.floor(((clock || 0) - 12) / 24);
 export const saturdayNight = (clock, night) => night && weekday(nightOf(clock)) === 'Sat';
 
 // The day's market event: from day 1 on, one town pays a multiple for one kind of loot (a
