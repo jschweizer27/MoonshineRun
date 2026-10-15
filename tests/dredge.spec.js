@@ -453,8 +453,8 @@ test('loot drawing stays in budget: every nearby piece of every kind is one draw
     g.renderer.setAnimationLoop(null);
     const before = window.shine.renderInfo();
     // Every kind that lies on the roads in view at once, just ahead of the truck (brewed
-    // crates, odd variants and gear never do).
-    const road = CONFIG.dredge.loot.kinds.map((k, i) => (k.brewed || k.odd || k.gear ? -1 : i)).filter((i) => i >= 0);
+    // crates, odd variants, gear and the shallows' bell never do).
+    const road = CONFIG.dredge.loot.kinds.map((k, i) => (k.brewed || k.odd || k.gear || k.deep ? -1 : i)).filter((i) => i >= 0);
     for (let i = 0; i < L.n; i++) { L.active[i] = 0; L.timer[i] = 1e9; }
     road.forEach((k, j) => { L.kind[j] = k; L.active[j] = 1; L.x[j] = -9 + (j % 5) * 4.5; L.z[j] = 48 - Math.floor(j / 5) * 5; });
     window.shine.teleport(0, 100, 0);
