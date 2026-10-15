@@ -9,7 +9,7 @@ test('Smoke Screen fills with night miles driven with shine aboard (not by day, 
   await startRun(page, { loot: false });
   await past(page, 6);
   const r = await page.evaluate((KIT) => {
-    const { g, d, shine, toast } = eval(KIT);
+    const { g, d, shine } = eval(KIT), said = () => g.hud.log.join(' | ');
     g._buildAbilities();
     const out = { chips: [...document.querySelectorAll('#abilities .ability')].map((b) => b.dataset.id) };
     const drive = (hour, n) => {
@@ -29,16 +29,16 @@ test('Smoke Screen fills with night miles driven with shine aboard (not by day, 
     g._updateAbilities();
     out.chip = document.querySelector('#abilities [data-id="smoke"]').textContent;
     out.early = g.useAbility('smoke');
-    out.earlyToast = toast();
+    out.earlyToast = said();
     // Nearly full: a few more metres fill it, and it says so.
     d.charge.smoke = 0.9999;
     for (let k = 0; k < 30; k++) window.shine.step(1 / 60, { throttle: 1 });
     out.full = d.charge.smoke;
-    out.ready = toast();
+    out.ready = said();
     out.chipFull = document.querySelector('#abilities [data-id="smoke"]').textContent;
     // Full, but nobody's after Otto: it keeps.
     out.calm = g.useAbility('smoke');
-    out.calmToast = toast();
+    out.calmToast = said();
     out.kept = d.charge.smoke;
     g.dredge.save();
     return out;
@@ -75,7 +75,7 @@ test('Smoke Screen in a chase: the heat drops a star, the cars behind lose sight
     g.dredge.data.charge.smoke = 1;
   }`;
   const r = await page.evaluate(({ KIT, chase }) => {
-    const { g, d, shine, toast } = eval(KIT);
+    const { g, d, shine } = eval(KIT), said = () => g.hud.log.join(' | ');
     g._buildAbilities();
     shine(4);
     g.renderFrame();
@@ -84,7 +84,7 @@ test('Smoke Screen in a chase: the heat drops a star, the cars behind lose sight
     const out = { tier0: g.police.tier, cars: g.police.chasing };
     const cursor0 = g.particles.smoke.cursor;
     out.used = g.useAbility('smoke');
-    out.toast = toast();
+    out.toast = said();
     out.tier = g.police.tier;
     out.blind = g.police.blind;
     out.charge = d.charge.smoke;
@@ -107,7 +107,7 @@ test('Smoke Screen in a chase: the heat drops a star, the cars behind lose sight
   expect(r.tier0).toBe(2);
   expect(r.cars).toBeGreaterThan(0);
   expect(r.used).toBe(true);
-  expect(r.toast).toContain('Smoke Screen');
+  expect(r.toast).toContain('They’ve lost sight of you');
   expect(r.tier).toBe(1);
   expect(r.blind).toBeGreaterThan(4.9);
   expect(r.charge).toBe(0);
@@ -139,7 +139,7 @@ test('Second Wind fills a third with each delivery and steadies frayed nerves wh
   await startRun(page, { loot: false });
   await past(page, 5);
   const r = await page.evaluate((KIT) => {
-    const { g, d, toast } = eval(KIT);
+    const { g, d } = eval(KIT), said = () => g.hud.log.join(' | ');
     g._buildAbilities();
     d.charge.wind = 0;
     const deliver = () => {
@@ -148,12 +148,12 @@ test('Second Wind fills a third with each delivery and steadies frayed nerves wh
       g._deliver(o, { grade: 'B', tainted: false });
       return +d.charge.wind.toFixed(3);
     };
-    const out = { fills: [deliver(), deliver(), deliver()], toast: toast() };
+    const out = { fills: [deliver(), deliver(), deliver()], toast: said() };
     g._updateAbilities();
     out.chip = document.querySelector('#abilities [data-id="wind"]').textContent;
     d.nerves = 0.95;
     out.steady = g.useAbility('wind');
-    out.steadyToast = toast();
+    out.steadyToast = said();
     d.nerves = 0.2;
     out.used = g.useAbility('wind');
     out.nerves = d.nerves;
