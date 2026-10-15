@@ -135,10 +135,13 @@ test('drop boxes: left at a site (asked once a day there), a piece a day up to f
     out.drawn = g.salvage.mesh.count - g.salvage.sites.length;
     const a = g.salvage.mesh.instanceMatrix.array;
     out.shown = [0, 1, 2].map((b) => { const o = (g.salvage.sites.length + b) * 16; return Math.hypot(a[o], a[o + 1], a[o + 2]) > 0; });
+    g.renderFrame();
+    const info = window.shine.renderInfo(), i0 = window.__info0;
+    out.flat = { programs: info.programs - i0.programs, geometries: info.geometries - i0.geometries, lights: info.lights, calls: info.calls < 60 };
     return out;
   }, KIT);
   expect(left.boxes).toEqual(await page.evaluate(() => window.__sites.slice(0, 3).map((s) => s.id)));
-  expect(left).toMatchObject({ aboard: 0, site: 'salvage', radar: 3, drawn: 3, shown: [true, true, true] });
+  expect(left).toMatchObject({ aboard: 0, site: 'salvage', radar: 3, drawn: 3, shown: [true, true, true], flat: { programs: 0, geometries: 0, lights: 12, calls: true } });
   // A fourth box aboard: no room for it (three at most), so the site just opens.
   await page.evaluate(async (KIT) => {
     const { g, clear } = eval(KIT);
@@ -181,6 +184,7 @@ test('drop boxes: left at a site (asked once a day there), a piece a day up to f
   await startRun(page, { loot: false });
   const kept = await page.evaluate(() => {
     const g = window.shine.game, d = g.dredge.data;
+    window.__sites = g.salvage.sites.filter((s) => !s.story && !s.deep && !s.night).slice(0, 4);
     return { boxes: d.boxes.length, same: g.salvage.boxes === d.boxes, radar: g._mapMarkers().filter((m) => m.kind === 'box').length };
   });
   expect(kept).toEqual({ boxes: 3, same: true, radar: 3 });
@@ -193,13 +197,9 @@ test('drop boxes: left at a site (asked once a day there), a piece a day up to f
     pack();
     const out = { boxes: d.boxes.map((b) => b.site), box: [...g.trunk.pieces.values()].some((p) => p.kind === 'dropbox') };
     clear();
-    g.renderFrame();
-    const info = window.shine.renderInfo(), i0 = window.__info0;
-    out.flat = { programs: info.programs - i0.programs, geometries: info.geometries - i0.geometries, lights: info.lights };
     return out;
   }, KIT);
   expect(back.boxes).toEqual(await page.evaluate(() => [window.__sites[0].id, window.__sites[2].id]));
   expect(back.box).toBe(true);
-  expect(back.flat.lights).toBe(12);
   expect(problems).toEqual([]);
 });

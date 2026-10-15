@@ -617,7 +617,7 @@ export const CONFIG = {
         { id: 'ice', name: 'Block of ice', short: 'Ice', tier: 'low', gear: true, color: 'cream', accent: 'slate', value: 15, weight: 0, cells: [[0, 0]] },
         { id: 'lantern', name: 'Storm lantern', short: 'Lantern', tier: 'low', gear: true, accent: 'cream', value: 30, weight: 0, cells: [[0, 0], [0, 1]] },
         { id: 'grapple', name: 'Grappling hook', short: 'Hook', tier: 'mid', gear: true, value: 55, weight: 0, cells: [[0, 0], [1, 0], [0, 1]] },
-        { id: 'dropbox', name: 'Drop box', short: 'Box', tier: 'low', gear: true, value: 40, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+        { id: 'dropbox', name: 'Drop box', short: 'Box', tier: 'low', gear: true, value: 40, weight: 0, cells: [[0, 0], [1, 0]] },
         // Brought up from the shallows' sunk wrecks only (`deep`: never a market day's pick).
         { id: 'bell', name: 'Ship’s bell', short: 'Bell', tier: 'high', deep: true, accent: 'slate', value: 120, weight: 0, cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
         // Imported off Rum Row (chapter 7): contraband like shine, sold at the speakeasies,
