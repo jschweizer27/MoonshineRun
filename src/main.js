@@ -13,6 +13,7 @@ import { loadSettings, saveSettings, keyLabel } from './settings.js';
 import { Environment } from './environment.js';
 import { showLedger, showNotebook, showMarket, showSlots, showBarn, showStill, showSalvage, showEnding, showBrewery, playDialog, money, supplyPrice } from './screens.js';
 import { Salvage, payout, rareFind } from './salvage.js';
+import { isNight, dawnHour, duskHour } from './hours.js';
 import { createRng } from './rng.js';
 import { Police } from './police.js';
 import { Railway, RAILWAY, inWindow } from './railway.js';
@@ -1105,7 +1106,8 @@ class Game {
     if (this.railway.update(this.env.hour, this.camera.position) === 'arrived' && Math.hypot(p.x - this.railway.train.position.x, p.z - this.railway.train.position.z) < 400) this.audio.whistle?.();
     const hour0 = this.env.hour;
     this.env.update(dt, this.camera.position);
-    if (hour0 < 6 && this.env.hour >= 6) this._dawn();
+    const dawn = dawnHour(this.env.winter);
+    if (hour0 < dawn && this.env.hour >= dawn) this._dawnOnce();
     const county = this.world.inCounty(p), water = this.env.winter ? 0 : this.env.wet;   // (snow throws no spray)
     this.feel.update(dt, {
       brake: Math.max(0, -(input.throttle || 0)), handbrake: !!input.handbrake, wet: water,
@@ -1128,6 +1130,7 @@ class Game {
   // Act II's winter (CONFIG.dredge.winter): snow for rain, the county frosted, icy nights.
   _applyWinter() {
     const on = (this.dredge.data.chapter || 0) >= CONFIG.dredge.winter.from;
+    this.salvage.winter = on;                       // (the night sites keep winter's hours)
     if (on === this.env.winter) return;
     this.env.setWinter(on);
     this.world.setWinter(on);
@@ -1205,7 +1208,7 @@ class Game {
   }
 
   // ---------- The law ----------
-  _night(h = this.env.hour) { const [a, b] = CONFIG.dredge.police.checkpoint.hours; return h >= a || h < b; }
+  _night(h = this.env.hour) { return isNight(h, this.env.winter); }
 
   // Doc Wexler's dispensary deals by day once his licence is in (his side story).
   _byDay(who) { return who === 'wexler' && !!this.dredge.data.tools.prescriptions; }
@@ -1399,17 +1402,26 @@ class Game {
       .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
   }
 
-  // Game hours pass at once (work at a site): the save's clock and the hour together, and
-  // dawn if it comes in them.
+  // Game hours pass at once (work at a site, a sleep): the save's clock and the hour
+  // together, and dawn (the season's: hours.js) if it comes in them.
   _passHours(hours) {
     if (!hours) return;
-    const h0 = this.env.hour;
+    const h0 = this.env.hour, dawn = dawnHour(this.env.winter);
     passTime(this.dredge.market, hours);
     this.env.hour = (h0 + hours) % 24;
     this.env.update(0, this.camera.position);
     this.hud.setClock(this._clockText());
-    if (h0 < 6 && h0 + hours >= 6) this._dawn();
-    else if (h0 >= 6 && h0 + hours >= 30) this._dawn();
+    if (h0 < dawn && h0 + hours >= dawn) this._dawnOnce();
+    else if (h0 >= dawn && h0 + hours >= dawn + 24) this._dawnOnce();
+  }
+
+  // Dawn, once a day: winter's comes an hour later, so a winter that starts between the two
+  // mustn't bring a second.
+  _dawnOnce() {
+    const day = dayOf(this.dredge.market);
+    if (this._dawnDay === day) return;
+    this._dawnDay = day;
+    this._dawn();
   }
 
   // A lore scrap (lore.js) at a site worked well after dark: the notebook's LETTERS (with the
@@ -1446,7 +1458,8 @@ class Game {
   _nerves(dt, night) {
     if (!OPTIONS.time) return;
     const N = CONFIG.dredge.nerves, d = this.dredge.data, h = dt * this.env.hoursPerSecond, was = d.nerves ?? 1;
-    const drain = night ? N.drain * Math.max(0, 1 - N.lamps * this.dredge.level('lamps')) * (this.lightsOff ? N.dark : 1) : -N.day;
+    // (a winter night is longer, so each hour of it wears a little less: CONFIG.dredge.winter.drain)
+    const drain = night ? N.drain * Math.max(0, 1 - N.lamps * this.dredge.level('lamps')) * (this.lightsOff ? N.dark : 1) * (this.env.winter ? CONFIG.dredge.winter.drain : 1) : -N.day;
     this._setNerves(was - h * drain);
     // Frayed nerves play tricks: Bureau cars on the radar that aren't there, a siren that
     // isn't, and the wheel won't sit still (step()).
@@ -1984,10 +1997,11 @@ class Game {
   // followed step's own hours come round (the midnight freight, the courthouse by morning,
   // the bank by day...). [{ id, name, text, to }]
   _sleeps() {
-    const h = this.env.hour, dusk = CONFIG.dredge.police.checkpoint.hours[0], out = [];
+    // (the season's dusk and dawn: hours.js)
+    const h = this.env.hour, dusk = duskHour(this.env.winter), dawn = dawnHour(this.env.winter), out = [];
     const { step } = this._followed(), win = step?.order?.window || step?.window;
-    if (h >= 6 && h < dusk - 0.25) out.push({ id: 'dusk', name: 'Sleep till dusk', text: `Till ${clockAt(dusk)}, when the night’s work starts.`, to: dusk });
-    else if (h >= dusk - 0.25 || h < 5.75) out.push({ id: 'morning', name: 'Sleep till morning', text: 'Till 06:00. A night’s sleep steadies the nerves.', to: 6 });
+    if (h >= dawn && h < dusk - 0.25) out.push({ id: 'dusk', name: 'Sleep till dusk', text: `Till ${clockAt(dusk)}, when the night’s work starts.`, to: dusk });
+    else if (h >= dusk - 0.25 || h < dawn - 0.25) out.push({ id: 'morning', name: 'Sleep till morning', text: `Till ${clockAt(dawn)}. A night’s sleep steadies the nerves.`, to: dawn });
     const till = win && (((win[0] - h) % 24) + 24) % 24;
     if (win && till > 0.25 && !out.some((n) => n.to === win[0]) && !inWindow(h, win)) {
       out.push({ id: 'window', name: `Sleep till ${clockAt(win[0])}`, text: `Till ${clockAt(win[0])}. ${step.text.split(' (')[0]}.`, to: win[0] });
@@ -1996,7 +2010,7 @@ class Game {
   }
 
   // Sleep: the save's clock and the hour move on together (orders due before then go late,
-  // after a warning; past 06:00 it's a new day). Returns whether Otto slept.
+  // after a warning; past dawn it's a new day). Returns whether Otto slept.
   async sleep(id) {
     const nap = this._sleeps().find((x) => x.id === id), M = this.dredge.market;
     if (!nap) return false;
@@ -2283,7 +2297,7 @@ class Game {
     const d = this.dredge.data, clock = this.dredge.market.clock;
     if (d.orders.filter((o) => !o.story).length >= CONFIG.dredge.contracts.book || d.orders.some((o) => o.id === offer.id)) return false;
     // Shine is handed over after dark, by the next dawn; goods within their hours.
-    d.orders.push({ ...offer, due: offer.night ? nextDawn(clock) : clock + offer.hours });
+    d.orders.push({ ...offer, due: offer.night ? nextDawn(clock, this.env.winter) : clock + offer.hours });
     // Taken offers don't come back; only today's and yesterday's are worth remembering.
     const day = dayOf(this.dredge.market);
     for (const id of Object.keys(d.taken)) if (Number(id.split('-')[0]) < day - 1) delete d.taken[id];

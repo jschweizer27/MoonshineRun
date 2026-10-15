@@ -170,6 +170,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   half the shine, no fine); each dawn they pick salvage sites clean (seeded by the day). The
   Black Car (`CONFIG.dredge.nerves.blackCar`): a phantom behind the truck on the barest nerves.
   A story order's `spot` can be any `world.towson` place (`bankfront`).
+- The night's hours (`src/hours.js`, stage 16): `isNight(h, winter)`, `duskHour` / `dawnHour`,
+  `nextDawn`, `daylightAt`. Summer is `police.checkpoint.hours` (19:30–06:00), winter
+  `winter.night` (17:30–07:00). `main._night`, `salvage.status` (`salvage.winter`),
+  `env.daylight` and the sun, the dawn trigger (`_dawnOnce`: one dawn a day), `_passHours`,
+  `_sleeps` and `contracts.nextDawn` all ask it; `market.dayOf` still turns at midnight and
+  `nightOf` at noon. `scripts/progress.mjs` follows the season too.
 - Winter (v5 stage 14, from `CONFIG.dredge.winter.from`, Act II): `main._applyWinter` (on
   load and in `_chapters`) sets `env.setWinter` (the rain's colour and fall: snow; grip:
   `effects` takes `winter.ice` at full dark, rain half as slick) and `world.setWinter` (the

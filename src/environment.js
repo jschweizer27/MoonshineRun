@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { daylightAt, dawnHour, duskHour } from './hours.js';
 
 // Day/night cycle and weather. One in-game day passes in ~16 real minutes, starting at
 // 9:30 PM. Rain makes the cobbles slick; fog closes in. The night palette lives in
@@ -53,8 +54,8 @@ export class Environment {
     this._dropSpeed[i] = 28 + Math.random() * 10;
   }
 
-  // 0 at night, 1 at full day.
-  get daylight() { return smooth(5.5, 7.5, this.hour) * (1 - smooth(17.5, 19.5, this.hour)); }
+  // 0 at night, 1 at full day, by the season's hours (hours.js: winter's days are short).
+  get daylight() { return daylightAt(this.hour, this.winter); }
 
   get clock() {
     const h = Math.floor(this.hour), m = Math.floor((this.hour - h) * 60 / 15) * 15;
@@ -118,7 +119,9 @@ export class Environment {
     w.hemi.color.setHex(L.ambientSky).lerp(HEMI_DAY, d);
     w.moon.intensity = (L.moonIntensity + 2.4 * d) * (1 + L.countyNight.moon * lift);
     w.moon.color.setHex(L.moon).lerp(SUN, d);
-    const sunAngle = ((this.hour - 6) / 12) * Math.PI;   // sun by day, moon by night
+    // Sun by day, moon by night: across the summer's twelve hours from six, or winter's
+    // shorter day from its dawn to its dusk.
+    const sunAngle = this.winter ? ((this.hour - dawnHour(true)) / (duskHour(true) - dawnHour(true))) * Math.PI : ((this.hour - 6) / 12) * Math.PI;
     w.lightDir.set(Math.cos(sunAngle) * 220, 120 + Math.abs(Math.sin(sunAngle)) * 160, -90).normalize();
     w.sky?.set({ horizon: this._col, daylight: d, dusk, fog: this.fog, wet: this.wet, lightDir: w.lightDir });
 

@@ -102,3 +102,48 @@ test('COURT a side story in the notebook: its contact posts an order at your pac
   expect(f.objective).toContain('Widow Carroll');
   expect(problems).toEqual([]);
 });
+
+test('winter days are short: night from 17:30 to 07:00 for the Bureau, the night sites, the orders, the light and the bunk; summer keeps its hours; one dawn a day', async ({ page }) => {
+  const problems = await openGame(page);
+  await startRun(page, { loot: false });
+  const summer = await page.evaluate(async () => {
+    const g = window.shine.game, { isNight } = await import('/src/salvage.js');
+    const light = (h) => { g.env.hour = h; return +g.env.daylight.toFixed(2); };
+    return { night: [g._night(17.6), g._night(19.6), g._night(6.5)], sites: [isNight(17.6), isNight(6.5)], light: [light(17.5), light(19.5)] };
+  });
+  expect(summer).toEqual({ night: [false, true, false], sites: [false, false], light: [1, 0] });
+  await past(page, 5);
+  const r = await page.evaluate(async (KIT) => {
+    const { g, d, step, clear } = eval(KIT);
+    step(); clear(); step(); clear();
+    const { nextDawn } = await import('/src/contracts.js');
+    const light = (h) => { g.env.hour = h; return +g.env.daylight.toFixed(2); };
+    const out = {
+      winter: g.env.winter, night: [g._night(17.6), g._night(6.5), g._night(7.1), g._night(16)],
+      sites: [g.salvage.winter, g.salvage.status({ night: true, id: 'site:x' }, 999, 18), g.salvage.status({ night: true, id: 'site:x' }, 999, 7.5)],
+      light: [light(17.5), light(12)], due: nextDawn(30, true) % 24,
+    };
+    // The glyph: the moon by half past five.
+    g.env.hour = 17.5; window.shine.step(0.05);
+    out.glyph = document.getElementById('clock').textContent.slice(0, 1);
+    // Sleep till morning wakes at seven, with one dawn.
+    g.env.hour = 23; d.market.clock = Math.floor(d.market.clock / 24) * 24 + 23;
+    let dawns = 0; const was = g._dawn.bind(g); g._dawn = () => { dawns++; was(); };
+    const slept = await g.sleep('morning');
+    clear();
+    out.sleep = { slept, hour: g.env.hour, dawns };
+    // A second pass over seven the same day brings no second dawn.
+    g._passHours(0.01); g.env.hour = 6.9; g._passHours(0.2);
+    out.again = dawns;
+    return out;
+  }, KIT);
+  expect(r.winter).toBe(true);
+  expect(r.night).toEqual([true, true, false, false]);
+  expect(r.sites).toEqual([true, 'ok', 'day']);
+  expect(r.light).toEqual([0, 1]);
+  expect(r.due).toBe(7);
+  expect(r.glyph).toBe('☾');
+  expect(r.sleep).toEqual({ slept: true, hour: 7, dawns: 1 });
+  expect(r.again).toBe(1);
+  expect(problems).toEqual([]);
+});
