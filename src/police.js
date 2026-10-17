@@ -120,7 +120,9 @@ export class Police {
     this.evade = 0;
     this.bust = 0;
     this.contact = false;
-    this.checkpoint.handled = false;
+    // (a bust waived at the checkpoint, or Vail's men gone, with the truck still standing in
+    // it: it's been searched; it's searched again only once it's driven on)
+    this.checkpoint.handled = !!this._inside;
     this._rbTimer = 4;
     this.hold = 0;
     this.quiet = false;
@@ -140,7 +142,7 @@ export class Police {
       this.hold = 0;
       events.push(this.heat > 0 ? { type: 'tier', tier: this.tier, up: false } : { type: 'clear' });
       this._setPursuers(p);
-      if (!this.heat) this.contact = false;
+      if (!this.heat) { this.contact = false; this.quiet = false; }
     }
     return events;
   }
@@ -367,7 +369,7 @@ export class Police {
           this.evade = 0;
           events.push(this.heat > 0 ? { type: 'tier', tier: this.tier, up: false } : { type: 'clear' });
           this._setPursuers(p);
-          if (!this.heat) this.contact = false;
+          if (!this.heat) { this.contact = false; this.quiet = false; }      // (Vail's men shaken: the Bureau's lamps again)
         }
       }
     }

@@ -258,6 +258,27 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   colliders: `world.knockLamps` tips them over (instance matrices only) and `standLamps`
   puts them back at dawn (`main._dawn`, which also shows the night's take and saves).
   Deliveries end on a handoff card (`main._handoff`, `story.js THANKS`).
+- Stage 17 (the bug hunt's fixes): pieces handed to the trunk go through `main._give(kinds)`,
+  kept in the save (`d.pending`) until each is packed or left (the trunk's onClose) and
+  reopened by `start()` after a reload; `_room(kinds)` counts what fits, so the hollow, the
+  launch and a drop box take only that. One dawn a day is the save's (`d.once.dawn`);
+  `_passHours` finds dawn on the clock. A night site counts by the night
+  (`salvage.nightKey`). In a chase (`_chased()`) the market, barn, speakeasy and salvage
+  stops wait (`_loseThemFirst`). `police.reset` keeps the checkpoint `handled` while the
+  truck stands in it; `quiet` clears when the heat does. `hud.covered` holds news while
+  paused too. A kind's SELL keeps back what orders and the story need; a lost item's refill
+  comes `LOST_REFILLS` times a step (chapters.js). Gear isn't cargo (`_cargo()`). Braun's
+  sells at its stock's own quality (`d.braunsQ`) and refuses a tainted blend.
+  `contracts.progress` grades every kind of shine an order wants (`kindGrade`: imported is
+  A). `offersFor`'s `court` adds the courted contact's order beside the chapter's.
+  `DredgeCareer.load` gives an older save its closed chapters' tools, clues and lessons,
+  fills in steps added ahead of done ones, maps v4 ranks to their abilities, and repairs
+  chapter 8's raid; `loadSettings` drops gone actions and never gives a taken key to a new
+  one. A nap restores nerves by `nerves.sleepHours`. Open story orders take their step's
+  terms on load (`_storyOrders`). A chase paused is saved (`d.chase`), and a page closed on
+  it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
+  its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
+  dialog closed under it still settles.
 - Stage 16c: charged abilities (`CONFIG.dredge.abilities` with `charge: { by, full }`):
   `d.charge` (0..1, saved), filled by `main._charge(id, amount)` (Smoke Screen in
   `_tickAbilities(dt)`: metres after dark with shine aboard; Second Wind in `_deliver`),

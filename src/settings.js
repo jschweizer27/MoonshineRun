@@ -71,7 +71,11 @@ export const DEFAULT_SETTINGS = {
 
 export function loadSettings() {
   const s = loadJSON(KEY, DEFAULT_SETTINGS);
-  s.bindings = { ...DEFAULT_BINDINGS, ...(s.bindings || {}) };
+  // Saved keys win; an action that's gone is dropped; a new action's default key is left off
+  // when the player already gave that key to something else (no key fires two actions).
+  const saved = Object.fromEntries(Object.entries(s.bindings || {}).filter(([a, keys]) => DEFAULT_BINDINGS[a] && Array.isArray(keys)));
+  const taken = new Set(Object.values(saved).flat());
+  s.bindings = Object.fromEntries(Object.keys(DEFAULT_BINDINGS).map((a) => [a, saved[a] ?? DEFAULT_BINDINGS[a].filter((k) => !taken.has(k))]));
   if (s.reducedMotion === null) s.reducedMotion = prefersReducedMotion();
   return s;
 }

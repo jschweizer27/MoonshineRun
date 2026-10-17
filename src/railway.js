@@ -5,8 +5,8 @@ import { CONFIG } from './config.js';
 // stands at the Glyndon siding every night in its hours (CONFIG.dredge.story.freight.window):
 // chapter 3, "The Western Line" (chapters.js). The track is one instanced mesh (sleepers
 // and rails), the train another (loco, tender, boxcars and the guard's van, boxes with a
-// colour each); both hide when the camera is far off. The train rolls in from the north at
-// the start of its hours and on south at the end, and while it stands a collider keeps the
+// colour each); both hide when the camera is far off. The train rolls in from the north
+// just before its hours and on south just after, and while it stands a collider keeps the
 // truck off it. It's built away (not standing) at boot, so nothing placed then depends on
 // the hour.
 export const RAILWAY = {
@@ -107,9 +107,11 @@ export class Railway {
 
   // Each step: the train's place by the clock (`hour`), shown only near the camera. Returns
   // 'arrived' when it pulls in (for the whistle), else null.
+  // (it rolls in the `SLIDE` before its hours and out the `SLIDE` after, so it stands at the
+  // siding for all of them: what the loading and the van go by)
   update(hour, cam) {
-    const W = CONFIG.dredge.story.freight.window, len = (W[1] - W[0] + 24) % 24;
-    const into = (hour - W[0] + 24) % 24;
+    const W = CONFIG.dredge.story.freight.window, len = (W[1] - W[0] + 24) % 24 + 2 * SLIDE;
+    const into = (hour - W[0] + SLIDE + 24) % 24;
     let offset = -1e4, event = null;
     if (into < len) {
       offset = into < SLIDE ? -(1 - into / SLIDE) * 180 : into > len - SLIDE ? ((into - (len - SLIDE)) / SLIDE) * 180 : 0;

@@ -375,9 +375,11 @@ export const choiceOpen = (d) => (d.chapter || 0) >= CHAPTERS.length && !d.endin
 
 // What the current step needs and the player has lost (its `lost`, see above), or null.
 // `have`: what's on hand, { kind: count } (the trunk and the stash, brew.js onHand).
+// (three times a step at most: a bust or a crash costs it, selling it doesn't mint more)
+export const LOST_REFILLS = 3;
 export function lostNow(d, have) {
   const { step } = current(d);
-  return step?.lost && have && step.lost.when(d, have) ? step.lost : null;
+  return step?.lost && have && (d.once?.[`lost:${step.id}`] || 0) < LOST_REFILLS && step.lost.when(d, have) ? step.lost : null;
 }
 
 // The story sites open now: { [site]: { night, window } } for the current step, if it has

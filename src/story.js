@@ -171,7 +171,7 @@ export const TRUSTED = {
   healy: 'The patrolman on my corner? He’s the Sheriff’s nephew. Small county, Otto. Smaller than you think.',
   banks: 'Rich men talk when the band plays loud. One of them laughed about a brewery fire like it was a joke he paid for.',
   wexler: 'I write prescriptions for half the Alliance. Temperance by day, my patients by night.',
-  feld: 'Somebody pawned a brass key with “Braun & Sons” on the bow. I kept it back for you. No charge.',
+  feld: 'The man who pawned that brass key came back asking. I told him I sold it to a fellow from Philadelphia. No charge, Otto.',
   carroll: 'My husband sold grain to your father. Fair man. The Jockey’s been sniffing round my land too. Be careful of him.',
   ridgely: 'The Harrow estate’s been buying up every farm along the valley. Every one but yours.',
   pruitt: 'Your father’s still was the best in the valley, and I taught him. Now I’ll teach you the rest.',

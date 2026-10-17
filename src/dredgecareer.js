@@ -39,6 +39,9 @@ const DEFAULT = {
   hollow: 0,                 // crates of Corn Shine waiting at the hidden still (chapter 8 on)
   brauns: {},                // Braun's cellar stock: kind -> crates (it sells some each dawn)
   boxes: [],                 // drop boxes left at salvage sites: [{ site, since }] (salvage.boxFill)
+  pending: [],               // pieces handed over but not yet packed (main._give), kinds in order
+  chase: null,               // a chase the game was paused (and maybe closed) on: { vail, x, z } (main._chaseQuit)
+  braunsQ: {},               // the quality Braun's stock was put down at, by kind (it sells at that)
   charge: {},                // a charged ability's charge, 0..1 (CONFIG.dredge.abilities `charge`)
   codex: {},                 // kind -> { n: found, best: best price } (codex.js)
   arcs: {},                  // side story id (arcs.js) -> { open, done }
@@ -111,7 +114,8 @@ export class DredgeCareer {
     d.orders = Array.isArray(d.orders) ? d.orders : [];
     if (d.contract) { d.orders.push(d.contract); delete d.contract; }
     d.orders = d.orders.filter((o) => o && o.who && o.wants && typeof o.x === 'number');
-    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore', 'brauns']) d[k] = { ...(d[k] || {}) };
+    for (const k of ['trust', 'delivered', 'scenes', 'best', 'steps', 'opened', 'clues', 'tools', 'sites', 'stepTimes', 'arcs', 'once', 'codex', 'lore', 'brauns', 'braunsQ']) d[k] = { ...(d[k] || {}) };
+    d.pending = (Array.isArray(d.pending) ? d.pending : []).filter((k) => KINDS[k]).slice(0, 12);
     d.hollow = Math.max(0, Math.floor(Number(d.hollow) || 0));
     d.charge = Object.fromEntries(Object.entries(d.charge || {}).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => [k, Math.max(0, Math.min(1, v))]));
     d.boxes = (Array.isArray(d.boxes) ? d.boxes : []).filter((b) => b && typeof b.site === 'string' && Number.isFinite(b.since)).slice(0, CONFIG.dredge.boxes.max);
@@ -125,9 +129,31 @@ export class DredgeCareer {
     d.ending = ENDINGS[d.ending] ? d.ending : null;
     // A save that chose its ending before the later chapters came has finished the story.
     if (d.ending) d.chapter = CHAPTERS.length;
-    // Reputation and ranks are gone (trust and tools now): a recipe brewed under them stays learned.
+    // Reputation and ranks are gone (trust and tools now): what a rank gave stays Otto's (the
+    // Runner's Lead Foot, the Brewer's Sweet Talk and Rye, the Bootlegger's Lager), as does a
+    // recipe brewed under them.
+    const rank = Math.floor(Number(d.rank) || 0);
+    if (rank >= 2) Object.assign(d.tools, { leadfoot: true }), d.flags['gift:orourke'] = true;
+    if (rank >= 3) { Object.assign(d.tools, { sweet: true }); Object.assign(d.flags, { 'gift:abernathy': true, 'gift:kessler': true, 'learned:rye': true }); }
+    if (rank >= 4) d.flags['learned:lager'] = true;
     delete d.rep; delete d.rank;
     for (const r of ['rye', 'lager']) if (d.best[r]) d.flags[`learned:${r}`] = true;
+    // A save from before a chapter changed: the chapters it has closed give what they give now
+    // (their tools, what their steps teach), and a step added since ahead of one it has done is
+    // done too (else the story would go back for it).
+    CHAPTERS.forEach((c, i) => {
+      if (i < d.chapter) {
+        if (c.tool) d.tools[c.tool.id] = true;
+        for (const st of c.steps) { d.steps[st.id] = true; if (st.learn) d.flags[`learned:${st.learn}`] = true; }
+        if (c.clue) d.clues[c.clue.id] = true;
+      } else if (i === d.chapter) {
+        const last = c.steps.map((st) => !!d.steps[st.id]).lastIndexOf(true);
+        c.steps.forEach((st, k) => { if (k < last && !d.steps[st.id]) { d.steps[st.id] = true; if (st.learn) d.flags[`learned:${st.learn}`] = true; } });
+      }
+    });
+    // Chapter 8's raid, from a save that reloaded under its cards before the trap was set:
+    // Otto got home and away.
+    if (d.steps.raid && !d.flags['ambush:raid'] && !d.flags['escaped:raid']) Object.assign(d.flags, { 'ambush:raid': true, 'escaped:raid': true });
     if (!Number.isFinite(d.market.clock)) d.market.clock = DEFAULT.market.clock;
     // Bribery waits on chapter 4 now; a save whose Sheriff already took envelopes keeps it.
     if (d.flags.bribery == null && (d.trust.sheriff || 0) >= CONFIG.dredge.contracts.trustPer * 3) d.flags.bribery = true;
