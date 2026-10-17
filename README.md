@@ -406,6 +406,10 @@ npm run build      # dist/ website + dist/Shine.html (single-file offline game)
   `node scripts/playtest.mjs mylabel` (a scripted run from the title screen through every
   system: the markets, the barn and the still, a speakeasy, a contract, a rank and Lead
   Foot, Cockeysville, a road event and the traffic), all in `artifacts/shots/`.
+  `npm run playthrough -- mylabel` has a robot play a new game through to all three endings
+  (add `--police off` for the story's paths alone, `--until 3` to stop after chapter 3) and
+  writes a report of anything it got stuck on to `artifacts/playthrough/mylabel/`; on GitHub
+  it's the manual *Playthrough* workflow.
   `node scripts/economy.mjs 20 0.85` drives a salvage bot for twenty minutes (working each
   site at a score of 0.85) and prints what salvage earns a real minute and the still's makings
   it finds (`node scripts/economy.mjs 20 0.5 0 7`: a fair job, city seed 7; compare a few

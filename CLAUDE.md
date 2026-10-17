@@ -311,6 +311,21 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   bot's rates) for a rusher, a steady and a casual player: minutes per chapter, hours to the
   ending's choice, cash then. Targets: chapter 1 in 45-60 min; the story 9-14 h, 10-15 h with the side stories. The save keeps
   `stepTimes` (play seconds each step was done), shown per chapter in the ledger.
+- The robot playthrough: `npm run playthrough -- <label> [--seed N] [--until C] [--ending
+  deed|paper|crown] [--police off] [--minutes M]`. A bot (`scripts/bot/`: `pilot.js` drives
+  the road graph, `hands.js` plays each screen through its buttons, `brain.js` picks the next
+  errand, `bot.js` runs the loop and the watchdogs) plays a new game from the title screen
+  with the story, the clock, the Bureau, traffic and breakdowns on, reloads the save at each
+  chapter, and takes all three endings from a copy of the save at the choice. It runs in the
+  page (imported from `/scripts/bot/`), stepping the game at 60 Hz. Findings: STUCK (no
+  progress for 4 game days), DEADEND (stopped at a place and nothing opened), STALL (snagged
+  three times on one leg, carried past), SCREEN / CONFIRM (a screen or question it didn't
+  know), STATE (cash below zero), ERROR (page errors), ENDING (not reached). It writes
+  `artifacts/playthrough/<label>/` (`report.md`, `report.json`, a shot a step and a contact
+  sheet) and exits non-zero on any finding. Tell the bot's own bugs (fix them in
+  `scripts/bot/`) from the game's (a failing test, then the fix). About 10 minutes with
+  `--police off`, much longer with the police on; one Playwright run at a time. In CI it's
+  `workflow_dispatch` only (`.github/workflows/playthrough.yml`).
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each
   vertex carries its finish in the `surf` attribute (paint/metal/glass/rubber/wood), so new
   parts need no new material. Its headlight beams are additive cones
