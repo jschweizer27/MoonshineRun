@@ -1464,6 +1464,7 @@ class Game {
     this.audio.setSiren?.(0);
     const h = this.world.home;
     this.player.place(h.stopX, h.stopZ + 14, Math.PI);
+    this.police.away();
     this._barnLeft = false;                          // waking there doesn't open the barn
     this.chase.snap(this.player);
     this.dredge.save();

@@ -393,6 +393,10 @@ export class Police {
     return { events, seen, nearest, touching };
   }
 
+  // The truck taken off the road elsewhere (busted, Otto wakes at the barn): the checkpoint
+  // searches it afresh next time.
+  away() { this._inside = false; this.checkpoint.handled = false; }
+
   // The York Road checkpoint, at night once the story has it up (ctx.checkpoint): stop in it
   // to be searched; drive through with shine aboard and you've run it.
   _checkpoint(dt, player, ctx, events) {
