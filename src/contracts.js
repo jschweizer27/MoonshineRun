@@ -15,6 +15,8 @@ const GRADES = ['C', 'B', 'A'];
 
 export const trustLevel = (points = 0) => Math.max(0, Math.min(5, Math.floor(points / C.trustPer)));
 export const gradeAtLeast = (have, want) => GRADES.indexOf(have) >= GRADES.indexOf(want || 'C');
+// A kind's grade on hand: its blend's, or A for imported liquor.
+export const kindGrade = (kind, blends = {}) => (KINDS[kind]?.imported ? 'A' : blendGrade(blends[kind]));
 
 // The game clock (hours since day 0, midnight) of the next dawn at least `C.dawnMin` hours off.
 export const nextDawn = (clock, winter = false) => dawnAfter(clock, winter, C.dawnMin);
@@ -52,7 +54,7 @@ function roll(salt, day) {
 // day's. `tag`: the focus offer's id letter ('f'; 'c' for a contact Otto courts for a side
 // story, main._courted, so the two never share an id). `exclude`: contacts who post nothing (the Jockey, once he's sold Otto out); a slot
 // that lands on one goes to someone else. Without either, the offers are as they always were.
-export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, tag = 'f', exclude = [], bounty = false } = {}) {
+export function offersFor(day, list, { brewing = false, chapter = 0, trust = {}, home = null, learned = {}, focus = null, focusN = 0, tag = 'f', court = null, courtN = 0, exclude = [], bounty = false } = {}) {
   // Recipes he can brew: the plain one, and those he's been taught.
   const shine = C.shine.filter((k) => {
     const r = CONFIG.dredge.brew.recipes.find((x) => x.id === k);
@@ -102,6 +104,9 @@ export function offersFor(day, list, { brewing = false, chapter = 0, trust = {},
   }
   const wanted = focus && !exclude.includes(focus) && list.find((c) => c.who === focus);
   if (wanted) out.push(offer(`${tag}${focusN}`, wanted));
+  // The contact Otto's courting (the notebook's COURT), while the chapter waits on another.
+  const courted = court && court !== focus && !exclude.includes(court) && list.find((c) => c.who === court);
+  if (courted) out.push(offer(`c${courtN}`, courted));
   // A bounty (once Otto knows odd finds): someone wants a particular odd one, by a day or so,
   // at a collector's price. Last, so the day's other offers stay as they were.
   if (bounty) {
@@ -126,10 +131,12 @@ export function progress(contract, trunk, blends = {}) {
   const have = {};
   for (const p of trunk.pieces.values()) have[p.kind] = (have[p.kind] || 0) + 1;
   const rows = Object.fromEntries(Object.entries(contract.wants).map(([k, n]) => [k, [Math.min(have[k] || 0, n), n]]));
-  const shine = Object.keys(contract.wants).find((k) => KINDS[k].brewed);
-  const grade = shine ? blendGrade(blends[shine]) : null;
-  const gradeOk = !contract.grade || !shine || gradeAtLeast(grade, contract.grade);
-  return { rows, ready: Object.values(rows).every(([h, n]) => h >= n), grade, gradeOk, tainted: !!(shine && blends[shine]?.bad) };
+  // Every kind of shine it wants counts: the lowest grade, and tainted if any blend is (imported
+  // liquor is the genuine article: grade A).
+  const shines = Object.keys(contract.wants).filter((k) => KINDS[k].brewed);
+  const grade = shines.length ? shines.map((k) => kindGrade(k, blends)).reduce((a, b) => (gradeAtLeast(a, b) ? b : a)) : null;
+  const gradeOk = !contract.grade || !shines.length || gradeAtLeast(grade, contract.grade);
+  return { rows, ready: Object.values(rows).every(([h, n]) => h >= n), grade, gradeOk, tainted: shines.some((k) => !KINDS[k].imported && blends[k]?.bad) };
 }
 
 // Hand the goods over: take the wanted pieces out of the trunk.

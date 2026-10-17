@@ -337,12 +337,16 @@ export class Salvage {
       if (open.window && !inWindow(hour, open.window)) return 'closed';
       return open.night && !isNight(hour, this.winter) ? 'day' : 'ok';
     }
-    if (day < this.refillDay(site)) return 'empty';
+    if (this.nightKey(site, day, hour) < this.refillDay(site)) return 'empty';
     if (site.night && !isNight(hour, this.winter)) return 'day';
     return 'ok';
   }
 
-  worked(site, day) { this.state[site.id] = day; }
+  // A night site counts by the night (its small hours belong to the evening before, as
+  // market.nightOf), so one worked at 23:30 isn't back at midnight.
+  nightKey(site, day, hour = 12) { return site.night && hour < 12 ? day - 1 : day; }
+
+  worked(site, day, hour = 12) { this.state[site.id] = this.nightKey(site, day, hour); }
 
   // The site whose stop point the truck is inside, or null: an open story site first, if
   // one's stop overlaps a regular site's.

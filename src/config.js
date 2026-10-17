@@ -306,12 +306,13 @@ export const CONFIG = {
     // game hour; less a level of Spotlamps by `lamps`, more with the headlamps off by `dark`),
     // and so does being spotted or a hard crash (`spotted`, `crash` past `crashAt` m/s).
     // Daylight gives them back (`day` a game hour), dawn `dawn`, and a sleep at the barn all
-    // of it. Below each of `words`' marks the clock says so. Frayed nerves play tricks:
+    // of it once it's `sleepHours` long (a shorter nap, its share). Below each of `words`'
+    // marks the clock says so. Frayed nerves play tricks:
     // `phantoms` (below `below`: radar blips that aren't there, one every `every` seconds,
     // `range` metres off, for `lasts` s) and below `frayed` a `siren` that isn't there and a
     // `wobble` at the wheel (steer).
     nerves: {
-      drain: 0.08, lamps: 0.15, dark: 1.5, spotted: 0.08, crash: 0.04, crashAt: 14, day: 0.04, dawn: 0.25,
+      drain: 0.08, lamps: 0.15, dark: 1.5, spotted: 0.08, crash: 0.04, crashAt: 14, day: 0.04, dawn: 0.25, sleepHours: 6,
       words: [[0.3, 'Frayed'], [0.5, 'Rattled'], [0.7, 'Uneasy']],
       phantoms: { below: 0.5, every: [6, 14], range: [110, 240], lasts: 3 }, frayed: 0.3,
       siren: { every: [25, 50], lasts: 1.6, level: 0.25 }, wobble: 0.08,

@@ -231,7 +231,7 @@ Enter, the D-pad and A/B, or touch.
    down on the night roads (faster with the headlamps off, slower with spotlamps), and the
    clock says (and colours) when he's Uneasy, Rattled or Frayed. Rattled, the radar shows Bureau cars that
    aren't there; frayed, he hears sirens and the wheel won't sit still. Daylight and dawn
-   give some back; a sleep at the barn all of it. A really hard crash can smash a headlamp
+   give some back; a night's sleep at the barn all of it (a short nap, its share). A really hard crash can smash a headlamp
    or crack the trunk's floor (nothing packs in a cracked cell, and what was there bounces
    out); the barn's garage mends them with the wear. Now and then, working a site after
    dark, Otto finds **papers** tucked in among the salvage: Father's diary, clippings,
@@ -268,9 +268,10 @@ Enter, the D-pad and A/B, or touch.
    - at two, a second car comes and a **roadblock** goes up on your route;
    - at three, every car in the county is after you.
 
-   Get out of their sight to lose them. Boxed in and stopped, you're **busted**: the shine is
+   Get out of their sight to lose them; until you do, markets, the barn, speakeasies and
+   salvage sites won't open for you. Boxed in and stopped, you're **busted**: the shine is
    taken, you pay a fine (a quarter of your cash, at most $750), and you wake at the barn.
-   Quitting to the title with the Bureau on your tail counts as a bust. At night, turn
+   Quitting to the title (or closing the game) with the Bureau on your tail counts as a bust. At night, turn
    the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
    **checkpoint** stands at the York Road gap at night from chapter 3. Stop and they search the trunk; run it
    and they chase you. The **false bottom** upgrade (from chapter 3) hides a couple of crates.

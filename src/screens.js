@@ -98,13 +98,14 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
       if (!n) continue;
       if (!buys(town.id, k.id)) { if (!k.gear) unsold += n; continue; }
       const each = priceOf(town.id, k.id, career.market);
-      const q = quote(town.id, trunk, career.market, k.id);
+      const q = quote(town.id, trunk, career.market, k.id, keep());
       const btn = el('button', { type: 'button', class: 'btn small-btn', 'data-id': k.id, 'data-total': q.total },
-        n === 1 ? `SELL ${money(q.total)}` : `SELL ${n} FOR ${money(q.total)}`);
+        !q.count ? 'SPOKEN FOR' : q.count === 1 ? `SELL ${money(q.total)}` : `SELL ${q.count} FOR ${money(q.total)}`);
+      btn.disabled = !q.count;
       btn.addEventListener('click', () => { onSell(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
-          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}${k.brewed ? ` · grade ${gradeLabel(career.market.blend?.[k.id])}` : ''}`),
+          el('b', {}, `${k.name}${n > 1 ? ` × ${n}` : ''}${k.brewed ? ` · grade ${gradeLabel(career.market.blend?.[k.id], k.id)}` : ''}`),
           ev && ev.town === town.id && ev.kind === k.id ? el('span', { class: 'event-badge' }, `${ev.mult}× TODAY`) : '',
           el('small', {}, `${money(each)} each today (base ${money(k.value)}, ${k.paysAt ? `rare: pays best in ${CONFIG.dredge.towns.find((t) => t.id === k.paysAt).town}` : k.tier})`)), btn));
     }
@@ -209,7 +210,7 @@ export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () =
       take.addEventListener('click', () => { onTake(k.id); render(); });
       body.append(el('div', { class: 'upgrade' },
         el('div', {}, el('i', { class: 'swatch', style: `background:${kindColors(k).main}`, 'aria-hidden': 'true' }),
-          el('b', {}, k.brewed ? `${k.name} · grade ${gradeLabel(d.market.blend?.[k.id])}` : k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
+          el('b', {}, k.brewed ? `${k.name} · grade ${gradeLabel(d.market.blend?.[k.id], k.id)}` : k.name), el('small', {}, `In the trunk: ${n} · In the stash: ${m}`)),
         el('span', { class: 'slot-buttons' }, store, take)));
     }
     // The still: copper coils raise it a level; recipes need their ingredients, and most must
@@ -279,7 +280,8 @@ const TAUGHT = {
 };
 
 // A blend's grade as shown: A, B or C, and "C, tainted" for a bad one.
-const gradeLabel = (bl) => (bl?.bad ? 'C, tainted' : blendGrade(bl));
+// (imported liquor: the genuine article, grade A)
+const gradeLabel = (bl, kind = null) => (KINDS[kind]?.imported ? 'A' : bl?.bad ? 'C, tainted' : blendGrade(bl));
 
 // ---------- The still ----------
 // A batch in three phases (brew.js). The fire: hold STOKE (W / Up / Space, RT or A, or the
@@ -913,7 +915,8 @@ export function playDialog(ui, lines, { reducedMotion = false } = {}) {
       if (++i >= lines.length) done(); else show();
     };
     skip.onclick = done;
-    ui.open('dialog', { onBack: done });
+    // (closed under it, a quit or a test's clean-up: the cards are done all the same)
+    ui.open('dialog', { onBack: done, onClose: () => { clearInterval(typing); next.onclick = skip.onclick = null; resolve(); } });
     show();
   });
 }

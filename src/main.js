@@ -176,14 +176,18 @@ class Game {
     this.input = new Input(this.settings.bindings);
     this.ui = new UI(this.input);
     // News that comes under a screen comes again when the screens close (hud.release).
-    this.hud.covered = () => this.ui.anyOpen;
+    // (and between two screens, paused: a salvage's finds come before its trunk opens)
+    this.hud.covered = () => this.ui.anyOpen || this.state === STATE.PAUSED;
     this.ui.onEmpty = () => this.hud.release();
     this.trunkScreen = new TrunkScreen(this.ui, {
       onDiscard: (k) => this.hud.toast(`Left behind: ${k.name}`, '', 1400),
       onChange: () => { this._updateTrunkPill(); this.dredge.saveTrunk(this.trunk); },
       onClose: () => {
-        // More from a salvage site: the next piece comes straight up to pack.
-        if (this._pending?.length) { this.trunkScreen.open(this.trunk, this._pending.shift()); return; }
+        // More from a salvage site: the next piece comes straight up to pack. (The save keeps
+        // what's still to pack, so a reload doesn't lose it: main._give.)
+        const d = this.dredge.data;
+        if (this._pending?.length) { d.pending = this._pending.slice(); this.dredge.save(); this.trunkScreen.open(this.trunk, this._pending.shift()); return; }
+        if (d.pending?.length) { d.pending = []; this.dredge.save(); }
         if (this._marketRender && this.ui.isOpen('market')) this._marketRender(); else if (!this.ui.anyOpen) this.resume();
       },
     });
@@ -483,7 +487,8 @@ class Game {
       current: () => this.dredge.slot,
       onPlay: (slot) => { this._loadSlot(slot); this.start(); },
       onNew: (slot) => { this.dredge.erase(slot); this._loadSlot(slot); this.start(); },
-      onErase: (slot) => { this.dredge.erase(slot); if (slot === this.dredge.slot) this._loadSlot(slot); this._updateIntroBest(); },
+      // (the slot in use erased: the title behind the menu goes back to a new game's, summer and all)
+      onErase: (slot) => { this.dredge.erase(slot); if (slot === this.dredge.slot) { this._loadSlot(slot); this.resetRun(); } this._updateIntroBest(); },
       onBack: () => { this.ui.close('slots'); this._updateIntroBest(); },
     });
   }
@@ -587,6 +592,7 @@ class Game {
   // is in the trunk carry over from the save.
   resetRun() {
     const s = CONFIG.dredge.spawn;
+    this._telling = null;                // (a card left open on the way out isn't still telling)
     this._syncHour();
     this.player.place(s.x, s.z, s.heading);
     this.minimap.clearRoute();
@@ -613,6 +619,7 @@ class Game {
     }
     this._ambushOn = false;
     this._hijackOn = false;
+    this._chaseQuit();
     this._applyWinter();
     this._updatePassenger();
     this._nightFrom = this._tally();
@@ -656,6 +663,7 @@ class Game {
     this.audio.setActive(true);
     this._applyTouch();
     this.clock.getDelta();
+    this.hud.release();
   }
 
   // START DRIVING / CONTINUE on the title screen. A new game opens with the prologue.
@@ -665,7 +673,29 @@ class Game {
     if (fresh) { this.dredge.data.started = true; this.dredge.data.guide = OPTIONS.hints; this.dredge.save(); }
     this._enterPlaying();
     this._updateGuide();
-    if (fresh) this._story('prologue');
+    // (or the page closed on it: not for a save from before there was one, already on its way)
+    const d = this.dredge.data;
+    if (OPTIONS.story && !d.story.prologue && (fresh || !Object.keys(d.steps).length)) this._story('prologue');
+    // Pieces still to pack when the game was left (a site's, the launch's, the hollow's).
+    else if (this.dredge.data.pending?.length) this._give(this.dredge.data.pending);
+  }
+
+  // Pieces for the trunk, one after another, each to pack or leave: kept in the save until
+  // it's done (the trunk screen's onClose), so a reload can't lose them.
+  _give(kinds) {
+    if (!kinds?.length) return;
+    this.dredge.data.pending = kinds.slice();
+    this.dredge.save();
+    this._pending = kinds.slice(1);
+    this.openTrunk(kinds[0]);
+  }
+
+  // How many of `kinds` (in order) there's room for in the trunk as it's packed now.
+  _room(kinds) {
+    const T = this.trunk, placed = [];
+    for (const k of kinds) { const sp = T.findSpot(k), p = sp && T.place(k, sp.x, sp.y, sp.rot); if (!p) break; placed.push(p.id); }
+    for (const id of placed) T.remove(id);
+    return placed.length;
   }
 
   // ---------- The first run's tips ----------
@@ -677,7 +707,7 @@ class Game {
     if (!this.dredge.data.guide) return '';
     const { step } = this._followed();
     if (step && this._stepGoal(step)) return step.site || this._lost() ? 'Follow the gold route on the radar to the site, and stop beside its sign to work it.' : '';
-    if (this.trunk.count) return 'Follow the gold route on the radar to a ⬢ market, and stop inside its ring to sell.';
+    if (this._cargo()) return 'Follow the gold route on the radar to a ⬢ market, and stop inside its ring to sell.';
     return 'Find salvage: drive to a SALVAGE sign (⊗ on the radar), stop beside it, and work it for what’s there.';
   }
 
@@ -779,6 +809,11 @@ class Game {
     const ids = new Set(want.map((x) => x.step.id)), had = d.orders.length;
     d.orders = d.orders.filter((o) => (!o.story || ids.has(o.story)) && !(d.flags.betrayed && o.who === 'jockey'));
     for (const o of d.orders) if (o.story && o.call == null) o.call = !o.passenger && !Object.keys(o.wants).length;   // (saves from before calls)
+    // (an order taken on an older build: the step's terms as they stand now)
+    for (const { step } of want) {
+      const o = d.orders.find((x) => x.story === step.id), O = step.order;
+      if (o) Object.assign(o, { wants: { ...O.wants }, night: !!O.night, window: O.window || null, pay: O.pay, fragile: !!O.fragile, freight: O.at === 'load' });
+    }
     const added = [];
     for (const { step, arc } of want) if (!d.orders.some((o) => o.story === step.id)) { const o = this._storyOrder(step, arc); d.orders.push(o); added.push(o); }
     if (!added.length && d.orders.length === had) return;
@@ -810,8 +845,10 @@ class Game {
   }
 
   _focus() {
-    const d = this.dredge.data, who = current(d).step?.who, court = !who && this._courted();
-    return court ? { focus: court, focusN: d.delivered[court] || 0, tag: 'c' } : { focus: who, focusN: d.delivered[who] || 0 };
+    const d = this.dredge.data, who = current(d).step?.who, court = this._courted();
+    if (!who) return court ? { focus: court, focusN: d.delivered[court] || 0, tag: 'c' } : { focus: who, focusN: 0 };
+    // (the chapter's contact, and the courted one besides: COURTING always brings an order)
+    return { focus: who, focusN: d.delivered[who] || 0, court: court && court !== who ? court : null, courtN: court ? d.delivered[court] || 0 : 0 };
   }
 
   // The step the banner and the route follow: the side story the notebook follows (d.follow),
@@ -927,12 +964,15 @@ class Game {
     this.dredge.save();
   }
 
+  // (marked played once its cards have shown: a page closed mid-card plays them again)
   async _story(id) {
-    if (!OPTIONS.story || this.dredge.data.story[id]) return;
-    this.dredge.data.story[id] = true;
-    this.dredge.save();
+    if (!OPTIONS.story || this.dredge.data.story[id] || this._telling === id) return;
+    this._telling = id;
     if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
     await playDialog(this.ui, BEATS[id].lines, { reducedMotion: !!this.settings.reducedMotion });
+    this._telling = null;
+    this.dredge.data.story[id] = true;
+    this.dredge.save();
     if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume();
   }
 
@@ -958,6 +998,9 @@ class Game {
     this.state = STATE.PAUSED;
     this.input.playing = false;
     this.input.down.clear();
+    // (a chase paused goes in the save: a page closed on it counts as quitting, resetRun)
+    const p = this.player.position;
+    this.dredge.data.chase = this.police.tier > 0 ? { vail: !!this._hijackOn, x: p.x, z: p.z } : null;
     // The pause menu freezes every sound; a screen over the road (a market, the barn, the
     // trunk, the map, a story card) only hushes the road, so its own sounds play.
     this.audio.setPaused(showMenu ? true : 'hush');
@@ -969,6 +1012,7 @@ class Game {
 
   resume() {
     if (this.state !== STATE.PAUSED) return;
+    this.dredge.data.chase = null;
     this._enterPlaying();
   }
 
@@ -1105,10 +1149,14 @@ class Game {
     this._tickAbilities(dt);
     // The stops: once one opens a screen (the game pauses), the rest wait for the next step,
     // so two never open on one stop.
+    // (in a chase, the places that would hide the load or pass the hours wait: lose them first)
+    const chased = this._chased();
     for (const check of [this._checkPassenger, this._checkContract, this._checkMarket, this._checkBarn, this._checkDrop, this._checkSalvage]) {
       if (this.state !== STATE.PLAYING) break;
+      if (chased && check !== this._checkPassenger && check !== this._checkContract) continue;
       check.call(this);
     }
+    if (chased) this._loseThemFirst();
     this._checkPlace();
     this._checkStory(dt);
     this.debris.update(dt);
@@ -1143,6 +1191,9 @@ class Game {
     const on = (this.dredge.data.chapter || 0) >= CONFIG.dredge.winter.from;
     this.salvage.winter = on;                       // (the night sites keep winter's hours)
     if (on === this.env.winter) return;
+    // Winter coming in the night: an order due by this dawn is due by winter's, an hour on.
+    const shift = dawnHour(on) - dawnHour(!on);
+    for (const o of this.dredge.data.orders) if (o.night && o.due != null && Math.abs((((o.due % 24) + 24) % 24) - dawnHour(!on)) < 1e-6 && o.due > this.dredge.market.clock) o.due += shift;
     this.env.setWinter(on);
     this.world.setWinter(on);
   }
@@ -1312,6 +1363,7 @@ class Game {
   // Hijacked: Vail's men take part of the shine and drive off. No fine, no cell: just gone.
   _hijack() {
     const d = this.dredge.data, shine = [...this.trunk.pieces.values()].filter((p) => KINDS[p.kind].brewed);
+    d.chase = null;
     const n = Math.ceil(shine.length * CONFIG.dredge.rivals.take);
     for (const p of shine.slice(0, n)) this.trunk.remove(p.id);
     this._hijackOn = false;
@@ -1338,9 +1390,23 @@ class Game {
       .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
   }
 
+  // A page closed (or reloaded) on a chase: what quitting on it costs (pause-quit), where it was.
+  _chaseQuit() {
+    const c = this.dredge.data.chase;
+    if (!c) return;
+    const s = CONFIG.dredge.spawn;
+    this.player.place(c.x, c.z, s.heading);
+    if (c.vail) this._hijack(); else this._bust('You left the Bureau on your tail.');
+    // (busted, Otto wakes at the barn; let off or hijacked, the run starts where runs start)
+    const h = this.world.home, p = this.player.position;
+    if (Math.hypot(p.x - h.stopX, p.z - h.stopZ - 14) > 1) this.player.place(s.x, s.z, s.heading);
+    this.chase.snap(this.player);
+  }
+
   // Busted: the shine is taken, a fine paid, and Otto wakes at the barn.
   _bust(how) {
     const P = CONFIG.dredge.police, d = this.dredge.data, C = CONFIG.dredge.contracts;
+    d.chase = null;
     // The fine: a share of the cash, between fineMin and fineMax. Out in the county, a Sheriff
     // who trusts Otto makes it go away, for a price.
     const fine = Math.min(d.cash, Math.max(P.fineMin, Math.min(P.fineMax, Math.round(d.cash * P.fine))));
@@ -1398,6 +1464,7 @@ class Game {
     this.audio.setSiren?.(0);
     const h = this.world.home;
     this.player.place(h.stopX, h.stopZ + 14, Math.PI);
+    this.police.away();
     this._barnLeft = false;                          // waking there doesn't open the barn
     this.chase.snap(this.player);
     this.dredge.save();
@@ -1417,21 +1484,23 @@ class Game {
   // together, and dawn (the season's: hours.js) if it comes in them.
   _passHours(hours) {
     if (!hours) return;
-    const h0 = this.env.hour, dawn = dawnHour(this.env.winter);
+    const h0 = this.env.hour, dawn = dawnHour(this.env.winter), c0 = this.dredge.market.clock;
     passTime(this.dredge.market, hours);
     this.env.hour = (h0 + hours) % 24;
     this.env.update(0, this.camera.position);
     this.hud.setClock(this._clockText());
-    if (h0 < dawn && h0 + hours >= dawn) this._dawnOnce();
-    else if (h0 >= dawn && h0 + hours >= dawn + 24) this._dawnOnce();
+    // Dawn crossed (on the clock, with a hair to spare: a sleep "till morning" adds hours that
+    // land a rounding error short of it).
+    const c1 = this.dredge.market.clock + 1e-6;
+    if (Math.floor((c1 - dawn) / 24) > Math.floor((c0 - dawn) / 24)) this._dawnOnce();
   }
 
   // Dawn, once a day: winter's comes an hour later, so a winter that starts between the two
-  // mustn't bring a second.
+  // mustn't bring a second. (Kept in the save, so another slot or a new game has its own.)
   _dawnOnce() {
-    const day = dayOf(this.dredge.market);
-    if (this._dawnDay === day) return;
-    this._dawnDay = day;
+    const day = dayOf(this.dredge.market), d = this.dredge.data;
+    if (d.once.dawn === day) return;
+    d.once.dawn = day;
     this._dawn();
   }
 
@@ -1540,7 +1609,9 @@ class Game {
     if (d.flags.brauns && d.once.brauns !== day) {
       d.once.brauns = day;
       for (const k of Object.keys(d.brauns)) {
-        while (d.brauns[k] > 0 && sold < O.brauns.nightly) { takings += Math.round(priceOf('drop:0', k, d.market) * O.brauns.cut); d.brauns[k]--; sold++; }
+        // (at the grade it was stocked at: the cellar keeps its own blend, d.braunsQ)
+        const at = { ...d.market, blend: { ...d.market.blend, [k]: { q: d.braunsQ?.[k] ?? d.market.blend[k]?.q ?? 0.6, bad: false } } };
+        while (d.brauns[k] > 0 && sold < O.brauns.nightly) { takings += Math.round(priceOf('drop:0', k, at) * O.brauns.cut); d.brauns[k]--; sold++; }
         if (!d.brauns[k]) delete d.brauns[k];
       }
       if (takings) {
@@ -1587,6 +1658,20 @@ class Game {
       .then(() => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); });
   }
 
+  // A chase on (the Bureau, Vail's men, a story's trap).
+  _chased() { return this.police.tier > 0 || this._hijackOn || this._ambushOn; }
+
+  // Stopped at a market, the barn, a speakeasy or a site with them on Otto's tail: said once.
+  _loseThemFirst() {
+    const p = this.player.position, slow = Math.abs(this.player.speed) <= CONFIG.dredge.market.stopSpeed, h = this.world.home;
+    const at = this._nearestMarket().inside || Math.hypot(h.stopX - p.x, h.stopZ - p.z) < CONFIG.dredge.barn.radius || !!this.salvage.at(p)
+      || this.world.drops.some((x) => Math.hypot(x.x - p.x, x.z - p.z) < CONFIG.dredge.speakeasy.radius);
+    if (!at) { this._loseSaid = false; return; }
+    if (!slow || this._loseSaid) return;
+    this._loseSaid = true;
+    this.hud.toast(this._hijackOn ? 'Not with Vail’s men on your tail: lose them first.' : 'Not with the Bureau on your tail: lose them first.', 'red', 3000);
+  }
+
   // ---------- Salvage ----------
   // Stop at a site to work it (if it can be: not picked clean, not a night site by day).
   _checkSalvage() {
@@ -1594,8 +1679,10 @@ class Game {
     if (!s) { this._siteLeft = true; this._siteWhy = ''; return; }
     if (!this._siteLeft || Math.abs(this.player.speed) > CONFIG.dredge.market.stopSpeed * 2) return;
     this._siteLeft = false;
-    // A drop box here (stage 16): what it's gathered comes out first; carrying one, it can be left.
-    if (!s.story && this._dropBox(s)) return;
+    // A drop box here (stage 16): what it's gathered comes out first; carrying one, it can be
+    // left. (Not at the shallows without a grappling hook: nothing reaches them without.)
+    const gear = CONFIG.dredge.salvage.kinds[s.kind].gear;
+    if (!s.story && (!gear || this._gear(gear)) && this._dropBox(s)) return;
     const st = this.salvage.status(s, dayOf(this.dredge.market), this.env.hour);
     if (st === 'empty') { this.hud.toast(`The ${s.name.toLowerCase()} has been picked clean. Try again in a day or two.`, '', 3000); return; }
     // Too early: said once, and it opens as soon as its hours come (waiting there).
@@ -1632,20 +1719,23 @@ class Game {
     };
     if (box) {
       const n = boxFill(box, day);
-      if (!n) return false;
-      const kinds = boxPieces(s, n, day), counts = {};
-      for (const k of kinds) counts[k] = (counts[k] || 0) + 1;
-      box.since = day;
-      d.stats.boxed = (d.stats.boxed || 0) + n;
+      if (!n || this._boxAsked === key) return false;
+      // What fits comes out (the rest stays in the box); nothing's taken till Otto answers.
+      const all = boxPieces(s, n, day), fit = this._room(all);
       this._boxAsked = key;
-      this.dredge.save();
+      if (!fit) { this.hud.toast(`The drop box at the ${name} holds ${n} piece${n === 1 ? '' : 's'}: no room in the trunk for them.`, '', 3500); return false; }
+      const kinds = all.slice(0, fit), counts = {};
+      for (const k of kinds) counts[k] = (counts[k] || 0) + 1;
       this.audio.pickup?.();
       if (this.state === STATE.PLAYING) this.pause({ showMenu: false });
-      this.ui.confirm('THE DROP BOX', `The box at the ${name} held ${wantsText(counts)}. Leave it to gather more (a piece a day, up to ${B.cap}), or take it back?`, 'TAKE IT BACK', 'LEAVE IT').then((take) => {
-        if (take) { d.boxes.splice(d.boxes.indexOf(box), 1); kinds.push('dropbox'); }
+      this.ui.confirm('THE DROP BOX', `The box at the ${name} held ${wantsText(counts)}${fit < n ? ` (and ${n - fit} more it keeps: no room for them)` : ''}. Leave it to gather more (a piece a day, up to ${B.cap}), or take it back?`, 'TAKE IT BACK', 'LEAVE IT').then((take) => {
+        box.since = day - (n - fit) / B.perDay;
+        d.stats.boxed = (d.stats.boxed || 0) + fit;
+        if (take && fit === n && this._room([...kinds, 'dropbox']) === fit + 1) { d.boxes.splice(d.boxes.indexOf(box), 1); kinds.push('dropbox'); }
+        else if (take) this.hud.toast(fit < n ? 'The box stays: it still holds what there was no room for.' : 'No room in the trunk for the box itself: it stays.', '', 3500);
+        this._finds(kinds.filter((k) => k !== 'dropbox'));
         after();
-        this._pending = kinds.slice(1);
-        this.openTrunk(kinds[0]);
+        this._give(kinds);
       });
       return true;
     }
@@ -1743,6 +1833,7 @@ class Game {
     const done = () => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); };
     if (d.once.launch === night) { this.hud.toast('The launch has gone back out to the schooner. Tomorrow night.', '', 3000); done(); return; }
     if (d.cash < R.price) { this.hud.toast(`The launch wants ${money(R.price)}, cash on the pier.`, '', 3000); done(); return; }
+    if (this._room(R.gives) < R.gives.length) { this.hud.toast('No room in the trunk for the cases: make some, then come back.', '', 3000); done(); return; }
     if (!(await this.ui.confirm('THE LAUNCH?', `Buy ${wantsText(Object.fromEntries(R.gives.map((k) => [k, R.gives.filter((x) => x === k).length])))} off the launch for ${money(R.price)}?`, `PAY ${money(R.price)}`))) { done(); return; }
     d.cash -= R.price;
     d.once.launch = night;
@@ -1753,8 +1844,7 @@ class Game {
     this.hud.cashPop(`−${money(R.price)}`);
     this.audio.pickup?.();
     this.audio.shipHorn?.();                      // (the launch casts off)
-    this._pending = R.gives.slice(1);
-    this.openTrunk(R.gives[0]);
+    this._give(R.gives);
   }
 
   // A site worked: it's empty for a day or two, and what it gave up goes into the trunk,
@@ -1762,7 +1852,7 @@ class Game {
   _onSalvaged(site, sc) {
     const day = dayOf(this.dredge.market), d = this.dredge.data;
     if (site.story) { this._storySalvaged(site, sc); return; }
-    this.salvage.worked(site, day);
+    this.salvage.worked(site, day, this.env.hour);
     this.salvage.refresh(day);
     d.stats.salvaged = (d.stats.salvaged || 0) + 1;
     this.dredge.save();
@@ -1791,8 +1881,7 @@ class Game {
     this._finds(pieces);
     this._lore(site, sc);
     this.audio.pickup?.();
-    this._pending = pieces.slice(1);
-    this.openTrunk(pieces[0]);
+    this._give(pieces);
   }
 
   // A story site worked (chapters.js): what its step `gives` goes into the trunk one piece
@@ -1801,6 +1890,7 @@ class Game {
   // tried again. The chapter moves on at the next story check (main._chapters).
   _storySalvaged(site, sc) {
     const d = this.dredge.data, lost = this._lost(), job = lost?.site === site.story ? lost : this._siteStep(site);
+    if (job === lost && sc > 0.01) { const id = current(d).step?.id; d.once[`lost:${id}`] = (d.once[`lost:${id}`] || 0) + 1; }
     if (sc <= 0.01 || !job) {
       this.hud.toast(`Nothing found this time. Try the ${site.name.toLowerCase()} again.`, '', 3000);
       if (!this.ui.anyOpen) this.resume();
@@ -1826,8 +1916,7 @@ class Game {
       this.dredge.save();
       this.hud.toast(job.got || `Found: ${wantsText({ [kind]: job.gives.length })}`, 'gold', 3000);
       this.audio.pickup?.();
-      this._pending = job.gives.slice(1);
-      this.openTrunk(kind);
+      this._give(job.gives);
       return;
     }
     this.dredge.save();
@@ -1864,34 +1953,43 @@ class Game {
 
   // The operation (chapter 8 on): the hidden still's crates, collected into the trunk.
   _collectHollow() {
-    const d = this.dredge.data, n = d.hollow || 0;
-    if (!n) { this.hud.toast('Nothing ready at the hollow yet. It brews two crates a day.', '', 3000); if (!this.ui.anyOpen) this.resume(); return; }
+    const d = this.dredge.data, all = d.hollow || 0, n = this._room(Array(all).fill('corn-shine'));
+    if (!all) { this.hud.toast('Nothing ready at the hollow yet. It brews two crates a day.', '', 3000); if (!this.ui.anyOpen) this.resume(); return; }
+    if (!n) { this.hud.toast(`${all} crate${all === 1 ? '' : 's'} wait at the hollow: no room in the trunk.`, '', 3000); if (!this.ui.anyOpen) this.resume(); return; }
     blend(d.market.blend, 'corn-shine', onHand(this.trunk, d.stash)['corn-shine'] || 0, n, CONFIG.dredge.operation.hollow.q, false);
-    d.hollow = 0;
+    d.hollow = all - n;
     this.dredge.save();
-    this.hud.toast(`${n} crate${n === 1 ? '' : 's'} of Corn Shine from the hidden still.`, 'gold', 3000);
+    this.hud.toast(`${n} crate${n === 1 ? '' : 's'} of Corn Shine from the hidden still${all > n ? ` (${all - n} wait there: no more room)` : ''}.`, 'gold', 3000);
     this.audio.pickup?.();
     const pieces = Array.from({ length: n }, () => 'corn-shine');
-    this._pending = pieces.slice(1);
-    this.openTrunk(pieces[0]);
+    this._give(pieces);
   }
 
   // Braun's: every crate of Otto's own shine aboard goes into its cellar, to sell nightly.
   // Braun's (chapter 8 on): leave Otto's own shine in the cellar to sell, all of it but what
   // the orders and the story need (main._keepBack), after asking.
   async _stockBrauns() {
-    const d = this.dredge.data, keep = this._keepBack(), would = this._take({ shine: Infinity }, keep, true), n = Object.values(would).reduce((a, b) => a + b, 0);
+    // (a tainted blend stays aboard: Braun's won't pour it)
+    const d = this.dredge.data, keep = this._keepBack(), bad = Object.keys(d.market.blend).filter((k) => d.market.blend[k]?.bad);
+    for (const k of bad) keep[k] = Infinity;
+    const would = this._take({ shine: Infinity }, keep, true), n = Object.values(would).reduce((a, b) => a + b, 0);
     const count = (k) => Object.values(k).reduce((a, b) => a + b, 0), stock = () => count(d.brauns);
     const done = () => { if (this.state === STATE.PAUSED && !this.ui.anyOpen) this.resume(); };
     const kept = count(this._take({ shine: Infinity }, {}, true)) - n;
     if (!n) {
-      this.hud.toast(`Braun’s has ${stock()} crate${stock() === 1 ? '' : 's'} in the cellar. ${kept ? 'The shine aboard is spoken for (your orders): bring more to stock it.' : 'Bring your own shine to stock it.'}`, '', 3500);
+      const tainted = bad.some((k) => this.trunk && [...this.trunk.pieces.values()].some((p) => p.kind === k));
+      this.hud.toast(`Braun’s has ${stock()} crate${stock() === 1 ? '' : 's'} in the cellar. ${tainted ? 'Gus won’t pour a tainted blend: pour it out, or brew a clean batch over it.' : kept ? 'The shine aboard is spoken for (your orders): bring more to stock it.' : 'Bring your own shine to stock it.'}`, '', 3500);
       done();
       return;
     }
     if (!(await this.ui.confirm('STOCK BRAUN’S?', `Leave ${n} crate${n === 1 ? '' : 's'} of your own shine (${wantsText(would)}) in Braun’s cellar to sell, a few every night?${kept ? ` (${kept} more stay aboard for your orders.)` : ''}`, 'STOCK IT'))) { done(); return; }
     const took = this._take({ shine: Infinity }, keep);
-    for (const [k, c] of Object.entries(took)) d.brauns[k] = (d.brauns[k] || 0) + c;
+    d.braunsQ ??= {};
+    for (const [k, c] of Object.entries(took)) {
+      const had = d.brauns[k] || 0, q = d.market.blend[k]?.q ?? 0.6;
+      d.braunsQ[k] = ((d.braunsQ[k] ?? q) * had + q * c) / (had + c);
+      d.brauns[k] = had + c;
+    }
     this.dredge.saveTrunk(this.trunk);
     this.dredge.save();
     this._updateTrunkPill();
@@ -2086,12 +2184,12 @@ class Game {
   async sleep(id) {
     const nap = this._sleeps().find((x) => x.id === id), M = this.dredge.market;
     if (!nap) return false;
-    const hours = (((nap.to - this.env.hour) % 24) + 24) % 24, late = this.dredge.data.orders.filter((o) => o.due != null && o.due < M.clock + hours);
+    const hours = (((nap.to - this.env.hour) % 24) + 24) % 24, late = this.dredge.data.orders.filter((o) => o.due != null && o.due <= M.clock + hours + 1e-6);
     if (late.length && !(await this.ui.confirm('SLEEP?', `${late.length === 1 ? 'An order' : `${late.length} orders`} in the book will be late by then (${late.map((o) => o.name).join(', ')}). Sleep anyway?`, 'SLEEP'))) return false;
     this._passHours(hours);
     this.env.hour = nap.to;
     this.dredge.data.stats.slept = (this.dredge.data.stats.slept || 0) + hours;
-    this._setNerves(1);
+    this._setNerves((this.dredge.data.nerves ?? 1) + hours / CONFIG.dredge.nerves.sleepHours);
     this.dredge.save();
     this.hud.setClock(this._clockText());
     this.hud.toast(`Otto sleeps till ${this.env.clock}.`, '', 2500);
@@ -2512,7 +2610,7 @@ class Game {
   _deliver(o, pr) {
     const d = this.dredge.data;
     handOver(o, this.trunk);
-    const pay = o.pay * (this._belvedere(o.who) ? CONFIG.dredge.arcs.belvedere : 1), bonus = this._sweetTalk(pay), paid = pay + bonus;
+    const pay = o.pay * (this._belvedere(o.who) ? CONFIG.dredge.arcs.belvedere : 1), bonus = pay > 0 ? this._sweetTalk(pay) : 0, paid = pay + bonus;
     d.cash += paid;
     d.stats.earned += paid;
     d.stats.contracts++;
@@ -2560,9 +2658,12 @@ class Game {
 
   // Where the loot aboard sells: the nearest market, unless it's all shine, which only the
   // speakeasies buy. { kind: 'market' | 'drop', place: { x, z, ... }, dist, name }
+  // (gear rides along for good: it's not cargo for a market)
+  _cargo() { let n = 0; for (const q of this.trunk.pieces.values()) if (!KINDS[q.kind].gear) n++; return n; }
+
   _destination(p = this.player.position) {
     let goods = false, shine = false;
-    for (const q of this.trunk.pieces.values()) { if (KINDS[q.kind].brewed) shine = true; else goods = true; }
+    for (const q of this.trunk.pieces.values()) { if (KINDS[q.kind].gear) continue; if (KINDS[q.kind].brewed) shine = true; else goods = true; }
     if (goods || !shine) { const m = this._nearestMarket(p); return { kind: 'market', place: m.town, dist: m.dist, name: m.town?.town }; }
     let best = null, bd = Infinity;
     this.world.drops.forEach((d, i) => { const dist = Math.hypot(d.x - p.x, d.z - p.z); if (dist < bd) { bd = dist; best = { ...d, id: `drop:${i}` }; } });
@@ -2601,10 +2702,10 @@ class Game {
     this._marketRender = showMarket(this.ui, {
       town, getTrunk: () => this.trunk, career: this.dredge, jobs: this._jobs(), deed: this._deed(town), keep: () => this._keepBack(),
       onSell: (kind) => {
-        // SELL EVERYTHING keeps back what the orders and the story need; one kind's SELL sells it all.
+        // SELL EVERYTHING and each kind's SELL keep back what the orders and the story need.
         const blends = this.dredge.market.blend, before = onHand(this.trunk, {});
         const each = Object.fromEntries(Object.keys(before).filter((k) => buys(town.id, k)).map((k) => [k, priceOf(town.id, k, this.dredge.market)]));
-        const r = sell(town.id, this.trunk, this.dredge.market, kind, kind ? {} : this._keepBack());
+        const r = sell(town.id, this.trunk, this.dredge.market, kind, this._keepBack());
         if (!r.count) return;
         const drop = this.world.drops[Number(String(town.id).split(':')[1])];
         if (String(town.id).startsWith('drop:') && this._belvedere(drop?.who)) { r.total *= CONFIG.dredge.arcs.belvedere; this.hud.toast('Saturday night at the Belvedere: Lulu Banks pays double.', 'gold', 3000); }
@@ -2751,7 +2852,7 @@ class Game {
     const stepText = step && `${title}: ${lost ? lost.text : `${step.text}${step.night && !this._night() ? ', after dark' : ''}`}`;
     if (goal && (step.at || lost)) { this.hud.setObjective(stepText, ...arrow(goal.x, goal.z)); return; }
     const { place: town, name } = this._destination();
-    if (!town || !this.trunk.count) {
+    if (!town || !this._cargo()) {
       if (goal) { this.hud.setObjective(stepText, ...arrow(goal.x, goal.z)); return; }
       if (step) { this.hud.setObjective(stepText, null, 'roam'); return; }
       if (choiceOpen(this.dredge.data)) {
@@ -2792,7 +2893,7 @@ class Game {
   _updateRoute(dt) {
     const c = this._focusOrder(), pr = c && progress(c, this.trunk, this.dredge.market.blend);
     const { step } = this._followed(), goal = step ? this._stepGoal(step) : choiceOpen(this.dredge.data) ? this._choiceGoal() : null;
-    const cargo = this.trunk.count ? this._destination().place : null;
+    const cargo = this._cargo() ? this._destination().place : null;
     const place = c && ((pr.ready && pr.gradeOk) || c.story) ? c : (goal && (step?.at || this._lost())) ? goal : cargo || goal;
     if (place) this.minimap.updateRoute(dt, this.player.position, place);
     else if (this.minimap.route.length) this.minimap.clearRoute();
@@ -2954,8 +3055,7 @@ class Game {
       this._titleFrame = !this._titleFrame;
       if (!this._probe.done || this._titleFrame) this.renderFrame();
     } else if (this.ui.isOpen('map')) {
-      this.time += dt;
-      this._drawBigMap();
+      this._drawBigMap();          // (the game's clock stands still under it, like any screen)
     }
     // Paused: the last frame stays on screen; nothing to redraw.
   }

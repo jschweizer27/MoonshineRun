@@ -120,7 +120,9 @@ export class Police {
     this.evade = 0;
     this.bust = 0;
     this.contact = false;
-    this.checkpoint.handled = false;
+    // (a bust waived at the checkpoint, or Vail's men gone, with the truck still standing in
+    // it: it's been searched; it's searched again only once it's driven on)
+    this.checkpoint.handled = !!this._inside;
     this._rbTimer = 4;
     this.hold = 0;
     this.quiet = false;
@@ -140,7 +142,7 @@ export class Police {
       this.hold = 0;
       events.push(this.heat > 0 ? { type: 'tier', tier: this.tier, up: false } : { type: 'clear' });
       this._setPursuers(p);
-      if (!this.heat) this.contact = false;
+      if (!this.heat) { this.contact = false; this.quiet = false; }
     }
     return events;
   }
@@ -367,7 +369,7 @@ export class Police {
           this.evade = 0;
           events.push(this.heat > 0 ? { type: 'tier', tier: this.tier, up: false } : { type: 'clear' });
           this._setPursuers(p);
-          if (!this.heat) this.contact = false;
+          if (!this.heat) { this.contact = false; this.quiet = false; }      // (Vail's men shaken: the Bureau's lamps again)
         }
       }
     }
@@ -390,6 +392,10 @@ export class Police {
     this._write(time);
     return { events, seen, nearest, touching };
   }
+
+  // The truck taken off the road elsewhere (busted, Otto wakes at the barn): the checkpoint
+  // searches it afresh next time.
+  away() { this._inside = false; this.checkpoint.handled = false; }
 
   // The York Road checkpoint, at night once the story has it up (ctx.checkpoint): stop in it
   // to be searched; drive through with shine aboard and you've run it.

@@ -15,12 +15,13 @@ export class UI {
 
   // A screen with its own controls (the trunk grid) passes handlers: onNav(dir) for the
   // arrows / d-pad, onConfirm() for Enter / A, onKey(e) for other keys (return true when
-  // handled) and onAction(action, device) for game actions such as 'rotate'.
-  open(id, { onBack = null, focus = true, onNav = null, onConfirm = null, onKey = null, onAction = null } = {}) {
+  // handled) and onAction(action, device) for game actions such as 'rotate'. onClose() runs
+  // however the screen goes (its own button, back, or closed under it).
+  open(id, { onBack = null, focus = true, onNav = null, onConfirm = null, onKey = null, onAction = null, onClose = null } = {}) {
     const el = document.getElementById(id);
     if (this.isOpen(id)) this.close(id);
     el.classList.remove('hidden');
-    this.stack.push({ id, el, onBack, onNav, onConfirm, onKey, onAction, returnFocus: document.activeElement });
+    this.stack.push({ id, el, onBack, onNav, onConfirm, onKey, onAction, onClose, returnFocus: document.activeElement });
     if (focus) this.focusFirst();
     return el;
   }
@@ -30,6 +31,7 @@ export class UI {
     if (i < 0) return;
     const [s] = this.stack.splice(i, 1);
     s.el.classList.add('hidden');
+    s.onClose?.();
     if (this.top) this.focusFirst();
     // Back in the game: drop focus so Space (handbrake) can't "click" a leftover button.
     else { document.activeElement?.blur?.(); this.onEmpty?.(); }

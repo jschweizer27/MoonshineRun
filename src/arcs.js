@@ -15,7 +15,7 @@ export const ARCS = [
   {
     id: 'key', who: 'feld', title: 'The Brass Key', at: 2, chapter: 1,
     open: [
-      ['feld', 'That brass key I kept back for you, Otto. A key like that opens something, and the man who pawned it wants it back. He’s offering good money.'],
+      ['feld', 'Somebody pawned a brass key with “Braun & Sons” on the bow, Otto, and I kept it back for you. A key like that opens something, and the man who pawned it wants it back. He’s offering good money.'],
       ['feld', 'I’m a businessman. Bring me a radio set for the window, and it’s yours, and I never saw him.'],
     ],
     steps: [

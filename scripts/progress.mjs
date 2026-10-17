@@ -17,7 +17,7 @@
 // and, with the side stories, 10-15 for a steady player. `ARCS=1` adds the side stories'
 // split (trust, then steps); `STEPS=1` each contact's trust and each step's minutes.
 import { CONFIG } from '../src/config.js';
-import { isNight, duskHour } from '../src/hours.js';
+import { isNight, duskHour, dawnHour } from '../src/hours.js';
 import { CHAPTERS, advance, current, choiceOpen } from '../src/chapters.js';
 import { offersFor, trustLevel } from '../src/contracts.js';
 import { ARCS } from '../src/arcs.js';
@@ -139,11 +139,17 @@ function play(P) {
   const taken = new Set();
   const offers = (focus) => offersFor(day(), LIST, { brewing: d.still > 0, chapter: d.chapter, trust: d.trust, home: HOME, learned: d.flags, focus, focusN: d.delivered[focus] || 0, exclude: d.flags.betrayed ? ['jockey'] : [] })
     .filter((o) => !taken.has(o.id));
-  // Till the next game day (its new offers): sleep or salvage.
+  // The night a clock falls in (its small hours are the night before's), as the game keys a
+  // night's work.
+  const nightOf = () => Math.floor((s.clock - dawnHour(winter)) / 24);
+  // Till the next game day (its new offers): salvage, or sleep at the barn, where the bunk
+  // sleeps only till morning or dusk (two sleeps when the morning would come round first).
   const nextDay = () => {
-    const hours = (day() + 1) * 24 + 0.05 - s.clock;
-    if (P.sleeps === true) { s.spend.sleep++; s.clock += hours; s.t += 0.3; return; }
-    salvage(hours / HPM / 0.7);
+    if (P.sleeps !== true) { salvage(((day() + 1) * 24 + 0.05 - s.clock) / HPM / 0.7); return; }
+    drive('barn'); screen(0.2);
+    const wake = (day() + 1) * 24 + dawnHour(winter);
+    s.spend.sleep += wake - s.clock > 24 ? 2 : 1;
+    s.clock = wake;
   };
   // An offer from the step's contact (the day's, or the fresh one after each delivery),
   // delivered; with none on the board, the next day's.
@@ -156,8 +162,8 @@ function play(P) {
   };
   // Once a night: the side orders (shine for the speakeasies nearest the barn).
   const side = () => {
-    if (!P.side || !d.still || !night(s.clock) || s.nightDone === day()) return;
-    s.nightDone = day();
+    if (!P.side || !d.still || !night(s.clock) || s.nightDone === nightOf()) return;
+    s.nightDone = nightOf();
     const list = offers(null).filter((o) => o.night).sort((a, b) => a.km - b.km).slice(0, P.side);
     for (const o of list) { taken.add(o.id); deliver(o, o.who); }      // (trust grows with them too)
   };
