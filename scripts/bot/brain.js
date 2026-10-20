@@ -167,7 +167,14 @@ export class Brain {
     const g = this.g, d = this.d;
     if (!site) { this.bot.find('DEADEND', `No site for “${why}”`); return { wait: 'event', why }; }
     const st = g.salvage.status(site, dayOf(g.dredge.market), this.hour), K = CONFIG.dredge.salvage.kinds[site.kind];
-    if (st === 'hidden') { this.bot.find('DEADEND', `“${why}”: its site (${site.story || site.id}) is hidden while the step is current`, { site: site.story || site.id }); return { wait: 'event', why }; }
+    // (hidden for a moment is the story catching up; hidden for an hour is a finding)
+    if (st === 'hidden') {
+      const key = `hidden:${site.story || site.id}`;
+      if (!this.failed.has(key)) this.failed.set(key, this.clock + 1);
+      else if (this.failed.get(key) <= this.clock) { this.failed.set(key, Infinity); this.bot.find('DEADEND', `“${why}”: its site (${site.story || site.id}) is hidden while the step is current`, { site: site.story || site.id }); }
+      return { wait: 'event', why };
+    }
+    if (this.failed.get(`hidden:${site.story || site.id}`) !== Infinity) this.failed.delete(`hidden:${site.story || site.id}`);
     if (st === 'day') return { wait: 'night', why, at: site };
     if (st === 'closed') return { wait: 'window', window: site.window || step.window, why, at: site };
     for (const [k, n] of Object.entries(step.takes || {})) {

@@ -215,6 +215,7 @@ export class Bot {
       banner: document.getElementById('objective-text')?.textContent || '', trunk: g.trunk.count, cracked: g.trunk.cracked.length, orders: d.orders.length, ending: d.ending || null,
       drive: { km: Math.round(this.pilot.stats.metres / 100) / 10, min: Math.round(this.pilot.stats.seconds / 6) / 10, stalls: this.pilot.stats.stalls, unstuck: this.pilot.stats.unstuck },
       counts: this.counts,
+      stats: { busts: d.stats.busts || 0, hijacked: d.stats.hijacked || 0, bribes: d.stats.bribes || 0, contracts: d.stats.contracts || 0 },
     };
   }
 }

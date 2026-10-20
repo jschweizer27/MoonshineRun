@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The robot playthrough: `npm run playthrough -- [label] [--seed N] [--until C] [--ending
-// all|deed|paper|crown] [--minutes M] [--police off]`. A bot (scripts/bot/) plays a new game from the title
+// all|deed|paper|crown] [--minutes M] [--ending-minutes E] [--police off]`. A bot (scripts/bot/) plays a new game from the title
 // screen with everything a player has on (the story's cards, the clock, the Bureau, traffic,
 // odd finds, breakdowns, tips): it drives the roads, plays the salvage, the still and the
 // brewery, buys, sells, takes and delivers orders, sleeps, gets away from chases and works
@@ -17,7 +17,9 @@ const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] ? args[i + 1] : fallback; };
 const label = args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--')) || 'run';
 const seed = opt('seed', null), until = Number(opt('until', 99)), minutes = Number(opt('minutes', 120));
-const endings = opt('ending', 'all') === 'all' ? ['deed', 'paper', 'crown'] : [opt('ending')];
+// (the quick endings first: the deed is a long saving-up; each ending has its own minutes)
+const endings = opt('ending', 'all') === 'all' ? ['paper', 'crown', 'deed'] : [opt('ending')];
+const endingMinutes = Number(opt('ending-minutes', 30));
 const out = `artifacts/playthrough/${label}`;
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(`${out}/shots`, { recursive: true });
@@ -77,10 +79,10 @@ try {
   }
 
   // Play until `stop(event)` says so (or the time runs out). Returns why it stopped.
-  async function play(stop, phase) {
-    const deadline = t0 + minutes * 60_000;
+  async function play(stop, phase, budget = minutes) {
+    const deadline = (phase.startsWith('ending') ? Date.now() : t0) + budget * 60_000;
     for (;;) {
-      if (Date.now() > deadline) { finding({ kind: 'TIME', text: `Ran out of time (${minutes} min) in ${phase}` }); return 'time'; }
+      if (Date.now() > deadline) { finding({ kind: 'TIME', text: `Ran out of time (${budget} min) in ${phase}` }); return 'time'; }
       const r = await page.evaluate(() => window.__bot.run(240));
       report.last = r.status;
       for (const e of r.events) {
@@ -130,7 +132,7 @@ try {
       await start({ memo, ending });
       const from = report.storyEnd;                // (each ending from the choice's save)
       console.log(`== ending: ${ending}`);
-      const got = await play((events) => (events.some((e) => e.t === 'ending') ? 'ending' : null), `ending:${ending}`);
+      const got = await play((events) => (events.some((e) => e.t === 'ending') ? 'ending' : null), `ending:${ending}`, endingMinutes);
       const s = report.last;
       report.endings[ending] = { reached: got === 'ending' && s.ending === ending, why: got, days: s.day - from.day, sim: s.sim - from.sim, cash: s.cash, wall: wall() };
       if (got === 'ending') await beat(`ending-${ending}`, `The ${ending}`);

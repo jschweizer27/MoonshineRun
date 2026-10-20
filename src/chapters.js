@@ -379,7 +379,9 @@ export const choiceOpen = (d) => (d.chapter || 0) >= CHAPTERS.length && !d.endin
 export const LOST_REFILLS = 3;
 export function lostNow(d, have) {
   const { step } = current(d);
-  return step?.lost && have && (d.once?.[`lost:${step.id}`] || 0) < LOST_REFILLS && step.lost.when(d, have) ? step.lost : null;
+  // (a step already done has lost nothing: handing the goods over empties the trunk a moment
+  // before the story moves on)
+  return step?.lost && have && !step.done(d) && (d.once?.[`lost:${step.id}`] || 0) < LOST_REFILLS && step.lost.when(d, have) ? step.lost : null;
 }
 
 // The story sites open now: { [site]: { night, window } } for the current step, if it has
