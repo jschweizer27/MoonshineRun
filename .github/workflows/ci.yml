@@ -51,11 +51,12 @@ jobs:
           retention-days: 14
 
   # The playtests render in software and take well over an hour in one go, so they run in
-  # six parallel shards (each well inside the time limit, retries included).
+  # six parallel shards (each well inside the time limit, retries included: a shard takes
+  # 15-30 minutes on a runner, more on a slow one).
   playtest:
     name: Playtest (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
