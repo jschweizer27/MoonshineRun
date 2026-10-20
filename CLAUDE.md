@@ -279,6 +279,13 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
   its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
   dialog closed under it still settles.
+- Stage 17c (the robot plays it through): `chapters.lostNow` skips a step that's done (handing
+  the hotel its Scotch no longer reads as losing it for a tick). Seeds 1922, 7 and 4242 with
+  `--police off` reach all three endings (the choice at game day 16-18) with only a few
+  STALLs. With the police on the bot reaches the choice (days 41-45) and the paper ending
+  every time, but busts (42-52 by the choice), Sheriff Hale's price and a cracked trunk keep
+  it poor: the crown came once in three, the deed's $12,000 never. That's the bot's chase
+  driving as much as the tuning; a person's play decides it.
 - Stage 16c: charged abilities (`CONFIG.dredge.abilities` with `charge: { by, full }`):
   `d.charge` (0..1, saved), filled by `main._charge(id, amount)` (Smoke Screen in
   `_tickAbilities(dt)`: metres after dark with shine aboard; Second Wind in `_deliver`),
@@ -333,18 +340,24 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   ending's choice, cash then. Targets: chapter 1 in 45-60 min; the story 9-14 h, 10-15 h with the side stories. The save keeps
   `stepTimes` (play seconds each step was done), shown per chapter in the ledger.
 - The robot playthrough: `npm run playthrough -- <label> [--seed N] [--until C] [--ending
-  deed|paper|crown] [--police off] [--minutes M]`. A bot (`scripts/bot/`: `pilot.js` drives
+  deed|paper|crown] [--police off] [--minutes M] [--ending-minutes E]`. A bot (`scripts/bot/`: `pilot.js` drives
   the road graph, `hands.js` plays each screen through its buttons, `brain.js` picks the next
   errand, `bot.js` runs the loop and the watchdogs) plays a new game from the title screen
   with the story, the clock, the Bureau, traffic and breakdowns on, reloads the save at each
-  chapter, and takes all three endings from a copy of the save at the choice. It runs in the
+  chapter, and takes all three endings from a copy of the save at the choice (paper, crown,
+  then the deed's long saving-up; each with `E` minutes, the story `M`). It runs in the
   page (imported from `/scripts/bot/`), stepping the game at 60 Hz. Findings: STUCK (no
   progress for 4 game days), DEADEND (stopped at a place and nothing opened), STALL (snagged
-  three times on one leg, carried past), SCREEN / CONFIRM (a screen or question it didn't
+  three times on one leg, carried past), LOOP (a market or the barn opened four times running
+  with nothing done; it drives off), SCREEN / CONFIRM (a screen or question it didn't
   know), STATE (cash below zero), ERROR (page errors), ENDING (not reached). It writes
   `artifacts/playthrough/<label>/` (`report.md`, `report.json`, a shot a step and a contact
   sheet) and exits non-zero on any finding. Tell the bot's own bugs (fix them in
-  `scripts/bot/`) from the game's (a failing test, then the fix). About 10 minutes with
+  `scripts/bot/`) from the game's (a failing test, then the fix). The pilot keeps to the
+  right-hand lane and steers round slow carts and the Bureau's cars; the brain mends a
+  cracked trunk first (cracked cells take no cargo) and checks room by trying the shape
+  (`fits`). STUCK and LOOP findings carry the police, trunk, stash and cash for diagnosis;
+  `report.json`'s `last.stats` counts busts, hijacks, bribes and orders. About 10 minutes with
   `--police off`, much longer with the police on; one Playwright run at a time. In CI it's
   `workflow_dispatch` only (`.github/workflows/playthrough.yml`).
 - The truck (`models.js`) uses one `MeshPhysicalMaterial` (clearcoat, street env map); each

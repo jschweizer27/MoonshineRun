@@ -52,7 +52,7 @@ export class Brain {
   near(list) { const p = this.g.player.position; return list.reduce((a, b) => (away(b, p) < away(a, p) ? b : a)); }
   get barn() { const h = this.g.world.home; return { x: h.stopX, z: h.stopZ, near: 3, key: 'barn' }; }
   markets(supplies = false) { return CONFIG.dredge.towns.filter((t) => townOpen(t, this.d.chapter || 0) && (!supplies || t.supplies)).map((t) => ({ x: t.x, z: t.z, near: 6, key: t.id, town: t })); }
-  free() { return this.g.trunk.size - this.g.trunk.used; }
+  free() { return this.g.trunk.size - this.g.trunk.used - this.g.trunk.cracked.length; }   // (a cracked cell takes nothing)
   // Breakables aboard (jugs, bottles, shine: CONFIG.dredge.breakage): drive gently.
   fragile() { const B = CONFIG.dredge.breakage?.kinds || []; for (const p of this.g.trunk.pieces.values()) if (KINDS[p.kind].brewed || B.includes(p.kind)) return true; return false; }
   fits(list) {
@@ -98,7 +98,15 @@ export class Brain {
       if (ok.length) { const o = this.near(ok); return { go: o, near: 4, why: `deliver to ${o.name}` }; }
     }
     // A worn truck is a slow one: to the barn's garage.
-    if ((d.wear || 0) > 0.45 && d.cash >= this.g.dredge.repairCost(this.g.trunk.cracked.length) + 60) { const r = this.guard({ go: this.barn, near: 3, why: `repairs (the truck at ${Math.round((1 - d.wear) * 100)}%)`, screen: 'barn' }); if (r.go) return r; }
+    // A cracked trunk is a small one: mended first, when there's the cash; badly cracked, the
+    // cash for it comes before the story.
+    const cracks = this.g.trunk.cracked.length;
+    if (cracks >= 4 && d.cash < this.g.dredge.repairCost(cracks) + 20 && !this.mending) {
+      this.mending = true;
+      try { const r = this.guard(this.earn(this.g.dredge.repairCost(cracks) + 20, `mend the trunk's ${cracks} cracked cells`)); if (r.go) return r; } finally { this.mending = false; }
+    }
+    if (cracks && d.cash >= this.g.dredge.repairCost(cracks) + 20) { const r = this.guard({ go: this.barn, near: 3, why: `repairs (${cracks} cracked cell${cracks === 1 ? '' : 's'} in the trunk)`, screen: 'barn' }); if (r.go) return r; }
+    if ((d.wear || 0) > 0.45 && d.cash >= this.g.dredge.repairCost(cracks) + 60) { const r = this.guard({ go: this.barn, near: 3, why: `repairs (the truck at ${Math.round((1 - d.wear) * 100)}%)`, screen: 'barn' }); if (r.go) return r; }
     if (choiceOpen(d)) return this.guard(this.endgame());
     // The chapter's step, then each side story's.
     const plans = [], { step } = current(d);
@@ -159,7 +167,14 @@ export class Brain {
     const g = this.g, d = this.d;
     if (!site) { this.bot.find('DEADEND', `No site for “${why}”`); return { wait: 'event', why }; }
     const st = g.salvage.status(site, dayOf(g.dredge.market), this.hour), K = CONFIG.dredge.salvage.kinds[site.kind];
-    if (st === 'hidden') { this.bot.find('DEADEND', `“${why}”: its site (${site.story || site.id}) is hidden while the step is current`, { site: site.story || site.id }); return { wait: 'event', why }; }
+    // (hidden for a moment is the story catching up; hidden for an hour is a finding)
+    if (st === 'hidden') {
+      const key = `hidden:${site.story || site.id}`;
+      if (!this.failed.has(key)) this.failed.set(key, this.clock + 1);
+      else if (this.failed.get(key) <= this.clock) { this.failed.set(key, Infinity); this.bot.find('DEADEND', `“${why}”: its site (${site.story || site.id}) is hidden while the step is current`, { site: site.story || site.id }); }
+      return { wait: 'event', why };
+    }
+    if (this.failed.get(`hidden:${site.story || site.id}`) !== Infinity) this.failed.delete(`hidden:${site.story || site.id}`);
     if (st === 'day') return { wait: 'night', why, at: site };
     if (st === 'closed') return { wait: 'window', window: site.window || step.window, why, at: site };
     for (const [k, n] of Object.entries(step.takes || {})) {
@@ -225,7 +240,9 @@ export class Brain {
     const short = n - this.count(kind);
     if (short <= 0) return { wait: 'event', why };
     this.need[kind] = Math.max(this.need[kind] || 0, n);
-    if (this.stash(kind) > 0 && this.blocked === 'room') { this.blocked = null; return this.makeRoom(this.cells(kind, Math.min(short, this.stash(kind))), why); }
+    // (no room for it at the barn: making room holds for a couple of hours, till a market's been reached)
+    if (this.stash(kind) > 0 && this.blocked === 'room') { this.blocked = null; this.fail(`room:${kind}`, 2); }
+    if (this.stash(kind) > 0 && this.tried(`room:${kind}`) && !this.fits({ [kind]: 1 })) { return this.makeRoom(this.cells(kind, Math.min(short, this.stash(kind))), why); }
     if (this.stash(kind) > 0) { this.takeList[kind] = Math.min(n, this.count(kind) + this.stash(kind)); return { go: this.barn, near: 3, why: `take ${KINDS[kind].name} from the stash (${why})` }; }
     return this.acquire(kind, short, why);
   }
@@ -281,10 +298,19 @@ export class Brain {
     for (const p of this.g.trunk.pieces.values()) {
       left[p.kind] = (left[p.kind] ?? (want[p.kind] || 0)) - 1;
       if (left[p.kind] >= 0 || KINDS[p.kind].gear) continue;
-      if (KINDS[p.kind].brewed) store += this.cells(p.kind); else sell += this.cells(p.kind);
+      // (a market sells a kind whole: what's over of a kind that's wanted goes in the stash)
+      // (store-bought makings go back to the store, wanted or not: what's needed is bought again)
+      if (KINDS[p.kind].brewed || (want[p.kind] && !SUPPLIES.has(p.kind))) store += this.cells(p.kind); else sell += this.cells(p.kind);
     }
-    if (sell && (sell >= cells - this.free() || !store)) return { go: this.near(this.markets()), near: 6, why: `make room: sell what isn't needed (${why})` };
-    if (store) return { go: this.barn, near: 3, why: `make room: stash the shine (${why})`, screen: 'barn' };
+    if (sell && (sell >= cells - this.free() || !store || this.tried('barn-full'))) return { go: this.near(this.markets()), near: 6, why: `make room: sell what isn't needed (${why})` };
+    if (store) return { go: this.barn, near: 3, why: `make room: stash what's over (${why})`, screen: 'barn' };
+    // (nothing to spare, and cracked cells taking the room: the money for the garage)
+    // (once: earning may want room for salvage itself, and comes back here)
+    const cracks = this.g.trunk.cracked.length;
+    if (cracks && !this.mending) {
+      this.mending = true;
+      try { return this.earn(this.g.dredge.repairCost(cracks) + 20, `mend the trunk's ${cracks} cracked cell${cracks === 1 ? '' : 's'} (${why})`); } finally { this.mending = false; }
+    }
     return { wait: 'room', why: `${why}: no room in the trunk for it` };
   }
 
@@ -393,8 +419,11 @@ export class Brain {
     const g = this.g, T = g.trunk, want = this.wanted();
     this.visit ??= { sold: new Set(), upgraded: false };
     // Sell what isn't wanted, a kind at a time.
+    // (making room, store-bought makings over what's wanted go too: bought again when needed)
+    const roomy = /^make room/.test(this.bot.plan?.why || '');
     for (const k of new Set([...T.pieces.values()].map((p) => p.kind))) {
-      if ((want[k] || 0) > 0 || this.visit.sold.has(k)) continue;
+      const spare = roomy && SUPPLIES.has(k) && !KINDS[k].gear && this.count(k) > (want[k] || 0);
+      if (((want[k] || 0) > 0 && !spare) || this.visit.sold.has(k)) continue;
       this.visit.sold.add(k);
       const b = live(`#market-body [data-id="${k}"]`);
       if (b) { b.click(); this.bot.count('sales'); return `sold ${k}`; }
@@ -427,7 +456,8 @@ export class Brain {
     const d = this.d, want = this.wanted();
     this.visit ??= { brewed: 0, stored: false };
     if ((d.still || 0) < 1 && live('#barn-body [data-id="install-coil"]')) { $('#barn-body [data-id="install-coil"]').click(); return 'fitted the coil'; }
-    if (!this.visit.repaired && (d.wear || 0) > 0.12 && d.cash >= this.g.dredge.repairCost(this.g.trunk.cracked.length) + 60 && live('#barn-body [data-id="repair"]')) { this.visit.repaired = true; $('#barn-body [data-id="repair"]').click(); this.bot.count('repairs'); return 'repaired the truck'; }
+    const cracks = this.g.trunk.cracked.length;
+    if (!this.visit.repaired && ((d.wear || 0) > 0.12 || cracks) && d.cash >= this.g.dredge.repairCost(cracks) + (cracks ? 20 : 60) && live('#barn-body [data-id="repair"]')) { this.visit.repaired = true; $('#barn-body [data-id="repair"]').click(); this.bot.count('repairs'); return 'repaired the truck'; }
     for (const id of this.brewList) {
       const b = live(`#barn-body [data-id="brew-${id}"]`);
       this.brewList = this.brewList.filter((x) => x !== id);
@@ -439,7 +469,7 @@ export class Brain {
       for (const p of [...this.g.trunk.pieces.values()]) {
         if ((want[p.kind] || 0) >= this.count(p.kind) || KINDS[p.kind].gear) continue;
         const b = live(`#barn-body [data-id="store-${p.kind}"]`);
-        if (b && KINDS[p.kind].brewed) { b.click(); return `stored ${p.kind}`; }
+        if (b && (KINDS[p.kind].brewed || want[p.kind])) { b.click(); return `stored ${p.kind}`; }
       }
       this.visit.stored = true;
     }
@@ -453,7 +483,7 @@ export class Brain {
         const s = live(`#barn-body [data-id="store-${p.kind}"]`);
         if (s) { s.click(); return `stored ${p.kind} (room for ${k})`; }
       }
-      if (this.stash(k) > 0) this.blocked = 'room';
+      if (this.stash(k) > 0) { this.blocked = 'room'; this.fail('barn-full', 2); }
       delete this.takeList[k];
     }
     for (const id of this.toDrop.splice(0)) { const b = live(`#barn-body [data-id="job-drop-${id}"]`); if (b) { b.click(); return `dropped ${id}`; } }
