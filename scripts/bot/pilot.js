@@ -7,6 +7,8 @@
 import { RoadGraph } from '../../src/roadgraph.js';
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+const LANE = 1.4;                       // metres right of the road's middle (traffic keeps 2.2: config traffic.lane)
+const PASS = 2;                         // metres out to the side when passing (right of the line: +): a cart on the shoulder clears by 4, a narrow county road's wall too
 
 export class Pilot {
   constructor(g, report) {
@@ -53,25 +55,41 @@ export class Pilot {
     if (!this.goal) return { throttle: speed > 0.3 ? -Math.sign(v.speed) : 0, steer: 0 };
     while (this.way.length > 1 && Math.hypot(this.way[0].x - p.x, this.way[0].z - p.z) < 7) this.way.shift();
     const wp = this.way[0] || this.goal, d = this.dist, dWp = Math.hypot(wp.x - p.x, wp.z - p.z);
-    const want = Math.atan2(wp.x - p.x, -(wp.z - p.z)), err = wrap(want - v.heading);
+    // Traffic ahead (scanned before the line is picked): ease off behind a moving car, steer
+    // round a slow, stopped or parked one (no ramming).
+    const fx = Math.sin(v.heading), fz = -Math.cos(v.heading);
+    let block = null;
+    for (const c of g.traffic.cars) {
+      if (!c.on) continue;
+      const dx = c.position.x - p.x, dz = c.position.z - p.z, ahead = dx * fx + dz * fz, side = dx * fz - dz * fx;
+      if (!c.parked && Math.cos(c.heading - v.heading) < -0.5 && Math.abs(side) > 1.2) continue;   // (oncoming, in its own lane)
+      const wide = c.parked ? 2.6 : 3.2;
+      if (ahead > 0 && ahead < 10 + speed && Math.abs(side) < wide && (!block || ahead < block.ahead)) block = { ahead, side, speed: c.parked ? 0 : Math.abs(c.speed) };
+    }
+    if (block && block.speed < 4) { this.passT = 2; this.passSide = block.side > 0 ? 1 : -1; }
+    // The Bureau's cars (and Vail's): swerved round, not slowed for (a head-on with one is the
+    // crash that splits the trunk's floor).
+    for (const u of g.police.active) {
+      const dx = u.car.position.x - p.x, dz = u.car.position.z - p.z, ahead = dx * fx + dz * fz, side = dx * fz - dz * fx;
+      if (ahead > 0 && ahead < 18 + speed && Math.abs(side) < 4) { this.passT = Math.max(this.passT || 0, 1.2); this.passSide = side > 0 ? 1 : -1; }
+    }
+    // The line: the right-hand lane, as the traffic keeps (on the crown, oncoming carts stop
+    // for the truck); passing, out to the side away from the slow one; the last stretch to the
+    // goal straight in.
+    let aim = wp;
+    const lateral = this.passT > 0 ? this.passSide * PASS : this.way.length > 1 && d > 25 ? LANE : 0;
+    if (lateral) {
+      const h = Math.atan2(wp.x - p.x, -(wp.z - p.z));
+      aim = { x: wp.x + Math.cos(h) * lateral, z: wp.z + Math.sin(h) * lateral };
+    }
+    const want = Math.atan2(aim.x - p.x, -(aim.z - p.z)), err = wrap(want - v.heading);
     let target = cruise;
     if (this.way.length > 1) {
       const b = this.way[1], turn = Math.abs(wrap(Math.atan2(b.x - wp.x, -(b.z - wp.z)) - want));
       if (turn > 0.45 && dWp < 35) target = Math.min(target, turn > 1.2 ? 5 : 8);
     }
     if (Math.abs(err) > 0.5) target = Math.min(target, 5);
-    // Traffic in the lane ahead: ease off behind it, and pass a slow one (no ramming).
-    const fx = Math.sin(v.heading), fz = -Math.cos(v.heading);
-    let block = null;
-    for (const c of g.traffic.cars) {
-      if (!c.on || c.parked) continue;
-      const dx = c.position.x - p.x, dz = c.position.z - p.z, ahead = dx * fx + dz * fz, side = dx * fz - dz * fx;
-      if (ahead > 0 && ahead < 10 + speed && Math.abs(side) < 3.2 && (!block || ahead < block.ahead)) block = { ahead, side, speed: Math.abs(c.speed) };
-    }
-    if (block) {
-      if (block.speed < 4) { this.passT = 2; this.passSide = block.side > 0 ? 1 : -1; }
-      target = Math.min(target, this.passT > 0 ? 5 : Math.max(0, block.speed - 1, block.ahead > 7 ? 3 : 0));
-    }
+    if (block) target = Math.min(target, this.passT > 0 ? 5 : Math.max(0, block.speed - 1, block.ahead > 7 ? 3 : 0));
     this.passT = Math.max(0, (this.passT || 0) - dt);
     if (this.way.length <= 1 && d < 40) target = Math.min(target, Math.max(2.5, d / 4));
     let thr = speed < target ? 1 : speed > target + 1.5 ? -0.7 : 0.15;
@@ -92,9 +110,7 @@ export class Pilot {
       } else this.go({ x: this.goal.x, z: this.goal.z }, { near: this.goal.near, why: this.goal.why });
     }
     if (this.revT > 0) { this.revT -= dt; return { throttle: -1, steer: -Math.max(-1, Math.min(1, err * 2)) }; }
-    // (passing: steer out to the side away from the slow one, then back to the line)
-    const pass = this.passT > 0 ? -this.passSide * 0.35 : 0;
-    return { throttle: thr, steer: Math.max(-1, Math.min(1, err * 2.2 + pass)) };
+    return { throttle: thr, steer: Math.max(-1, Math.min(1, err * 2.2)) };
   }
 
   // A chase: head for the road node, 150-450 m off, farthest from every car after Otto

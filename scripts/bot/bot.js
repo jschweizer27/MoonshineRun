@@ -31,6 +31,7 @@ export class Bot {
     this.rearm = 0;
     this.rearming = false;
     this.screenN = 0;
+    this.idleN = 0;                      // (visits in a row to a market or the barn with nothing done: idleVisit)
     this.lastTop = null;
     const d = g.dredge.data;
     this.seen = { steps: new Set(Object.keys(d.steps)), arcs: new Set(ARCS.filter((a) => d.arcs?.[a.id]?.done).map((a) => a.id)), chapter: d.chapter || 0, choice: choiceOpen(d) };
@@ -70,10 +71,12 @@ export class Bot {
       if (g.state === 'intro') { this.event({ t: 'abort', why: 'back at the title screen' }); break; }
       if (g.ui.anyOpen) {
         const top = g.ui.top.id;
-        if (top === this.lastTop) this.screenN++; else { this.screenN = 0; this.lastTop = top; this.count(`screen:${top}`); if (!/^(dialog|trunk)$/.test(top)) this.note(`[${top}]`); }
+        if (top === this.lastTop) this.screenN++; else { this.screenN = 0; this.lastTop = top; this.acted = false; this.count(`screen:${top}`); if (!/^(dialog|trunk)$/.test(top)) this.note(`[${top}]`); }
         if (this.screenN > 400) { this.find('SCREEN', `The ${top} screen wouldn't close`); g.ui.close(); }
         const did = handle(this);
         if (did && !/^(dialog|trunk|salvage)$/.test(did)) this.note(`${top}: ${did}`);
+        if (did && !/ (done|closed)$/.test(did)) this.acted = true;
+        else if (did && /^(market|barn)$/.test(top)) this.idleVisit(top);
         await new Promise((r) => setTimeout(r, 0));
         continue;
       }
@@ -97,6 +100,7 @@ export class Bot {
     const dark = g._night() && g._contraband() > 0;
     if (dark !== !!g.lightsOff) g.toggleLights();
     if (g.police.tier > 0) {
+      this.rearming = false;                      // (a chase ends any circling back)
       if ((d.charge?.smoke || 0) >= 1 && g.useAbility('smoke')) this.note('Smoke Screen');
       if (this.plan?.why !== 'getting away') { this.note(`chased (★${g.police.tier}): getting away`); this.chaseFrom = this.pilot.stats.seconds; this.count('chases'); }
       this.plan = { why: 'getting away', flee: true };
@@ -110,7 +114,7 @@ export class Bot {
     }
     this.gaveUp = false;
     if (this.rearming) {
-      if (this.pilot.dist > 6) return;
+      if (this.pilot.goal && this.pilot.dist > 6) return;
       this.rearming = false;
     }
     const plan = this.brain.choose();
@@ -134,6 +138,7 @@ export class Bot {
   // want Otto to arrive), twice; then it's a finding and the errand waits a while.
   arrival() {
     const g = this.g, P = this.plan;
+    if (g.ui.anyOpen) this.rearm = 0;              // (a screen opened: the stop worked, the circling-back starts afresh)
     if (!P?.go || P.flee || this.rearming || !this.pilot.arrived || g.ui.anyOpen) { if (!this.pilot.arrived) this.atT = 0; return; }
     this.atT += DT;
     if (this.atT < 3 || /^wait for/.test(P.why)) return;
@@ -152,6 +157,25 @@ export class Bot {
     this.brain.fail(P.key || `${Math.round(P.go.x)},${Math.round(P.go.z)}`, 3);
     this.rearm = 0;
     this.decideT = 0;
+  }
+
+  // A market or the barn opened and closed with nothing done, again and again (the bot
+  // parked where it opens and nothing it wants is there): a finding, and drive off.
+  idleVisit(top) {
+    if (this.acted) { this.idleN = 0; return; }
+    if (++this.idleN < 4) return;
+    this.idleN = 0;
+    const g = this.g, p = g.player.position, m = g._nearestMarket();
+    this.find('LOOP', `The ${top} kept opening with nothing to do there (${this.plan?.why || 'no plan'})`, {
+      at: [Math.round(p.x), Math.round(p.z)], screen: top, market: [m.town?.id, Math.round(m.dist), m.inside], tier: g.police.tier,
+      left: { market: g._marketLeft, barn: g._barnLeft, drop: g._dropLeft, site: g._siteLeft, job: g._jobLeft },
+      trunk: { free: this.brain.free(), cracked: g.trunk.cracked.length, kinds: [...g.trunk.pieces.values()].map((q) => q.kind) },
+      cash: g.dredge.cash, repair: g.dredge.repairCost(g.trunk.cracked.length), stash: g.dredge.data.stash, want: this.brain.wanted(),
+    });
+    if (this.plan?.go) this.brain.fail(this.plan.key || `${Math.round(this.plan.go.x)},${Math.round(this.plan.go.z)}`, 3);
+    const far = g.world.roads.nodes.filter((n) => Math.hypot(n.x - p.x, n.z - p.z) > 60);
+    const n = far.length ? far.reduce((a, b) => (Math.hypot(b.x - p.x, b.z - p.z) < Math.hypot(a.x - p.x, a.z - p.z) ? b : a)) : null;
+    if (n) { this.rearming = true; this.pilot.go(n, { near: 6, why: 'away from a loop' }); }
   }
 
   watch() {
@@ -173,7 +197,13 @@ export class Bot {
     const stuck = this.clock - this.mark.clock;
     if (stuck > 96 && !this.mark.warned) {
       this.mark.warned = true;
-      this.find('STUCK', `No story progress for ${Math.round(stuck / 24)} game days (${this.plan?.why || 'no plan'})`);
+      // (where Otto is, and the Bureau: an endless chase shows who has him in sight)
+      const P = g.police, r = (n) => Math.round(n);
+      this.find('STUCK', `No story progress for ${Math.round(stuck / 24)} game days (${this.plan?.why || 'no plan'})`, {
+        at: [r(p.x), r(p.z)], speed: +g.player.speed.toFixed(1), tier: P.tier, heat: +P.heat.toFixed(2), hold: +(P.hold || 0).toFixed(1), quiet: !!P.quiet,
+        units: P.active.map((u) => ({ mode: u.mode, at: [r(u.car.position.x), r(u.car.position.z)], m: r(u.car.position.distanceTo(p)), speed: +Math.abs(u.car.speed || 0).toFixed(1) })),
+        hijack: !!g._hijackOn, ambush: !!g._ambushOn, cracked: g.trunk.cracked.length,
+      });
     }
     if (stuck > 240) this.event({ t: 'abort', why: `stuck for ${Math.round(stuck / 24)} game days` });
   }
@@ -182,7 +212,7 @@ export class Bot {
     const g = this.g, d = g.dredge.data, { chapter, step } = current(d);
     return {
       ...this.stamp(), title: chapter?.title || (d.ending ? `ending: ${d.ending}` : 'the choice'), step: step?.text || null, plan: this.plan?.why || null,
-      banner: document.getElementById('objective-text')?.textContent || '', trunk: g.trunk.count, orders: d.orders.length, ending: d.ending || null,
+      banner: document.getElementById('objective-text')?.textContent || '', trunk: g.trunk.count, cracked: g.trunk.cracked.length, orders: d.orders.length, ending: d.ending || null,
       drive: { km: Math.round(this.pilot.stats.metres / 100) / 10, min: Math.round(this.pilot.stats.seconds / 6) / 10, stalls: this.pilot.stats.stalls, unstuck: this.pilot.stats.unstuck },
       counts: this.counts,
     };
