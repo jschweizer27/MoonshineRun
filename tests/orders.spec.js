@@ -162,11 +162,11 @@ test('Sheriff Hale: once he trusts Otto (and chapter 4 opens bribery), a bust ou
     g._bust('The Bureau boxed you in.');
     return { county, city: { cash: d.cash, shine: g._contraband() } };
   });
-  expect(r.county.cash).toBe(625);                         // 1.5 x the fine
+  expect(r.county.cash).toBe(775);                         // 1.5 x the fine
   expect(r.county.shine).toBe(1);                          // the shine stays aboard
   expect(r.county.at).toBe(-600);                          // no waking at the barn
   expect(r.county.who).toBe('Sheriff Hale');
   expect(r.county.ledger).toContain('Sheriff Hale');
-  expect(r.city).toEqual({ cash: 750, shine: 0 });
+  expect(r.city).toEqual({ cash: 850, shine: 0 });
   expect(problems).toEqual([]);
 });

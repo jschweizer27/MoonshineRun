@@ -279,6 +279,12 @@ frozen at the game's earlier bootlegging design. Design sources: the "Shine Game
   it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
   its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
   dialog closed under it still settles.
+- Stage 18 (a softer floor when the Bureau catches Otto; the stage 17 robot went broke with
+  the police on): a bust fines 15% of the cash, $500 at most (`police.fine`, `fineMax`; Sheriff
+  Hale's waiver stays 1.5x); a cracked cell costs `damage.crack` ($35; the headlamp `cost` $60);
+  short of the whole repair, the barn's garage mends the cracked cells the cash covers
+  (`DredgeCareer.mendCracks(n)`, `Trunk.mend(n)`, `showBarn`'s `mend` button, `onMend`); out of
+  sight the heat drops a tier sooner (`police.evadeTime` [0, 5, 6, 8]).
 - Stage 17c (the robot plays it through): `chapters.lostNow` skips a step that's done (handing
   the hotel its Scotch no longer reads as losing it for a tick). Seeds 1922, 7 and 4242 with
   `--police off` reach all three endings (the choice at game day 16-18) with only a few

@@ -188,7 +188,7 @@ export function playTime(seconds) {
 // ---------- Otto's barn ----------
 // The stash (loot kept at the barn, in trunk cells up to `cap`) and the garage (repairs for
 // the truck's wear). Callbacks do the work; this draws and re-draws.
-export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () => [], onStore, onTake, onStoreAll, onRepair, onInstall, onBrew, onSleep, onTrunk, onBack }) {
+export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () => [], onStore, onTake, onStoreAll, onRepair, onMend, onInstall, onBrew, onSleep, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk(), d = career.data, body = $('barn-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -245,10 +245,14 @@ export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () =
     fix.disabled = !cost || career.cash < cost;
     fix.addEventListener('click', () => { onRepair(); render(); });
     const broken = [d.damage?.lamp ? 'a smashed headlamp' : '', cracks ? `${cracks} cracked trunk cell${cracks === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ');
+    // (short of the whole repair: as many cracked cells as the cash covers)
+    const each = CONFIG.dredge.damage.crack, can = Math.min(cracks, Math.floor(career.cash / each));
+    const mend = cracks && career.cash < cost ? el('button', { type: 'button', class: 'btn small-btn', 'data-id': 'mend' }, can ? `MEND ${can} CELL${can === 1 ? '' : 'S'} ${money(can * each)}` : `MEND A CELL ${money(each)}`) : null;
+    if (mend) { mend.disabled = !can; mend.addEventListener('click', () => { onMend(can); render(); }); }
     body.append(el('div', { class: 'upgrade' },
       el('div', {}, el('b', {}, `The truck: ${health}%`),
         el('small', {}, `${d.wear > 0.01 ? 'Knocks and crashes wear it; a worn truck is slower until it’s mended.' : broken ? '' : 'In good shape.'}${broken ? ` Broken: ${broken}.` : ''}`)),
-      fix));
+      mend ? el('span', { class: 'slot-buttons' }, mend, fix) : fix));
     // The bunk: sleep through the waiting (main.sleep).
     const naps = sleeps();
     if (naps.length) body.append(el('h3', { class: 'market-head' }, 'THE BUNK'));

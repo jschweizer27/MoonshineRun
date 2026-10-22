@@ -133,11 +133,11 @@ test('a bust: pinned by an agent, the shine is taken, a fine paid, and Otto wake
   expect(r.state).toBe('paused');
   expect(r.dialog).toBe(true);
   expect(r.trunk).toEqual(['crate']);                   // the shine's gone; the rest stays
-  expect(r.cash).toBe(750);                             // a quarter of the cash
+  expect(r.cash).toBe(850);                             // 15% of the cash
   expect(r.busts).toBe(1);
   expect(r.heat).toBe(0);
   expect(r.home).toBe(true);
-  expect(r.ledger.amount).toBe(-250);
+  expect(r.ledger.amount).toBe(-150);
   await page.click('#dialog-skip');
   expect(await page.evaluate(() => window.shine.game.state)).toBe('playing');
   expect(problems).toEqual([]);
