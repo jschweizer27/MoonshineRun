@@ -233,7 +233,8 @@ Enter, the D-pad and A/B, or touch.
    aren't there; frayed, he hears sirens and the wheel won't sit still. Daylight and dawn
    give some back; a night's sleep at the barn all of it (a short nap, its share). A really hard crash can smash a headlamp
    or crack the trunk's floor (nothing packs in a cracked cell, and what was there bounces
-   out); the barn's garage mends them with the wear. Now and then, working a site after
+   out); the barn's garage mends them with the wear ($35 a cell, and when the whole repair is
+   more than you have, it mends as many cells as your cash covers). Now and then, working a site after
    dark, Otto finds **papers** tucked in among the salvage: Father's diary, clippings,
    Bureau memos. The notebook keeps them under LETTERS. And once you've found an odd one,
    people start asking for them: a **bounty** on the board wants a particular odd find, at
@@ -270,7 +271,7 @@ Enter, the D-pad and A/B, or touch.
 
    Get out of their sight to lose them; until you do, markets, the barn, speakeasies and
    salvage sites won't open for you. Boxed in and stopped, you're **busted**: the shine is
-   taken, you pay a fine (a quarter of your cash, at most $750), and you wake at the barn.
+   taken, you pay a fine (15% of your cash, at most $500), and you wake at the barn.
    Quitting to the title (or closing the game) with the Bureau on your tail counts as a bust. At night, turn
    the **headlamps off** (L, or d-pad down) to be harder to spot, though you'll see less. A
    **checkpoint** stands at the York Road gap at night from chapter 3. Stop and they search the trunk; run it

@@ -2155,6 +2155,16 @@ class Game {
         this.hud.cashPop(`−${money(cost)}`);
         this.audio.cash?.();
       },
+      // (short of the whole repair: `n` cracked cells)
+      onMend: (n) => {
+        if (!this.dredge.mendCracks(n)) return;
+        this.trunk.mend(n);
+        this.dredge.saveTrunk(this.trunk);
+        this._updateTrunkPill();
+        this.hud.setCash(this.dredge.cash, true);
+        this.hud.cashPop(`−${money(n * CONFIG.dredge.damage.crack)}`);
+        this.audio.cash?.();
+      },
       sleeps: () => this._sleeps(),
       onSleep: (id) => this.sleep(id),
       onTrunk: () => this.trunkScreen.open(this.trunk),

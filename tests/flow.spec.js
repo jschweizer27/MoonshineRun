@@ -304,7 +304,7 @@ test('a gamepad’s A pries once a press (not twice), and quitting with the Bure
   await expect(page.locator('#confirm-text')).toContainText('counts as a bust');
   await page.click('#confirm-yes');
   const after = await page.evaluate(() => { const g = window.shine.game; return { state: g.state, busts: g.dredge.data.stats.busts, shine: g._contraband(), cash: g.dredge.cash }; });
-  expect(after).toEqual({ state: 'intro', busts: 1, shine: 0, cash: 750 });
+  expect(after).toEqual({ state: 'intro', busts: 1, shine: 0, cash: 850 });   // 15% fined
   expect(problems).toEqual([]);
 });
 
