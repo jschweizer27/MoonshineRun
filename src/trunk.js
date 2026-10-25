@@ -53,9 +53,8 @@ export class Trunk {
   }
 
   // Mended: every cracked cell is good again.
-  mend() {
-    for (const [x, y] of this.cracked) this.grid[y * this.cols + x] = -1;
-    this.cracked = [];
+  mend(n = this.cracked.length) {
+    for (const [x, y] of this.cracked.splice(0, n)) this.grid[y * this.cols + x] = -1;
   }
 
   get count() { return this.pieces.size; }

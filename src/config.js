@@ -174,8 +174,9 @@ export const CONFIG = {
     spoil: { lager: 0.025, floor: 0.2 },
     // Damage that bites (DREDGE's hull breaches): a crash at `at` m/s or harder, `chance` of
     // the time, puts out a headlamp (light x`lamp`) or cracks a trunk cell (nothing packs
-    // there; what was in it bounces out), until it's mended at the barn (`cost` each).
-    damage: { at: 24, chance: 0.5, lamp: 0.55, cost: 60 },
+    // there; what was in it bounces out), until it's mended at the barn (`cost` the headlamp,
+    // `crack` a cell; short of the whole repair, the garage mends what cracks the cash covers).
+    damage: { at: 24, chance: 0.5, lamp: 0.55, cost: 60, crack: 35 },
     // Bounties (DREDGE's collectors): once Otto has found an odd one, a contact a day asks
     // for an odd kind, by `hours`, paying `pay` x its value.
     bounty: { pay: 2, hours: 36 },
@@ -458,9 +459,9 @@ export const CONFIG = {
       // city east of `minX` and south of `minZ`).
       harbour: { minX: 40, minZ: 90, extra: 1 },
       cone: 0.75, sight: 70, nightSight: 0.8, darkSight: 0.4, closeSight: 12,
-      buildRate: 0.12, evadeTime: [0, 6, 8, 10], max: 3,
+      buildRate: 0.12, evadeTime: [0, 5, 6, 8], max: 3,
       pinRadius: 7.5, pinSpeed: 4, bustTime: 2.2, bustRecover: 0.8,
-      fine: 0.25, fineMin: 50, fineMax: 750,
+      fine: 0.15, fineMin: 50, fineMax: 500,
       maxSpeed: 33, accel: 15, boost: 1.15, spawn: [160, 360], despawn: 420,
       roadblockEvery: 18, mapRange: 160,
       checkpoint: { x: 0, z: -262, radius: 14, hours: [19.5, 6], stopSpeed: 3, chapter: 2 },

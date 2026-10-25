@@ -218,7 +218,18 @@ export class DredgeCareer {
   // Wear, a smashed headlamp and the trunk's `cracks` (cracked cells), mended together.
   repairCost(cracks = 0) {
     const D = CONFIG.dredge.damage;
-    return Math.ceil(this.data.wear * CONFIG.dredge.wear.repairCost) + (this.data.damage?.lamp ? D.cost : 0) + cracks * D.cost;
+    return Math.ceil(this.data.wear * CONFIG.dredge.wear.repairCost) + (this.data.damage?.lamp ? D.cost : 0) + cracks * D.crack;
+  }
+
+  // Short of the whole repair: `n` cracked cells mended (wear and the headlamp wait).
+  mendCracks(n) {
+    const cost = n * CONFIG.dredge.damage.crack;
+    if (n < 1 || this.data.cash < cost) return false;
+    this.data.cash -= cost;
+    this.data.ledger.unshift({ t: Date.now(), text: `Mended ${n} trunk cell${n === 1 ? '' : 's'}`, amount: -cost });
+    this.data.ledger.length = Math.min(this.data.ledger.length, 40);
+    this.save();
+    return true;
   }
 
   repair(cracks = 0) {

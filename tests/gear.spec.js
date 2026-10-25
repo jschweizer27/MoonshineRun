@@ -106,7 +106,7 @@ test('damage bites: a hard crash smashes a headlamp, the next cracks a trunk cel
   expect(r.gone).toBe(0);
   expect(r.blocked).toBe(false);
   expect(r.json).toBe('[[0,0]]');
-  expect(r.cost).toBe(120);
+  expect(r.cost).toBe(95);                                 // the headlamp $60, a cell $35
   // Through a reload, and then the barn.
   await reloadGame(page);
   await page.click('#start-btn');
@@ -119,7 +119,7 @@ test('damage bites: a hard crash smashes a headlamp, the next cracks a trunk cel
     out.after = { cracked: g.trunk.cracked.length, lamp: d.damage.lamp, cash: d.cash, place: g.trunk.canPlace('small-crate', 0, 0, 0) };
     return out;
   }, KIT);
-  expect(m).toEqual({ cracked: 1, lamp: true, after: { cracked: 0, lamp: false, cash: 880, place: true } });
+  expect(m).toEqual({ cracked: 1, lamp: true, after: { cracked: 0, lamp: false, cash: 905, place: true } });
   expect(problems).toEqual([]);
 });
 

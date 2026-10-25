@@ -457,6 +457,8 @@ export class Brain {
     this.visit ??= { brewed: 0, stored: false };
     if ((d.still || 0) < 1 && live('#barn-body [data-id="install-coil"]')) { $('#barn-body [data-id="install-coil"]').click(); return 'fitted the coil'; }
     const cracks = this.g.trunk.cracked.length;
+    // (short of the whole repair, the cracked cells the cash covers)
+    if (!this.visit.repaired && cracks && d.cash < this.g.dredge.repairCost(cracks) && live('#barn-body [data-id="mend"]')) { this.visit.repaired = true; $('#barn-body [data-id="mend"]').click(); this.bot.count('repairs'); return 'mended trunk cells'; }
     if (!this.visit.repaired && ((d.wear || 0) > 0.12 || cracks) && d.cash >= this.g.dredge.repairCost(cracks) + (cracks ? 20 : 60) && live('#barn-body [data-id="repair"]')) { this.visit.repaired = true; $('#barn-body [data-id="repair"]').click(); this.bot.count('repairs'); return 'repaired the truck'; }
     for (const id of this.brewList) {
       const b = live(`#barn-body [data-id="brew-${id}"]`);
