@@ -6,6 +6,9 @@ runs past the Bureau and a story in nine chapters, built as a browser demo with 
 frozen at the game's earlier bootlegging design. Design sources: the "Shine Game Treatment"
 (story/factions) and "Moonshine Run Dev Guide" (5-phase UE5 plan).
 
+Other agents (Codex) read `AGENTS.md`, which points back here; the visual-polish brief is
+`docs/VISUAL_POLISH.md`.
+
 ## Run, test, build
 - `npm start` — local server + opens the browser (plays the unbundled source; no build step).
 - `npm run verify` — everything CI runs: `check` (syntax, vendored Three.js, UE5 static
