@@ -426,6 +426,8 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
   #clock .clock-extra { display: none; }      /* (under the banner otherwise; the colour keeps the nerves) */
   #passenger { max-width: 180px; }             /* (the toast starts just past the left column) */
   :root { --banner-top: 56px; --banner-gap: 6px; }
+  /* (lower and smaller, clear of the news line under the banner) */
+  #cash-pop { top: 56%; font-size: calc(clamp(26px, 5vw, 40px) * var(--ts)); }
   .hud-banner { font-size: calc(14px * var(--ts)); letter-spacing: 1px; padding: 5px 12px; }
   #minimap { width: 130px; height: 130px; }
 }

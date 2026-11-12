@@ -121,3 +121,33 @@ test('the villages are dressed inside the same draw calls; the city’s night ha
   expect(r.moon).toBe(true);
   expect(problems).toEqual([]);
 });
+
+test('on a short screen the cash pop-up keeps clear of the news line; a market’s sign fades as the truck comes up to it', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 450 });
+  const problems = await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async (KIT) => {
+    const { g, clear } = eval(KIT);
+    const { CONFIG } = await import('/src/config.js');
+    clear();
+    g.renderer.setAnimationLoop(null);
+    document.documentElement.classList.add('reduced-motion');      // boxes where they rest
+    const frame = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    g.hud.setObjective('Deliver to Ruby Dalton at Courthouse Tavern · after dark · tonight', '0.2 mi', 'job');
+    g.hud.toast('A farm cart’s broken down across the road near Ridgewood Farm. Go around', 'gold', 60000);
+    g.hud.cashPop('+$325');
+    await frame();
+    const t = document.getElementById('toast').getBoundingClientRect(), p = document.getElementById('cash-pop').getBoundingClientRect();
+    const out = { popUnderNews: Math.round(p.top - t.bottom), popOnScreen: p.bottom < window.innerHeight * 0.75 };
+    // The sign over Lexington Market: whole from down the street, gone at its door.
+    const town = CONFIG.dredge.towns[0], m = g.marketMarkers[0];
+    const from = (metres) => { g.camera.position.set(town.x, 6, town.z + metres); g._updateMarkers(); return { shown: m.visible, sign: Math.round(m.userData.label.material.opacity * 100) / 100 }; };
+    out.far = from(60); out.near = from(10);
+    return out;
+  }, KIT);
+  expect(r.popUnderNews, JSON.stringify(r)).toBeGreaterThanOrEqual(0);
+  expect(r.popOnScreen).toBe(true);
+  expect(r.far).toEqual({ shown: true, sign: 1 });
+  expect(r.near).toEqual({ shown: true, sign: 0 });
+  expect(problems).toEqual([]);
+});
