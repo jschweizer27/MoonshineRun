@@ -60,6 +60,7 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
     const longest = CHAPTERS.flatMap((c) => c.steps.map((s) => `${c.title}: ${s.text}`)).sort((a, b) => b.length - a.length)[0];
     clear();
     g.renderer.setAnimationLoop(null);
+    document.documentElement.classList.add('reduced-motion');      // boxes where they rest, not mid-slide
     const frame = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const text = document.getElementById('objective-text'), banner = document.getElementById('objective'), toast = document.getElementById('toast');
     const measure = async (words) => {
