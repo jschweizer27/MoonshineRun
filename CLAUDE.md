@@ -282,6 +282,14 @@ Other agents (Codex) read `AGENTS.md`, which points back here; the visual-polish
   it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
   its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
   dialog closed under it still settles.
+- Stage 19c (my pick: traffic gets round the truck): a car meeting the truck coming the other
+  way on (or over) the crown eases toward the verge (`car.dodge`, `traffic.js` `_passing`,
+  `CONFIG.dredge.traffic.pass`) and passes slowly; it only waits when the truck is too far
+  into its lane to get round. Before, it stopped dead and both sat nose to nose.
+  `tests/traffic19.spec.js`. And from a look through the robot's shots, two things on a short
+  screen: the cash pop-up sits lower and smaller, clear of the news line (`#cash-pop` under
+  `max-height: 500px`); a marker's sign fades as the camera comes up to it (`marker.js`
+  `animateMarker`, `FADE` metres), so it doesn't stand across the banner at a market's door.
 - Stage 19b (the world reads better): the moon's disc keeps under the bloom by night
   (`look.skyDome.moonGain` / `moonHalo`, mixed by `uNight` in `sky.js`; the sun is as it was);
   the city's night has more hemisphere fill (`look.nightFill`, in `environment.js`; none by

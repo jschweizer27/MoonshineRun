@@ -6,6 +6,7 @@ import { radialTexture } from './world.js';
 // door). Built once per place at boot; main.js shows only the one nearest the camera (each
 // costs four draw calls).
 let glowTex = null;
+const FADE = [16, 34];
 export function makeMarker(scene, color, text = 'MARKET', icon = 'stall') {
   const group = new THREE.Group();
   const beamMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
@@ -23,7 +24,7 @@ export function makeMarker(scene, color, text = 'MARKET', icon = 'stall') {
   label.renderOrder = 2;          // after the beam, so its glow doesn't wash the sign out
   label.position.y = 8;
   group.add(beam, ring, glow, label);
-  group.userData = { ring, beam };
+  group.userData = { ring, beam, label };
   scene.add(group);
   return group;
 }
@@ -77,7 +78,13 @@ function labelTexture(color, text, icon) {
 export function animateMarker(m, time, camera) {
   if (!m.visible) return;
   // Don't let the glowing beam fill the screen when the camera passes through it.
-  if (camera) m.userData.beam.visible = Math.hypot(camera.x - m.position.x, camera.z - m.position.z) > 3;
+  const d = camera ? Math.hypot(camera.x - m.position.x, camera.z - m.position.z) : Infinity;
+  m.userData.beam.visible = d > 3;
+  // The sign fades as the truck comes up to it (from FADE[1] metres to FADE[0]): at the door
+  // it would stand across the banner and the news.
+  const sign = m.userData.label;
+  sign.material.opacity = Math.max(0, Math.min(1, (d - FADE[0]) / (FADE[1] - FADE[0])));
+  sign.visible = sign.material.opacity > 0.01;
   m.userData.ring.rotation.y = time * 1.2;
   m.userData.ring.scale.setScalar(1 + Math.sin(time * 3) * 0.05);
   m.userData.beam.material.opacity = 0.28 + Math.sin(time * 2.2) * 0.08;
