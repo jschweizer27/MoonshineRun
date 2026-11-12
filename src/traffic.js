@@ -82,7 +82,7 @@ export class Traffic {
     this.rng = createRng(seed ^ 0x7aff1c);
     const n = this.n = T.count;
     this.cars = Array.from({ length: n }, (_, i) => ({
-      i, on: false, parked: false, body: 0, from: 0, to: 0, t: 0, len: 1, speed: 0, cruise: 0, stun: 0,
+      i, on: false, parked: false, body: 0, from: 0, to: 0, t: 0, len: 1, speed: 0, cruise: 0, stun: 0, dodge: 0,
       position: new THREE.Vector3(), heading: 0, vx: 0, vz: 0,
       get forwardX() { return Math.sin(this.heading); },
       get forwardZ() { return -Math.cos(this.heading); },
@@ -206,6 +206,7 @@ export class Traffic {
       c.cruise = T.speeds[c.body] * (0.85 + rng() * 0.3);
       c.speed = c.cruise * 0.6;
       c.stun = 0;
+      c.dodge = 0;
       this._setLeg(c, a.id, b.id, 0);
       c.on = true;
       c.mesh.visible = true;
@@ -227,7 +228,7 @@ export class Traffic {
     const dx = (b.x - a.x) / c.len, dz = (b.z - a.z) / c.len, f = c.t / c.len;
     c.heading = Math.atan2(dx, -dz);
     const rx = Math.cos(c.heading), rz = Math.sin(c.heading);
-    c.position.set(a.x + (b.x - a.x) * f + rx * T.lane, 0, a.z + (b.z - a.z) * f + rz * T.lane);
+    c.position.set(a.x + (b.x - a.x) * f + rx * (T.lane + c.dodge), 0, a.z + (b.z - a.z) * f + rz * (T.lane + c.dodge));
   }
 
   _drive(c, dt, player) {
@@ -241,8 +242,14 @@ export class Traffic {
         if (along > 0 && side < 2.6) gap = Math.min(gap, along);
       };
       for (const o of this.cars) if (o !== c && o.on) ahead(o.position.x, o.position.z);
-      ahead(player.position.x, player.position.z);
-      const target = gap < T.gap ? 0 : gap < T.gap * 2.5 ? c.cruise * (gap - T.gap) / (T.gap * 1.5) : c.cruise;
+      // The truck: followed like any car, unless it's coming the other way on (or over) the
+      // crown. Then the car eases toward the verge and passes it slowly, and only waits for it
+      // while there isn't yet room (or never will be: it's square in this lane).
+      const P = T.pass, pass = this._passing(c, player);
+      c.dodge += Math.max(-P.rate * dt, Math.min(P.rate * dt, (pass ? pass.dodge : 0) - c.dodge));
+      if (!pass || !pass.clear) ahead(player.position.x, player.position.z);
+      const cruise = pass ? c.cruise * P.slow : c.cruise;
+      const target = gap < T.gap ? 0 : gap < T.gap * 2.5 ? cruise * (gap - T.gap) / (T.gap * 1.5) : cruise;
       c.speed += Math.max(-10 * dt, Math.min(4 * dt, target - c.speed));
     }
     c.t += c.speed * dt;
@@ -256,6 +263,20 @@ export class Traffic {
     this._place(c);
     c.vx = c.forwardX * c.speed;
     c.vz = c.forwardZ * c.speed;
+  }
+
+  // The truck coming the other way, to this car's left and near: how far over the car wants
+  // to be to pass it ({ dodge }), and whether it's far enough over now ({ clear }). Null when
+  // the truck isn't oncoming, is past, or is too far into this lane to get round.
+  _passing(c, player) {
+    const P = T.pass, p = player.position, fx = c.forwardX, fz = c.forwardZ;
+    if (player.forwardX * fx + player.forwardZ * fz > -0.5) return null;      // not coming this way
+    const dx = p.x - c.position.x, dz = p.z - c.position.z, along = dx * fx + dz * fz;
+    if (along < -(T.offset + player.t.circleOffset + 1) || along > P.ahead) return null;
+    const left = -(dx * Math.cos(c.heading) + dz * Math.sin(c.heading));      // metres to the car's left
+    const room = T.radius + player.t.radius + P.margin, dodge = c.dodge + room - left;
+    if (dodge > P.max) return null;
+    return { dodge: Math.max(0, dodge), clear: left >= room - P.margin * 0.5 };
   }
 
   // The truck against a car: two circles each way. Pushes the truck out and returns the

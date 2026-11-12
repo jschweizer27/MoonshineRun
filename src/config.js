@@ -275,7 +275,11 @@ export const CONFIG = {
     // middle; `gap` metres kept behind whatever's ahead; `radius` / `offset` their two
     // collision circles; `stun` seconds a car stops after a knock; a hit harder than
     // `spill` (m/s) throws a piece out of the trunk. PLACEHOLDERS: tune after playtesting.
-    traffic: { count: 8, county: 3, night: 0.5, spawn: [90, 220], despawn: 260, mix: [0.5, 0.3], speeds: [11, 9, 5], lane: 2.2, gap: 7, radius: 1.1, offset: 1.3, stun: 1.5, spill: 11 },
+    traffic: { count: 8, county: 3, night: 0.5, spawn: [90, 220], despawn: 260, mix: [0.5, 0.3], speeds: [11, 9, 5], lane: 2.2, gap: 7, radius: 1.1, offset: 1.3, stun: 1.5, spill: 11,
+      // The truck coming the other way, over the crown: seen `ahead` metres off, a car eases
+      // up to `max` metres toward the verge (at `rate` m/s) to pass `margin` clear of it, at
+      // `slow` x its speed; it only waits when that isn't room enough.
+      pass: { ahead: 34, max: 1.2, margin: 0.35, rate: 1.6, slow: 0.6 } },
     // Road events (src/roadevents.js): every `hours` game hours there's a `chance` of one
     // (a washout, a broken-down cart, a fog bank, a market day), lasting the first `lasts`
     // share of that time; the slots start `offset` hours after midnight, so an event never
