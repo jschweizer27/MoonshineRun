@@ -18,8 +18,10 @@ export default defineConfig({
   // Retry once there; the job summary still flags any test that needed it as flaky.
   retries: CI ? 1 : 0,
   forbidOnly: CI,
+  // (on CI, failures also go out as GitHub annotations, readable from the check run)
   reporter: [
     ['list'],
+    ...(CI ? [['github']] : []),
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'artifacts/results.json' }],
   ],

@@ -282,6 +282,13 @@ Other agents (Codex) read `AGENTS.md`, which points back here; the visual-polish
   it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
   its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
   dialog closed under it still settles.
+- Stage 19a (the screens and HUD read better): a store's or the barn's card fits the screen
+  (a flex column above 500px tall) and its list scrolls inside with fading edges
+  (`screens.js` `scrollFades` sets `more-above` / `more-below`; styles.css `.scroll-fade`); a
+  long store name gets `.title.small.long`; `.btn:disabled` is hollow and dashed; the banner
+  wraps to three lines at most (the longest step is 122 letters) and `hud.js` keeps its
+  height in `--banner-h`, so the toast and the tips sit under it (`--banner-top`,
+  `--banner-gap`). `tests/polish19.spec.js`.
 - Stage 18 (a softer floor when the Bureau catches Otto; the stage 17 robot went broke with
   the police on): a bust fines 15% of the cash, $500 at most (`police.fine`, `fineMax`; Sheriff
   Hale's waiver stays 1.5x); a cracked cell costs `damage.crack` ($35; the headlamp `cost` $60);

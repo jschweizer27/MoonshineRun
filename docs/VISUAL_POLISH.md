@@ -39,14 +39,18 @@ From a baseline pass (`npm run shots -- dredge-baseline` on main, November 2026)
 yourself first; each item names the view that shows it. These are what the screenshots show.
 Fix what you agree with, in this order or yours.
 
-1. **The market and store lists hide rows behind the footer.** `dredge-baseline-market`,
+1. **Done (stage 19a).** ~~The market and store lists hide rows behind the footer.~~ The card
+   now fits the screen, the list scrolls inside it with fading edges (`screens.js`
+   `scrollFades`), and a long name keeps to one line. The original note:
+   **The market and store lists hide rows behind the footer.** `dredge-baseline-market`,
    `-contacts`, `-upgrades`: the list (`#market-body`, `max-height: 52vh`, 44vh on small
    screens) is cut mid-row at both ends, and nothing shows that it scrolls. The last order
    ("Lulu Banks") and the last upgrade ("All-weather tyres") sit half under the SELL EVERYTHING
    / BACK ON THE ROAD bar. A fade at the scroll edges, or a list that ends on a whole row,
    would help. "MONKTON GENERAL STORE" also wraps to two lines and takes vertical space from
    the list.
-2. **Small, low-contrast text on the screens.** The grey sub-lines in the market rows ("$19
+2. **Done (stage 19a).** Sub-lines are 14px on a lighter `--muted`; a disabled button is
+   hollow and dashed. The original note: **Small, low-contrast text on the screens.** The grey sub-lines in the market rows ("$19
    each today (base $20, low)", the upgrade descriptions), the trunk's control hints and its
    piece labels (SMALL, BOTTLES, BOX, COIL) are hard to read at 1280x720 and will be worse on
    a phone. The disabled BUY buttons (dark amber on dark) are barely told apart from the live

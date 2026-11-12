@@ -14,6 +14,10 @@ export class HUD {
       objectiveText: $('objective-text'), objectiveDist: $('objective-dist'), objective: $('objective'), arrow: $('objective-arrow'),
       cargo: $('cargo'), speed: $('speed'), toast: $('toast'), cashPop: $('cash-pop'), mute: $('btn-mute'),
     };
+    // The banner's height, for what sits under it (styles.css --banner-h): kept as it changes
+    // (a long step wraps to two lines; the breakpoints move it).
+    this._bannerH = () => this.el.hud.style.setProperty('--banner-h', `${this.el.objective.offsetHeight}px`);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(this._bannerH).observe(this.el.objective);
     this._toastTimer = null;
     this._toastNow = null;
     this._queue = [];
@@ -110,14 +114,17 @@ export class HUD {
   // bearing: radians from straight ahead (positive = to the right).
   setObjective(text, meters, kind, bearing = 0) {
     this.el.arrow.style.transform = `rotate(${Math.round((bearing * 180) / Math.PI)}deg)`;
+    let changed = false;
     this._set('objective', text, () => {
+      changed = true;
       this.el.objectiveText.textContent = text;
       // A new objective slides in from above (JUICE.ui.bannerSlide).
       const t = juice('ui', 'bannerSlide');
       if (t) { this.el.objective.style.setProperty('--slide', `${t}s`); replay(this.el.objective, 'slide'); }
     });
-    this._set('dist', meters, () => { this.el.objectiveDist.textContent = meters == null ? '' : typeof meters === 'string' ? meters : `${meters} m`; });
-    this._set('kind', kind, () => { this.el.objective.dataset.kind = kind; });
+    this._set('dist', meters, () => { changed = true; this.el.objectiveDist.textContent = meters == null ? '' : typeof meters === 'string' ? meters : `${meters} m`; });
+    this._set('kind', kind, () => { changed = true; this.el.objective.dataset.kind = kind; });
+    if (changed) this._bannerH();      // (at once: the news under it never sits on a banner that just grew)
   }
 
   // A toast shows at once. One it cuts short that mattered (gold or red news) waits and

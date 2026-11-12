@@ -3,7 +3,10 @@
   --amber: #e0a83a;
   --ink: #0d0b08;
   --paper: #ece3cf;
-  --muted: #b6ab90;
+  --muted: #c6bca2;
+  /* The banner's place and height (hud.js keeps --banner-h): the news and the tips sit under it. */
+  --banner-top: 70px;
+  --banner-gap: 12px;
   --gutter: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
   --ts: 1;          /* text scale; 1.25 with the Large text setting */
 }
@@ -63,14 +66,14 @@ body.touch-mode .touch-only { display: inline-block; }
 
 .hud-banner {
   position: absolute;
-  top: 70px;
+  top: var(--banner-top);
   left: 50%;
   transform: translateX(-50%);
   max-width: calc(100vw - 2 * var(--gutter) - 240px);
+  width: max-content;
   display: flex;
   gap: 12px;
-  align-items: baseline;
-  white-space: nowrap;
+  align-items: center;
   overflow: hidden;
   font-size: calc(clamp(13px, 2.4vw, 18px) * var(--ts));
   letter-spacing: 2px;
@@ -80,13 +83,14 @@ body.touch-mode .touch-only { display: inline-block; }
   border: 1px solid rgba(216, 178, 90, 0.5);
   border-radius: 2px;
 }
-#objective-text { overflow: hidden; text-overflow: ellipsis; }
-#objective-dist { color: var(--gold); font-variant-numeric: tabular-nums; }
+/* (a long step wraps, to three lines at most, rather than being cut off: the longest is 122 letters) */
+#objective-text { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; line-height: 1.3; }
+#objective-dist { color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #objective-arrow { width: 22px; height: 22px; align-self: center; fill: var(--gold); flex: none; filter: drop-shadow(0 0 4px rgba(242, 197, 92, 0.6)); }
 
 #toast {
   position: absolute;
-  top: 118px;
+  top: calc(var(--banner-top) + var(--banner-h, 36px) + var(--banner-gap));
   left: 50%;
   transform: translate(-50%, -6px);
   opacity: 0;
@@ -97,10 +101,11 @@ body.touch-mode .touch-only { display: inline-block; }
   text-align: center;
   text-shadow: 0 2px 6px #000;
   max-width: calc(100vw - 2 * var(--gutter));
+  background: radial-gradient(ellipse at center, rgba(8, 9, 12, 0.5), rgba(8, 9, 12, 0) 72%);
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 /* The first run's tips: a card under the toasts, with a way out. */
-#guide { position: absolute; top: 162px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 2 * var(--gutter))); display: flex; gap: 14px; align-items: center; padding: 8px 14px; background: rgba(13, 11, 8, 0.72); border: 1px solid var(--gold); border-radius: 3px; font-size: calc(clamp(14px, 2.4vw, 16px) * var(--ts)); line-height: 1.4; pointer-events: auto; }
+#guide { position: absolute; top: calc(var(--banner-top) + var(--banner-h, 36px) + 56px); left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 2 * var(--gutter))); display: flex; gap: 14px; align-items: center; padding: 8px 14px; background: rgba(13, 11, 8, 0.72); border: 1px solid var(--gold); border-radius: 3px; font-size: calc(clamp(14px, 2.4vw, 16px) * var(--ts)); line-height: 1.4; pointer-events: auto; }
 #guide.hidden { display: none; }
 #guide-skip { flex: none; }
 .guide-line { color: var(--gold); border-left: 3px solid var(--gold); padding-left: 10px; text-align: left; }
@@ -263,7 +268,7 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 .subtitle { margin: 0 0 18px; font-size: calc(clamp(12px, 2.6vw, 16px) * var(--ts)); letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
 .story { font-size: calc(clamp(15px, 3.4vw, 17px) * var(--ts)); line-height: 1.55; color: #d8cfb8; margin: 0 0 16px; }
 .hint { font-size: calc(15px * var(--ts)); line-height: 1.5; color: var(--muted); margin: 0 0 18px; }
-.hint.small { font-size: calc(13px * var(--ts)); margin: 14px 0 0; }
+.hint.small { font-size: calc(14px * var(--ts)); margin: 14px 0 0; }
 .hint:empty { display: none; }
 
 .gold { color: var(--gold); font-weight: bold; }
@@ -344,18 +349,35 @@ body.touch-mode #toast, body.touch-mode #guide { max-width: calc(100vw - 2 * var
 #passenger { max-width: min(260px, 32vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Market: what's for sale, then the upgrades */
-#market-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; max-height: 52vh; overflow-y: auto; }
+/* (the barn's list is the market's: left-aligned rows, scrolling inside the card) */
+#market-body, #barn-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; max-height: 52vh; overflow-y: auto; }
+/* A list that scrolls says so (screens.js scrollFades): its edges fade where there's more. */
+.scroll-fade { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold) 55%, transparent) transparent; }
+.scroll-fade > * { flex: none; }
+.scroll-fade.more-below { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); }
+.scroll-fade.more-above { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 44px); mask-image: linear-gradient(to bottom, transparent, #000 44px); }
+.scroll-fade.more-above.more-below { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+/* With room to stand (not a short landscape phone), a store's card fits the screen and its
+   list takes what's left, so the title and the buttons are always in view. */
+@media (min-height: 501px) {
+  #market .overlay-card, #barn .overlay-card { display: flex; flex-direction: column; max-height: 100%; }
+  #market .overlay-card > *, #barn .overlay-card > * { flex: none; }
+  #market .overlay-card > #market-body, #barn .overlay-card > #barn-body { flex: 1 1 auto; min-height: min(150px, 28vh); max-height: none; }
+}
+/* (a long name, "Monkton General Store", keeps to one line) */
+.title.small.long { font-size: calc(clamp(18px, 4.6vw, 30px) * var(--ts)); letter-spacing: clamp(1px, 0.8vw, 4px); }
 .market-head { margin: 8px 0 0; font-size: calc(13px * var(--ts)); letter-spacing: 3px; color: var(--gold); }
 .upgrade { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid rgba(216, 178, 90, 0.3); border-radius: 4px; }
 .upgrade b { font-size: calc(16px * var(--ts)); color: var(--paper); }
-.upgrade small { display: block; color: var(--muted); font-size: calc(13px * var(--ts)); margin-top: 2px; }
+.upgrade small { display: block; color: var(--muted); font-size: calc(14px * var(--ts)); line-height: 1.4; margin-top: 2px; }
 .upgrade small.needs { color: #b8c890; }
 .upgrade small.needs.short { color: #d8a070; }
 .pips { margin-left: 10px; }
 .pips i { display: inline-block; width: 10px; height: 10px; margin-right: 3px; border-radius: 50%; border: 1px solid var(--gold); }
 .pips i.on { background: var(--gold); }
 .small-btn { font-size: calc(13px * var(--ts)); padding: 8px 14px; min-height: 40px; white-space: nowrap; letter-spacing: 1px; }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+/* (can't be pressed: drawn hollow and dashed, not just dimmed) */
+.btn:disabled, .btn:disabled:hover, html.dredge .btn:disabled:hover { background: transparent; color: var(--muted); border: 2px dashed color-mix(in srgb, var(--muted) 50%, transparent); cursor: not-allowed; transform: none; }
 
 /* Ledger: a bookkeeper's page */
 .ledger-card { background: #1b1712 !important; }
@@ -403,17 +425,17 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
   .hud-banner { top: 56px; }
   #clock .clock-extra { display: none; }      /* (under the banner otherwise; the colour keeps the nerves) */
   #passenger { max-width: 180px; }             /* (the toast starts just past the left column) */
-  #toast { top: 96px; }
+  :root { --banner-top: 56px; --banner-gap: 6px; }
+  .hud-banner { font-size: calc(14px * var(--ts)); letter-spacing: 1px; padding: 5px 12px; }
   #minimap { width: 130px; height: 130px; }
 }
 @media (max-width: 700px) {
   /* Narrow: the banner goes full width under the top row and wraps to two lines rather
      than cutting the step off; the toasts and tips under it, the radar under those. */
-  .hud-banner, body.touch-mode .hud-banner { max-width: calc(100vw - 2 * var(--gutter)); width: max-content; top: 78px; white-space: normal; align-items: center; letter-spacing: 1px; }
-  #objective-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
-  #objective-dist { white-space: nowrap; }
-  #toast, body.touch-mode #toast { top: 146px; width: max-content; max-width: calc(100vw - 2 * var(--gutter)); }
-  #guide, body.touch-mode #guide { top: 212px; max-width: calc(100vw - 2 * var(--gutter)); }
+  :root { --banner-top: 78px; }
+  .hud-banner, body.touch-mode .hud-banner { max-width: calc(100vw - 2 * var(--gutter)); letter-spacing: 1px; }
+  #toast, body.touch-mode #toast { width: max-content; max-width: calc(100vw - 2 * var(--gutter)); }
+  #guide, body.touch-mode #guide { top: calc(var(--banner-top) + var(--banner-h, 56px) + 78px); max-width: calc(100vw - 2 * var(--gutter)); }
   body.touch-mode .hud-bl { top: 290px; }
   #hud-buttons .icon-btn { width: 36px; height: 36px; padding: 7px; }
 }
@@ -459,9 +481,9 @@ html.reduced-motion #cash-pop.show { opacity: 1; }
   border: 2px solid color-mix(in srgb, var(--d-cream, #efe6d0) 6%, transparent);
   background: var(--d-slate, #2f3b47);
   color: var(--d-cream, #efe6d0);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: bold;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
