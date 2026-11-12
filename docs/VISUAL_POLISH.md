@@ -55,18 +55,28 @@ Fix what you agree with, in this order or yours.
    piece labels (SMALL, BOTTLES, BOX, COIL) are hard to read at 1280x720 and will be worse on
    a phone. The disabled BUY buttons (dark amber on dark) are barely told apart from the live
    ones.
-3. **The barn yard view is cut by a black wedge.** `dredge-baseline-barn`: a dark triangle
+3. **Done (stage 19b): it was the shot tool.** Its barn camera stood inside a tree; it now
+   picks a clear spot (`scripts/shoot-dredge.mjs`). Not something that happens in play. The
+   original note: **The barn yard view is cut by a black wedge.** `dredge-baseline-barn`: a dark triangle
    (near geometry, most likely a tree in the county) covers the top right third of the frame.
    Check whether the chase camera can end up there in play too.
-4. **The moon is a blown-out blob.** `dredge-baseline-barn`: a large soft white disc with a
+4. **Done (stage 19b).** By night the disc keeps under the bloom's threshold
+   (`look.skyDome.moonGain`, `moonHalo`): a crisp disc with a soft halo. The original note:
+   **The moon is a blown-out blob.** `dredge-baseline-barn`: a large soft white disc with a
    hard bloom halo. A smaller, crisper moon with less bloom would read better.
-5. **The truck from the front is a dark box.** `dredge-baseline-truck`: at night only the two
+5. **Left as it is (stage 19b).** Facing its own headlamps the truck is a silhouette; the
+   city's night fill (item 7) lifts it a little. Lighting its face properly needs a light,
+   and the count is fixed at 12. The original note: **The truck from the front is a dark box.** `dredge-baseline-truck`: at night only the two
    headlamps read; the grille, bumper and cab are a single dark mass.
-6. **The county towns are plain.** `dredge-baseline-monkton-day`, `-glyndon`,
+6. **Partly done (stage 19b).** Each village house has a roof tint, and most a porch, a
+   store's false front or a chimney (`county.js` `dressVillage`: `deco` pieces in the same
+   three instanced meshes, so the draw calls are unchanged). The ground and the fences are as
+   they were. The original note: **The county towns are plain.** `dredge-baseline-monkton-day`, `-glyndon`,
    `-cockeysville`: same-sized boxy barns, flat green ground, white rail fences. Variety
    (sizes, roof colours, a few props) would help, inside the draw-call budget (the towns run
    33-40 calls now).
-7. **Dark streets away from the lamps.** `dredge-baseline-street`, `-truck`: the asphalt
+7. **Done (stage 19b).** The city's night has more hemisphere fill (`look.nightFill`); the
+   county and the day are unchanged. The original note: **Dark streets away from the lamps.** `dredge-baseline-street`, `-truck`: the asphalt
    between pools of lamp light goes nearly black, so the road edge is hard to see at night.
 
 Not a bug: the HUD clock reads "Thu 9:30 PM" in the daylight views. The shot tool lights the

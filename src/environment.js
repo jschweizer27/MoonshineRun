@@ -115,7 +115,7 @@ export class Environment {
     s.fog.density = THREE.MathUtils.lerp(THREE.MathUtils.lerp(L.fogDensity, L.dayFogDensity, d), L.fogWeatherDensity, this.fog);
 
     const lift = (this.county || 0) * (1 - d);
-    w.hemi.intensity = (L.ambient + 2.6 * d) * (1 + L.countyNight.ambient * lift);
+    w.hemi.intensity = (L.ambient + L.nightFill * (1 - d) * (1 - (this.county || 0)) + 2.6 * d) * (1 + L.countyNight.ambient * lift);
     w.hemi.color.setHex(L.ambientSky).lerp(HEMI_DAY, d);
     w.moon.intensity = (L.moonIntensity + 2.4 * d) * (1 + L.countyNight.moon * lift);
     w.moon.color.setHex(L.moon).lerp(SUN, d);
