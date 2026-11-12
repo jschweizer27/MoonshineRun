@@ -39,7 +39,7 @@ test('a store’s card fits the screen; its list fades where there’s more and 
     clear();
     return out;
   }, KIT);
-  expect(r.fits).toBe(true);
+  expect(r.fits, JSON.stringify(r)).toBe(true);
   expect(r.scrolls).toBe(true);
   expect(r.top).toEqual([false, true]);
   expect(r.bottom).toEqual([true, false]);
@@ -67,7 +67,7 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
       g.hud.toast('Something worth knowing', 'gold', 4000);
       await frame(); await frame();
       const b = banner.getBoundingClientRect(), t = toast.getBoundingClientRect();
-      return { whole: text.scrollWidth <= text.clientWidth + 1 && text.scrollHeight <= text.clientHeight + 1, gap: Math.round(t.top - b.bottom), inView: b.left >= 0 && b.right <= window.innerWidth };
+      return { whole: text.scrollWidth <= text.clientWidth + 1 && text.scrollHeight <= text.clientHeight + 1, gap: Math.round(t.top - b.bottom), inView: b.left >= 0 && b.right <= window.innerWidth, box: [text.scrollWidth, text.clientWidth, text.scrollHeight, text.clientHeight, Math.round(b.height)], font: getComputedStyle(text).fontFamily.slice(0, 30) };
     };
     const short = await measure('Deliver to Monkton');
     const long = await measure(longest);
@@ -77,11 +77,12 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
     await page.setViewportSize(size);
     const r = await look();
     expect(r.letters).toBeGreaterThan(100);
-    expect(r.long.whole, `${size.width}x${size.height}`).toBe(true);
-    expect(r.long.inView).toBe(true);
-    expect(r.long.gap).toBeGreaterThanOrEqual(4);
-    expect(r.short.gap).toBeGreaterThanOrEqual(4);
-    expect(r.short.gap).toBeLessThanOrEqual(24);          // (and not left hanging far below a one-line banner)
+    const seen = `${size.width}x${size.height} ${JSON.stringify(r)}`;
+    expect(r.long.whole, seen).toBe(true);
+    expect(r.long.inView, seen).toBe(true);
+    expect(r.long.gap, seen).toBeGreaterThanOrEqual(4);
+    expect(r.short.gap, seen).toBeGreaterThanOrEqual(4);
+    expect(r.short.gap, seen).toBeLessThanOrEqual(24);    // (and not left hanging far below a one-line banner)
   }
   expect(problems).toEqual([]);
 });
