@@ -81,10 +81,26 @@ const GEAR = {
   ice: 'Gear: keeps Lager cold in the trunk till it melts (about ten hours).',
 };
 
+// A list that scrolls says so: its edges fade where there's more above or below
+// (styles.css .scroll-fade). Called after a list is drawn, and again once it's on screen.
+function scrollFades(el) {
+  const set = () => {
+    el.classList.toggle('more-above', el.scrollTop > 4);
+    el.classList.toggle('more-below', el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  };
+  if (!el.classList.contains('scroll-fade')) {
+    el.classList.add('scroll-fade');
+    el.addEventListener('scroll', set, { passive: true });
+    window.addEventListener('resize', set);
+  }
+  set();
+}
+
 export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn, career, jobs = null, deed = null, keep = () => ({}), have = () => ({}), onSell, onBuy, onSupply = null, onTrunk, onBack }) {
   const render = () => {
     const trunk = getTrunk();
     $('market-title').textContent = town.name.toUpperCase();
+    $('market-title').classList.toggle('long', town.name.length > 16);
     $('market-cash').textContent = money(career.cash);
     const body = $('market-body');
     const focusedId = document.activeElement?.dataset?.id;
@@ -168,6 +184,7 @@ export function showMarket(ui, { town, trunk: trunkIn, getTrunk = () => trunkIn,
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
     if (again && !again.disabled) again.focus();
     else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('market')) ui.focusFirst();
+    scrollFades(body);
   };
   $('market-sell-all').onclick = () => { onSell(null); render(); };
   $('market-trunk').onclick = () => onTrunk();
@@ -266,12 +283,14 @@ export function showBarn(ui, { career, getTrunk, cap, jobs = null, sleeps = () =
     const again = focusedId && body.querySelector(`[data-id="${focusedId}"]`);
     if (again && !again.disabled) again.focus();
     else if (!ui.top?.el.contains(document.activeElement) && ui.isOpen('barn')) ui.focusFirst();
+    scrollFades(body);
   };
   $('barn-store-all').onclick = () => { onStoreAll(); render(); };
   $('barn-trunk').onclick = () => onTrunk();
   $('barn-done').onclick = () => onBack();
   render();
   ui.open('barn', { onBack });
+  scrollFades($('barn-body'));
   return render;
 }
 
@@ -851,9 +870,11 @@ export function showNotebook(ui, { career, contacts, clock, boxes = [], onBack, 
   }
   const again = focusArc && body.querySelector(`[data-arc="${focusArc}"], [data-court="${focusArc}"]`);
   if (again) again.focus();
+  scrollFades(body);
   };
   render();
   ui.open('notebook', { onBack });
+  scrollFades($('notebook-body'));
 }
 
 export { money };
