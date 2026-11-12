@@ -65,6 +65,7 @@ export const CONFIG = {
     ambientSky: 0x3f7890,            // hemisphere fill: teal from above...
     ambientGround: 0x1a120c,         // ...warm dark from below
     ambient: 1.7,
+    nightFill: 0.7,                  // more of it in the city at night, so the streets between the lamps aren't black
     moon: 0x9db6ff,                  // cool moonlight, the shadow-casting key light
     moonIntensity: 1.9, 
     countyNight: { ambient: 0.6, moon: 0.5 },  // extra fill and moonlight out in the county at night
@@ -98,6 +99,8 @@ export const CONFIG = {
       clouds: 0.45,                    // cloud cover on a clear night, 0-1 (rain/fog thicken it)
       cloudSpeed: 0.006,               // drift
       moonSize: 0.03,                  // radians
+      moonGain: 0.8,                   // the disc's brightness by night (the bloom starts at post.bloomThreshold)
+      moonHalo: 0.6,                   // how much of the haze's halo round it shows by night
       moonElevation: 0.36,             // the moon disc sits this high (radians), in the moonlight's direction
     },
     // Steam from the street grates and smoke from rooftop chimneys near the view (particles.js).

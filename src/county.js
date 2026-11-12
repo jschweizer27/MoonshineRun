@@ -109,10 +109,13 @@ export function buildCounty(world, rng) {
   // kit (each has a market at its crossroads).
   const villages = VILLAGES.map((v, i) => villageAround(v.at, edges, createRng((world.seed ?? 0) + 31337 + i), barnSpots.concat(home), v.colors));
   const village = villages.flat();
+  // Their dressing (its own random stream, so the houses stand where they did): a roof tint
+  // each, and for most a porch, a store's false front or a chimney, drawn with the same kit.
+  const dressing = villages.flatMap((houses, i) => dressVillage(houses, createRng((world.seed ?? 0) + 4177 + i)));
   const quarry = VILLAGES.filter((v) => v.quarry).flatMap((v) => quarryYard(v.at, v.quarry));
   // Towson's buildings, trees and lamps (its own random stream), drawn in the county's meshes.
   const town = towsonLayout(world.seed ?? 0, towsonEdges);
-  const all = [...barnSpots, home, ...village, ...town.buildings];
+  const all = [...barnSpots, home, ...village, ...dressing, ...town.buildings];
   // Painted from the building atlas: pale boards dyed barn red, tar-paper roofs.
   const A = world.atlas;
   const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
@@ -126,7 +129,8 @@ export function buildCounty(world, rng) {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.rot);
     body.setMatrixAt(i, m.compose(p.set(b.x, y, b.z), q, s.set(w, h, d)));
     body.setColorAt(i, new THREE.Color(b.color ?? (b.home ? 0x4a3a2c : 0x7a2a1e)));
-    roof.setMatrixAt(i, m.compose(p.set(b.x, y + h, b.z), q, s.set(w + 1.5, b.house ? h * 0.5 : 5, d + 1)));
+    roof.setMatrixAt(i, m.compose(p.set(b.x, y + h, b.z), q, s.set(w + (b.eave ?? 1.5), b.roofH ?? (b.house ? h * 0.5 : 5), d + (b.eave ?? 1.5) / 1.5)));
+    roof.setColorAt(i, new THREE.Color(b.roof ?? 0xffffff));
     const dw = b.house ? 1.2 : 6, dh = b.house ? 2.3 : 5.6;
     // (a `deco` piece, standing on another building, has no door and no collider)
     door.setMatrixAt(i, m.compose(p.set(b.x + b.fx * (d / 2 + 0.05), dh / 2, b.z + b.fz * (d / 2 + 0.05)), q, b.deco ? s.set(0, 0, 0) : s.set(dw, dh, 0.2)));
@@ -136,11 +140,13 @@ export function buildCounty(world, rng) {
     world.buildings.push({ minX: b.x - half[0], minZ: b.z - half[1], maxX: b.x + half[0], maxZ: b.z + half[1], h, barn: true });
     if (!b.house || b.lantern) world.extraLights.push({ x: b.x + b.fx * (d / 2 + 1.5) + b.fz * (w / 2 - 1), z: b.z + b.fz * (d / 2 + 1.5) - b.fx * (w / 2 - 1), tx: b.fx, tz: b.fz, pole: false });
   });
-  world.villages = VILLAGES.map((v, i) => ({ name: v.name, x: v.at[0], z: v.at[1], houses: villages[i].length }));
+  world.villages = VILLAGES.map((v, i) => ({ name: v.name, x: v.at[0], z: v.at[1], houses: villages[i].length, dressed: villages[i].filter((b) => b.roof !== undefined).length }));
+  world.villageDressing = dressing.length;
   const [lx, lz] = LOCKUP.from, [tx, tz] = LOCKUP.toward, ll = Math.hypot(tx - lx, tz - lz);
   world.lockup = { name: 'Cockeysville Lockup', x: lx + ((tx - lx) / ll) * LOCKUP.along, z: lz + ((tz - lz) / ll) * LOCKUP.along, who: 'sheriff' };
   for (const im of [body, roof, door]) { im.instanceMatrix.needsUpdate = true; scene.add(im); }
   body.instanceColor.needsUpdate = true;
+  roof.instanceColor.needsUpdate = true;
 
   // Woods: clusters plus scattered trees, kept off the roads and away from barns.
   const clear = (x, z, r) => {
@@ -291,6 +297,32 @@ function villageAround([cx, cz], edges, rng, barns = [], COLORS = [0xd8d2c4, 0xc
         const fx = alongX ? Math.sign(tx) : 0, fz = alongX ? 0 : Math.sign(tz);
         out.push({ x, z, w, d, h, fx, fz, rot: alongX ? Math.PI / 2 : 0, house: true, color: COLORS[Math.floor(rng() * COLORS.length)], lantern: rng() < 0.5 });
       }
+    }
+  }
+  return out;
+}
+
+// A village's dressing: each house gets a roof tint (set on it), and most a piece or two more,
+// as `deco` buildings (no door, no collider): a porch across the front under its own little
+// roof, a store's false front above the door line, a brick chimney on the ridge.
+const ROOF_TINTS = [0xffffff, 0xd9cbbb, 0xb4c2c8, 0xc8a690, 0xa3b39c, 0x8e8e8e];
+function dressVillage(houses, rng) {
+  const out = [];
+  for (const b of houses) {
+    b.roof = ROOF_TINTS[Math.floor(rng() * ROOF_TINTS.length)];
+    const piece = (o) => out.push({ rot: b.rot, fx: b.fx, fz: b.fz, house: true, deco: true, ...o });
+    const kind = rng(), front = b.d / 2;
+    if (kind < 0.42) {
+      const w = b.w * (0.6 + rng() * 0.3);
+      piece({ x: b.x + b.fx * (front + 0.9), z: b.z + b.fz * (front + 0.9), w, d: 1.8, h: 2.4, color: new THREE.Color(b.color).multiplyScalar(0.72).getHex(), roofH: 0.8, eave: 0.6, roof: b.roof });
+    } else if (kind < 0.68) {
+      // (above the door, a step proud of the wall, up past the gable)
+      const top = b.h * (1.35 + rng() * 0.15);
+      piece({ x: b.x + b.fx * (front + 0.15), z: b.z + b.fz * (front + 0.15), y: 2.6, w: b.w + 0.5, d: 0.3, h: top - 2.6, color: b.color, roofH: 0.12, eave: 0.3, roof: 0x8e8e8e });
+    }
+    if (rng() < 0.6) {
+      const back = b.d * (0.15 + rng() * 0.2);
+      piece({ x: b.x - b.fx * back, z: b.z - b.fz * back, y: b.h + 0.2, w: 0.9, d: 0.9, h: b.h * 0.5 + 0.9, color: 0x7a4a3c, roofH: 0.15, eave: 0.3, roof: 0x6e6e6e });
     }
   }
   return out;

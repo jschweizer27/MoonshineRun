@@ -282,6 +282,13 @@ Other agents (Codex) read `AGENTS.md`, which points back here; the visual-polish
   it costs what quitting would (`_chaseQuit` in `resetRun`). A beat is marked played once
   its cards have shown (`_story`); `ui.open`'s `onClose` runs however a screen goes, so a
   dialog closed under it still settles.
+- Stage 19b (the world reads better): the moon's disc keeps under the bloom by night
+  (`look.skyDome.moonGain` / `moonHalo`, mixed by `uNight` in `sky.js`; the sun is as it was);
+  the city's night has more hemisphere fill (`look.nightFill`, in `environment.js`; none by
+  day or in the county, which keeps `countyNight`); village houses are dressed by
+  `county.js` `dressVillage` (its own random stream: a roof tint each, porches, false fronts,
+  chimneys as `deco` pieces with `roofH` / `eave`, roofs tinted per instance) inside the same
+  instanced meshes; the shot tool's barn camera picks a clear spot.
 - Stage 19a (the screens and HUD read better): a store's or the barn's card fits the screen
   (a flex column above 500px tall) and its list scrolls inside with fading edges
   (`screens.js` `scrollFades` sets `more-above` / `more-below`; styles.css `.scroll-fade`); a

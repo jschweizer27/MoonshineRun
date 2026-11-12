@@ -93,7 +93,9 @@ try {
     const g = window.shine.game, b = g.world.barns[0];
     window.shine.teleport(b.x + b.fx * 24, b.z + b.fz * 24, Math.atan2(-b.fx, b.fz));
     window.shine.step(0.2);
-    g.camera.position.set(b.x + b.fx * 30 + b.fz * 14, 4.5, b.z + b.fz * 30 - b.fx * 14);
+    // (to one side of the lane, wherever there's no tree or wall in the camera's face)
+    const spot = [14, -14, 22, -22, 6].map((k) => [b.x + b.fx * 30 + b.fz * k, b.z + b.fz * 30 - b.fx * k]).find(([x, z]) => !g.world.collision.resolveCircle(x, z, 5).hit) || [b.x + b.fx * 34, b.z + b.fz * 34];
+    g.camera.position.set(spot[0], 4.5, spot[1]);
     g.camera.lookAt(b.x, 4, b.z);
   });
   await shoot('barn', 'a county barn: boards, tar paper, fieldstone');

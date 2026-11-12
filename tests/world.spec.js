@@ -38,7 +38,7 @@ test('no trees, barns or fences sit on the county roads', async ({ page }) => {
   expect(bad).toBe(0);
 });
 
-test('county nights are lifted a little so the roads read; city nights are unchanged', async ({ page }) => {
+test('county nights are lifted a little so the roads read (more than the city’s, which have a little fill of their own); days are the same', async ({ page }) => {
   await openGame(page);
   await startRun(page);
   const r = await page.evaluate(() => {
@@ -49,7 +49,7 @@ test('county nights are lifted a little so the roads read; city nights are uncha
     const dayCounty = at(-600), dayCity = at(100);
     return { city, county, dayCounty, dayCity };
   });
-  expect(r.county.hemi).toBeGreaterThan(r.city.hemi * 1.3);
+  expect(r.county.hemi).toBeGreaterThan(r.city.hemi * 1.1);
   expect(r.county.moon).toBeGreaterThan(r.city.moon * 1.2);
   expect(r.dayCounty.hemi).toBeCloseTo(r.dayCity.hemi, 3);
 });

@@ -4,7 +4,9 @@ import { openGame, startRun, KIT } from './helpers.js';
 // Stage 19 (visual polish): a store's list scrolls inside a card that fits the screen, and
 // says so (its edges fade where there's more); its long name keeps to one line; a button that
 // can't be pressed doesn't look like one that can; the banner shows a long objective whole,
-// and news sits clear under it.
+// and news sits clear under it. The world (19b): the county's villages are dressed (roof tints,
+// porches, false fronts, chimneys) inside the same draw calls; the city's night has a little
+// more fill and the day none; the moon keeps under the bloom.
 
 test('a store’s card fits the screen; its list fades where there’s more and scrolls to its last row; a long name is one line; a dead button looks dead', async ({ page }) => {
   const problems = await openGame(page);
@@ -85,5 +87,37 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
     expect(r.short.gap, seen).toBeGreaterThanOrEqual(4);
     expect(r.short.gap, seen).toBeLessThanOrEqual(24);    // (and not left hanging far below a one-line banner)
   }
+  expect(problems).toEqual([]);
+});
+
+test('the villages are dressed inside the same draw calls; the city’s night has more fill, the day and the county none; the moon keeps under the bloom', async ({ page }) => {
+  const problems = await openGame(page);
+  await startRun(page, { loot: false });
+  const r = await page.evaluate(async () => {
+    const { CONFIG } = await import('/src/config.js');
+    const g = window.shine.game, w = g.world, L = CONFIG.look;
+    g.renderer.setAnimationLoop(null);
+    const out = { villages: w.villages.map((v) => [v.houses > 0, v.dressed === v.houses]), pieces: w.villageDressing };
+    // Monkton's crossroads: the same budget as ever.
+    const v = w.villages[0];
+    window.shine.teleport(v.x, v.z + 30, 0); window.shine.step(0.3);
+    g.renderFrame();
+    const info = window.shine.renderInfo();
+    out.calls = info.calls; out.lights = info.lights;
+    const hemi = (hour, county) => { g.env.hour = hour; g.env.update(0, { x: 0, y: 0, z: county ? -600 : 100 }); return w.hemi.intensity; };
+    out.fill = {
+      cityNight: Math.abs(hemi(23, 0) - (L.ambient + L.nightFill)) < 0.02,
+      countyNight: Math.abs(hemi(23, 1) - L.ambient * (1 + L.countyNight.ambient)) < 0.02,
+      day: Math.abs(hemi(12, 0) - hemi(12, 1)) < 0.02,
+    };
+    out.moon = L.skyDome.moonGain <= L.post.bloomThreshold + 0.1;
+    return out;
+  });
+  expect(r.villages).toEqual([[true, true], [true, true], [true, true]]);
+  expect(r.pieces).toBeGreaterThan(20);
+  expect(r.calls).toBeLessThan(60);
+  expect(r.lights).toBe(12);
+  expect(r.fill, JSON.stringify(r)).toEqual({ cityNight: true, countyNight: true, day: true });
+  expect(r.moon).toBe(true);
   expect(problems).toEqual([]);
 });

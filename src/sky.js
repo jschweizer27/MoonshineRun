@@ -16,7 +16,7 @@ const VERT = `
 
 const FRAG = `
   uniform vec3 uHorizon, uZenith, uGlow, uMoonDir, uMoonColor, uCloudDark, uCloudLit;
-  uniform float uNight, uCover, uTime, uStars, uStarGain, uMoonSize, uRain;
+  uniform float uNight, uCover, uTime, uStars, uStarGain, uMoonSize, uMoonGain, uMoonHalo, uRain;
   uniform vec2 uDrift;
   varying vec3 vDir;
 
@@ -56,10 +56,12 @@ const FRAG = `
       star = smoothstep(0.28, 0.0, length(sp - at)) * (0.12 + 2.2 * mag) * twinkle;
     }
 
-    // The moon: a disc with faint maria, and a halo in the haze.
+    // The moon: a crisp disc with its maria, and a thin halo in the haze (by night it's kept
+    // near the bloom's threshold, so it glows without blowing out; the sun stays bright).
     float md = dot(d, uMoonDir);
-    float disc = smoothstep(cos(uMoonSize), cos(uMoonSize * 0.85), md) * (0.8 + 0.2 * noise(d * 70.0));
-    float halo = pow(max(md, 0.0), 900.0) * 0.4 + pow(max(md, 0.0), 120.0) * 0.07;
+    float maria = mix(0.8 + 0.2 * noise(d * 70.0), 0.5 + 0.5 * smoothstep(0.25, 0.75, noise(d * 34.0)), uNight);
+    float disc = smoothstep(cos(uMoonSize), cos(uMoonSize * 0.9), md) * maria * mix(2.4, uMoonGain, uNight);
+    float halo = (pow(max(md, 0.0), 900.0) * 0.4 + pow(max(md, 0.0), 120.0) * 0.07) * mix(1.0, uMoonHalo, uNight);
 
     // Clouds: a layer overhead, drifting on the wind, thinning into the horizon haze.
     vec2 uv = d.xz / (d.y + 0.15);
@@ -74,7 +76,7 @@ const FRAG = `
     // The city's glow washes out the stars near the horizon.
     float clear = (1.0 - cloud) * smoothstep(0.1, 0.5, d.y) * uNight * (1.0 - uRain);
     col += vec3(0.82, 0.88, 1.0) * star * uStarGain * clear;
-    col += uMoonColor * (disc * 2.4 + halo) * (1.0 - 0.85 * cloud) * (1.0 - 0.85 * uRain);   // rain hides it
+    col += uMoonColor * (disc + halo) * (1.0 - 0.85 * cloud) * (1.0 - 0.85 * uRain);   // rain hides it
     col = mix(col, cloudCol, cloud * 0.92);
     col = mix(col, uHorizon, smoothstep(0.0, -0.06, d.y));  // below the horizon: haze
     gl_FragColor = vec4(col, 1.0);
@@ -96,6 +98,7 @@ export class Sky {
       uCloudDark: color(0x0a0f17), uCloudLit: color(0x46556c),
       uNight: { value: 1 }, uCover: { value: S.clouds }, uTime: { value: 0 }, uRain: { value: 0 },
       uStars: { value: S.stars }, uStarGain: { value: S.starBrightness }, uMoonSize: { value: S.moonSize },
+      uMoonGain: { value: S.moonGain }, uMoonHalo: { value: S.moonHalo },
       uDrift: { value: new THREE.Vector2() },
     };
     this.material = new THREE.ShaderMaterial({
