@@ -65,12 +65,14 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
     document.documentElement.classList.add('reduced-motion');      // boxes where they rest, not mid-slide
     const frame = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const text = document.getElementById('objective-text'), banner = document.getElementById('objective'), toast = document.getElementById('toast');
+    // (news of its own each time, and long-lived: the HUD never shows the same text twice
+    // running, and a line that expires mid-measure sits 6 px higher)
     const measure = async (words) => {
       g.hud.setObjective(words, 320, 'job');
-      g.hud.toast('Something worth knowing', 'gold', 4000);
+      g.hud.toast(`Something worth knowing (${window.innerWidth}, ${words.length})`, 'gold', 60000);
       await frame(); await frame();
       const b = banner.getBoundingClientRect(), t = toast.getBoundingClientRect();
-      return { whole: text.scrollWidth <= text.clientWidth + 1 && text.scrollHeight <= text.clientHeight + 1, gap: Math.round(t.top - b.bottom), inView: b.left >= 0 && b.right <= window.innerWidth, box: [text.scrollWidth, text.clientWidth, text.scrollHeight, text.clientHeight, Math.round(b.height)], font: getComputedStyle(text).fontFamily.slice(0, 30) };
+      return { shown: toast.classList.contains('show'), whole: text.scrollWidth <= text.clientWidth + 1 && text.scrollHeight <= text.clientHeight + 1, gap: Math.round(t.top - b.bottom), inView: b.left >= 0 && b.right <= window.innerWidth, box: [text.scrollWidth, text.clientWidth, text.scrollHeight, text.clientHeight, Math.round(b.height)], font: getComputedStyle(text).fontFamily.slice(0, 30) };
     };
     const short = await measure('Deliver to Monkton');
     const long = await measure(longest);
@@ -81,6 +83,7 @@ test('the banner shows the story’s longest objective whole, on a desktop and o
     const r = await look();
     expect(r.letters).toBeGreaterThan(100);
     const seen = `${size.width}x${size.height} ${JSON.stringify(r)}`;
+    expect([r.short.shown, r.long.shown], seen).toEqual([true, true]);
     expect(r.long.whole, seen).toBe(true);
     expect(r.long.inView, seen).toBe(true);
     expect(r.long.gap, seen).toBeGreaterThanOrEqual(4);
